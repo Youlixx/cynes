@@ -1,4 +1,4 @@
-include cynes/wrapper.pxd
-include cynes/wrapper.pyx
+include cynes/emulator.pxd
+include cynes/emulator.pyx
 include src/*
 include LICENSE

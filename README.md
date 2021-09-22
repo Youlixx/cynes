@@ -2,8 +2,9 @@
 # cynes - C/C++ NES emulator with Python bindings
 cynes is a lightweight multiplatform NES emulator providing a simple Python interface. The core of the emulation is based on the very complete documentation provided by the [Nesdev Wiki](https://wiki.nesdev.com/w/index.php?title=NES_reference_guide). The current implementation consists of
  - A cycle-accurate CPU emulation
- - A somewhat cycle-accurate PPU emulation
- - Few basic NES mappers
+ - A cycle-accurate PPU emulation
+ - A cycle-accurate APU emulation (even though it does not produce any sound)
+ - Few basic NES mappers (more to come)
 
 The Python bindings allow to interact easily with one or several NES emulators at the same time, ideal for machine learning application.
 
@@ -50,20 +51,22 @@ While the rendering overhead is quite small, running in headless mode can improv
 ### Controller
 The state of the controller can be directly modified using the following syntax :
 ```python
+from cynes import *
+
 # Simple input
-nes.controller = NES.INPUT_RIGHT
+nes.controller = NES_INPUT_RIGHT
 
 # Multiple button presses at once
-nes.controller = NES.INPUT_RIGHT | NES.INPUT_A
+nes.controller = NES_INPUT_RIGHT | NES_INPUT_A
 
 # Chaining multiple button presses at once
-nes.controller = NES.INPUT_START 
-nes.controller |= NES.INPUT_B 
-nes.controller |= NES.INPUT_SELECT
+nes.controller = NES_INPUT_START 
+nes.controller |= NES_INPUT_B 
+nes.controller |= NES_INPUT_SELECT
 
 # Undefined behavior
-nes.controller = NES.INPUT_RIGHT | NES.INPUT_LEFT
-nes.controller = NES.INPUT_DOWN | NES.INPUT_UP
+nes.controller = NES_INPUT_RIGHT | NES_INPUT_LEFT
+nes.controller = NES_INPUT_DOWN | NES_INPUT_UP
 
 # Run the emulator with the specified controller state for 5 frames
 nes.step(frames=5)
@@ -109,21 +112,23 @@ player_state = nes[0x000E]
 # And can be written in a similar fashion
 nes[0x075A] = 0x8
 ```
-Note that only the CPU RAM `$0000 - $1FFFF` and the mapper RAM `$6000 - $7FFF` can be accessed. Trying to read a value from other addresses will return invalid values, and writing to them will do nothing.
+Note that only the CPU RAM `$0000 - $1FFFF` and the mapper RAM `$6000 - $7FFF` should be accessed. Trying to read a value from other addresses may alter the behavior of the PPU / APU / Mapper of the emulator.
 
 ### Closing
-An emulator is automatically closed when the object is released by Python. It can also be closed manualy using the `close` method.
+An emulator is automatically closed when the object is released by Python. In windowed mode, the `close` method can be use to close the window without having to wait for Python to release the object.
+It can also be closed manualy using the `close` method.
 ```python
-# Both lines "closes" the emulator
-# In windowed mode, this also closes the window
+# In windowed mode, this can be use to close the window
 nes.close()
+
+# Deleting the emulator in windowed mode also closes the window
 del nes
 
 # The method should_close indicates whether or not the emulator function should be called
 nes.close()
 nes.should_close() # True
 ```
-When the emulator is closed, but the object is not deleted yet, the `should_close` method will return True, indicating that calling any NES function will do nothing. This method can also return True in two other cases :
+When the emulator is closed, but the object is not deleted yet, the `should_close` method will return True, indicating that calling any NES function will not work properly. This method can also return True in two other cases :
  - When the CPU of the emulator is frozen. When the CPU hits a JAM instruction (illegal opcode), it is frozen until the emulator is reset. This should never happen, but memory corruptions can cause them, so be careful when accessing the NES memory.
  - In windowed mode, when the window is closed or when the ESC key is pressed.
 

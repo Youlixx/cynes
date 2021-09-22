@@ -10,8 +10,8 @@ with open("README.md", "r") as file:
 
 
 ext_module_wrapper = Extension(
-    "cynes.wrapper",
-    ["cynes/wrapper.pyx"],
+    "cynes.emulator",
+    ["cynes/emulator.pyx"],
     language="c++",
     extra_compile_args=["-std=c++11"],
     extra_link_args=["-std=c++11"]
@@ -19,7 +19,7 @@ ext_module_wrapper = Extension(
 
 setup (
     name = "cynes",
-    version="0.0.1",
+    version="0.0.2",
     author="Theo Combey",
     author_email="combey.theo@hotmail.com",
     description="C/C++ NES emulator with Python bindings",

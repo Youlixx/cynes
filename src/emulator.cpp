@@ -6,540 +6,210 @@
 #include <iostream>
 
 
-nes::Mapper::Mapper(uint8_t* programMemory, uint8_t* characterMemory, MirroringMode mode) :
-    programMemory(programMemory), characterMemory(characterMemory), mode(mode) { }
+using namespace cynes;
 
-nes::Mapper::~Mapper() {
-    delete[] programMemory;
-    delete[] characterMemory;
-}
 
-unsigned int nes::Mapper::size() {
-    return 0x1;
-}
+NES::NES(const char* path) {
+    _cpu = new CPU(*this);
+    _ppu = new PPU(*this);
+    _apu = new APU(*this);
 
-void nes::Mapper::dump(uint8_t*& buffer) {
-    switch (mode) {
-    case MirroringMode::ONE_SCREEN_LOW: nes::write(buffer, 0x00); break;
-    case MirroringMode::ONE_SCREEN_HIGH: nes::write(buffer, 0x01); break;
-    case MirroringMode::VERTICAL: nes::write(buffer, 0x02); break;
-    case MirroringMode::HORIZONTAL: nes::write(buffer, 0x03); break;
+    loadMapper(path);
+
+    _cpu->power();
+    _ppu->power();
+    _apu->power();
+
+    uint8_t paletteRamBootValues[0x20] = {
+        0x09, 0x01, 0x00, 0x01, 0x00, 0x02, 0x02, 0x0D, 0x08, 0x10, 0x08, 0x24, 0x00, 0x00, 0x04, 0x2C,
+        0x09, 0x01, 0x34, 0x03, 0x00, 0x04, 0x00, 0x14, 0x08, 0x3A, 0x00, 0x02, 0x00, 0x20, 0x2C, 0x08
+    };
+
+    memcpy(_memoryPalette, paletteRamBootValues, 0x20);
+
+    memset(_memoryCPU, 0x00, 0x800);
+    memset(_memoryOAM, 0x00, 0x100);
+    memset(_memoryVideo, 0x00, 0x1000);
+    memset(_memoryExtraRAM, 0x00, 0x2000);
+
+    _controllerState = 0x00;
+    _controllerShifter = 0x00;
+
+    for (int i = 0; i < 8; i++) {
+        dummyRead();
     }
 }
 
-void nes::Mapper::load(uint8_t*& buffer) {
-    uint8_t mirroring = 0x00;
+NES::~NES() {
+    delete _cpu;
+    delete _ppu;
+    delete _apu;
 
-    nes::read(buffer, mirroring);
+    delete _mapper;
 
-    switch (mirroring) {
-    case 0x00: mode = MirroringMode::ONE_SCREEN_LOW; break;
-    case 0x01: mode = MirroringMode::ONE_SCREEN_HIGH; break;
-    case 0x02: mode = MirroringMode::VERTICAL; break;
-    case 0x03: mode = MirroringMode::HORIZONTAL; break;
+    delete[] _memoryPRG;
+    delete[] _memoryCHR;
+}
+
+CPU* NES::getCPU() {
+    return _cpu;
+}
+
+PPU* NES::getPPU() {
+    return _ppu;
+}
+
+APU* NES::getAPU() {
+    return _apu;
+}
+
+Mapper* NES::getMapper() {
+    return _mapper;
+}
+
+void NES::reset() {
+    _cpu->reset();
+    _ppu->reset();
+    _apu->reset();
+
+    for (int i = 0; i < 8; i++) {
+        dummyRead();
     }
 }
 
-void nes::Mapper::notify(uint16_t address, uint32_t cycle) { }
-
-bool nes::Mapper::shouldIRQ() {
-    return false;
+void NES::dummyRead() {
+    _apu->tick(true);
+    _ppu->tick();
+    _ppu->tick();
+    _ppu->tick();
+    _cpu->poll();
 }
 
-uint16_t nes::Mapper::getMirroredAddress(uint16_t address) {
-    switch (mode) {
-    case MirroringMode::ONE_SCREEN_LOW: return address & 0x3FF;
-    case MirroringMode::ONE_SCREEN_HIGH: return (address & 0x3FF) + 0xC00;
-    case MirroringMode::VERTICAL: return address & 0x7FF;
-    case MirroringMode::HORIZONTAL: return address & 0xBFF;
-    default: return address & 0xFFF;
+void NES::write(uint16_t address, uint8_t value) {
+    _apu->tick(false);
+    _ppu->tick();
+    _ppu->tick();
+
+    writeCPU(address, value);
+
+    _ppu->tick();
+    _cpu->poll();
+}
+
+void NES::writeCPU(uint16_t address, uint8_t value) {
+    if (address < 0x2000) {
+        _memoryCPU[address & 0x7FF] = value;
+    } else if (address < 0x4000) {
+        _ppu->write(address & 0x7, value);
+    } else if (address == 0x4016) {
+        loadControllerShifter(value & 0x01);
+    } else if (address < 0x4018) {
+        _apu->write(address & 0xFF, value);
+    } else if (address >= 0x6000 && address < 0x8000) {
+        if (_mapper->isRAMWritable()) _memoryExtraRAM[address & 0x1FFF] = value;
+    } else if (address >= 0x8000) {
+        _mapper->writeCPU(address & 0x7FFF, value);
     }
 }
 
+void NES::writePPU(uint16_t address, uint8_t value) {
+    address &= 0x3FFF;
 
-nes::Mapper000::Mapper000(uint8_t* programMemory, uint8_t* characterMemory, uint8_t programBanks, uint8_t characterBanks, MirroringMode mode) :
-    Mapper(programMemory, characterMemory, mode), programBanks(programBanks), characterBanks(characterBanks) { }
-
-nes::Mapper000::~Mapper000() { }
-
-uint8_t nes::Mapper000::readCPU(uint16_t address) {
-    if (address >= 0x6000 && address < 0x8000) {
-        return ram[address & 0x1FFF];
-    }
-
-    return programMemory[address & (programBanks > 1 ? 0x7FFF : 0x3FFF)];
-}
-
-uint8_t nes::Mapper000::readPPU(uint16_t address) {
-    return characterMemory[address & 0x1FFF];
-}
-
-void nes::Mapper000::writeCPU(uint16_t address, uint8_t value) {
-    if (address >= 0x6000 && address < 0x8000) {
-        ram[address & 0x1FFF] = value;
-    }
-}
-
-void nes::Mapper000::writePPU(uint16_t address, uint8_t value) {
-    if (characterBanks == 0) {
-        characterMemory[address & 0x1FFF] = value;
-    }
-}
-
-unsigned int nes::Mapper000::size() {
-    if (programBanks == 0) {
-        return 0x4000 + Mapper::size();
-    }
-
-    return 0x2000 + Mapper::size();
-}
-
-void nes::Mapper000::dump(uint8_t*& buffer) {
-    Mapper::dump(buffer);
-
-    nes::write(buffer, ram, 0x2000);
-
-    if (programBanks == 0) {
-        nes::write(buffer, characterMemory, 0x2000);
-    }
-}
-
-void nes::Mapper000::load(uint8_t*& buffer) {
-    Mapper::load(buffer);
-
-    nes::read(buffer, ram, 0x2000);
-
-    if (programBanks == 0) {
-        nes::read(buffer, characterMemory, 0x2000);
-    }
-}
-
-
-nes::Mapper001::Mapper001(uint8_t* programMemory, uint8_t* characterMemory, uint8_t programBanks, uint8_t characterBanks, MirroringMode mode) :
-    Mapper(programMemory, characterMemory, mode), programBanks(programBanks), characterBanks(characterBanks) {
-    registerControl = 0x1C;
-
-    programBankSelected = (programBanks - 1) << 4;
-}
-
-nes::Mapper001::~Mapper001() { }
-
-uint8_t nes::Mapper001::readCPU(uint16_t address) {
-    if (address >= 0x6000 && address < 0x8000) {
-        return ram[address & 0x1FFF];
-    }
-
-    address &= 0x7FFF;
-
-    if (registerControl & 0x08) {
-        if (address < 0x4000) {
-            return programMemory[(programBankSelected & 0x0F) * 0x4000 + (address & 0x3FFF)];
-        } else {
-            return programMemory[(programBankSelected & 0xF0) * 0x400 + (address & 0x3FFF)];
-        }
-    }
-
-    return programMemory[programBankSelected * 0x4000 + address];
-}
-
-uint8_t nes::Mapper001::readPPU(uint16_t address) {
-    if (characterBanks == 0) {
-        return characterMemory[address & 0x1FFF];
-    }
-
-    address &= 0x1FFF;
-
-    if (registerControl & 0x10) {
-        if (address < 0x1000) {
-            return characterMemory[(characterBankSelected & 0x001F) * 0x1000 + (address & 0x0FFF)];
-        } else {
-            return characterMemory[(characterBankSelected & 0x03E0) * 0x80 + (address & 0x0FFF)];
-        }
-    }
-
-    return characterMemory[characterBankSelected * 0x1000 + address];
-}
-
-void nes::Mapper001::writeCPU(uint16_t address, uint8_t value) {
-    if (address >= 0x6000 && address < 0x8000) {
-        ram[address & 0x1FFF] = value;
+    if (address < 0x2000) {
+        _memoryCHR[_mapper->getAddressPPU(address & 0x1FFF)] = value;
+    } else if (address < 0x3F00) {
+        _memoryVideo[_mapper->getMirroredAddress(address)] = value;
     } else {
-        if (value & 0x80) {
-            registerLoad = 0x00;
+        address &= 0x1F;
 
-            counter = 0;
-        } else {
-            registerLoad >>= 1;
-            registerLoad |= (value & 0x01) << 4;
-
-            if (++counter == 5) {
-                uint8_t registerTarget = (address >> 13) & 0x03;
-
-                switch (registerTarget) {
-                case 0: {
-                    registerControl = registerLoad & 0x1F;
-
-                    switch (registerControl & 0x03) {
-                    case 0: mode = MirroringMode::ONE_SCREEN_LOW; break;
-                    case 1: mode = MirroringMode::ONE_SCREEN_HIGH; break;
-                    case 2: mode = MirroringMode::VERTICAL; break;
-                    case 3: mode = MirroringMode::HORIZONTAL; break;
-                    }
-
-                    break;
-                }
-
-                case 1: {
-                    if (registerControl & 0x10) {
-                        characterBankSelected &= 0x3E0;
-                        characterBankSelected |= registerLoad & 0x1F;
-                    } else {
-                        characterBankSelected = registerLoad & 0x1E;
-                    }
-
-                    break;
-                }
-
-                case 2: {
-                    if (registerControl & 0x10) {
-                        characterBankSelected &= 0x001F;
-                        characterBankSelected |= (registerLoad & 0x1F) << 5;
-                    }
-
-                    break;
-                }
-
-                case 3: {
-                    if (registerControl & 0x08) {
-                        if (registerControl & 0x04) {
-                            programBankSelected = (programBanks - 1) << 4;
-                            programBankSelected |= registerLoad & 0xF;
-                        } else {
-                            programBankSelected = (registerLoad & 0xF) << 4;
-                        }
-                    } else {
-                        programBankSelected = registerLoad & 0x0E;
-                    }
-
-                    break;
-                }
-                }
-
-                registerLoad = 0x00;
-
-                counter = 0;
-            }
+        if (address == 0x10) {
+            address = 0x00;
+        } else if (address == 0x14) {
+            address = 0x04;
+        } else if (address == 0x18) {
+            address = 0x08;
+        } else if (address == 0x1C) {
+            address = 0x0C;
         }
+
+        _memoryPalette[address] = value & 0x3F;
     }
 }
 
-void nes::Mapper001::writePPU(uint16_t address, uint8_t value) {
-    if (characterBanks == 0) {
-        characterMemory[address & 0x1FFF] = value;
+void NES::writeOAM(uint8_t address, uint8_t value) {
+    _memoryOAM[address] = value;
+}
+
+uint8_t NES::read(uint16_t address) {
+    _apu->tick(true);
+    _ppu->tick();
+    _ppu->tick();
+
+    uint8_t value = readCPU(address);
+
+    _ppu->tick();
+    _cpu->poll();
+
+    return value;
+}
+
+uint8_t NES::readCPU(uint16_t address) {
+    if (address < 0x2000) {
+        return _memoryCPU[address & 0x7FF];
+    } else if (address < 0x4000) {
+        return _ppu->read(address & 0x7);
+    } else if (address == 0x4016) {
+        return pollController();
+    } else if (address < 0x4018) {
+        return _apu->read(address & 0xFF);
+    } else if (address >= 0x6000 && address < 0x8000) {
+        return _memoryExtraRAM[address & 0x1FFF];
+    } else if (address >= 0x8000) {
+        return _memoryPRG[_mapper->getAddressCPU(address & 0x7FFF)];
     }
+
+    return 0x00;
 }
 
-unsigned int nes::Mapper001::size() {
-    if (programBanks == 0) {
-        return 0x4006 + Mapper::size();
-    }
+uint8_t NES::readPPU(uint16_t address) {
+    address &= 0x3FFF;
 
-    return 0x2006 + Mapper::size();
-}
-
-void nes::Mapper001::dump(uint8_t*& buffer) {
-    Mapper::dump(buffer);
-
-    nes::write(buffer, counter);
-    nes::write(buffer, registerControl);
-    nes::write(buffer, registerLoad);
-    nes::write(buffer, programBankSelected);
-    nes::write(buffer, characterBankSelected);
-    nes::write(buffer, ram, 0x2000);
-
-    if (programBanks == 0) {
-        nes::write(buffer, characterMemory, 0x2000);
-    }
-}
-
-void nes::Mapper001::load(uint8_t*& buffer) {
-    Mapper::load(buffer);
-
-    nes::read(buffer, counter);
-    nes::read(buffer, registerControl);
-    nes::read(buffer, registerLoad);
-    nes::read(buffer, programBankSelected);
-    nes::read(buffer, characterBankSelected);
-    nes::read(buffer, ram, 0x2000);
-
-    if (programBanks == 0) {
-        nes::read(buffer, characterMemory, 0x2000);
-    }
-}
-
-
-nes::Mapper003::Mapper003(uint8_t* programMemory, uint8_t* characterMemory, uint8_t programBanks, uint8_t characterBanks, MirroringMode mode) :
-    Mapper(programMemory, characterMemory, mode), programBanks(programBanks), characterBanks(characterBanks), selectedCharacterBank(0) { }
-
-nes::Mapper003::~Mapper003() { }
-
-uint8_t nes::Mapper003::readCPU(uint16_t address) {
-    return programMemory[address & (programBanks > 1 ? 0x7FFF : 0x3FFF)];
-}
-
-uint8_t nes::Mapper003::readPPU(uint16_t address) {
-    return characterMemory[address + selectedCharacterBank * 0x2000];
-}
-
-void nes::Mapper003::writeCPU(uint16_t address, uint8_t value) {
-    selectedCharacterBank = value & 0x3;
-}
-
-void nes::Mapper003::writePPU(uint16_t address, uint8_t value) { }
-
-unsigned int nes::Mapper003::size() {
-    return 0x1 + Mapper::size();
-}
-
-void nes::Mapper003::dump(uint8_t*& buffer) {
-    Mapper::dump(buffer);
-
-    nes::write(buffer, selectedCharacterBank);
-}
-
-void nes::Mapper003::load(uint8_t*& buffer) {
-    Mapper::load(buffer);
-    
-    nes::read(buffer, selectedCharacterBank);
-}
-
-
-nes::Mapper004::Mapper004(uint8_t* programMemory, uint8_t* characterMemory, uint8_t programBanks, uint8_t characterBanks, MirroringMode mode) :
-    Mapper(programMemory, characterMemory, mode), programBanks(programBanks), characterBanks(characterBanks) {
-    programBankPointers[0x0] = 0x0000;
-    programBankPointers[0x1] = 0x2000;
-    programBankPointers[0x2] = (programBanks * 2 - 2) * 0x2000;
-    programBankPointers[0x3] = (programBanks * 2 - 1) * 0x2000;
-}
-
-nes::Mapper004::~Mapper004() { }
-
-uint8_t nes::Mapper004::readCPU(uint16_t address) {
-    if (address >= 0x6000 && address < 0x8000) {
-        return ram[address & 0x1FFF];
-    } else if (address < 0xA000) {
-        return programMemory[programBankPointers[0x0] + (address & 0x1FFF)];
-    } else if (address < 0xC000) {
-        return programMemory[programBankPointers[0x1] + (address & 0x1FFF)];
-    } else if (address < 0xE000) {
-        return programMemory[programBankPointers[0x2] + (address & 0x1FFF)];
+    if (address < 0x2000) {
+        return _memoryCHR[_mapper->getAddressPPU(address & 0x1FFF)];
+    } else if (address < 0x3F00) {
+        return _memoryVideo[_mapper->getMirroredAddress(address)];
     } else {
-        return programMemory[programBankPointers[0x3] + (address & 0x1FFF)];
-    }
-}
+        address &= 0x1F;
 
-uint8_t nes::Mapper004::readPPU(uint16_t address) {
-    if (address < 0x0400) {
-        return characterMemory[characterBankPointers[0x0] + (address & 0x3FF)];
-    } else if (address < 0x0800) {
-        return characterMemory[characterBankPointers[0x1] + (address & 0x3FF)];
-    } else if (address < 0x0C00) {
-        return characterMemory[characterBankPointers[0x2] + (address & 0x3FF)];
-    } else if (address < 0x1000) {
-        return characterMemory[characterBankPointers[0x3] + (address & 0x3FF)];
-    } else if (address < 0x1400) {
-        return characterMemory[characterBankPointers[0x4] + (address & 0x3FF)];
-    } else if (address < 0x1800) {
-        return characterMemory[characterBankPointers[0x5] + (address & 0x3FF)];
-    } else if (address < 0x1C00) {
-        return characterMemory[characterBankPointers[0x6] + (address & 0x3FF)];
-    } else {
-        return characterMemory[characterBankPointers[0x7] + (address & 0x3FF)];
-    }
-}
-
-void nes::Mapper004::writeCPU(uint16_t address, uint8_t value) {
-    if (address >= 0x6000 && address < 0x8000) {
-        ram[address & 0x1FFF] = value;
-    } else if (address < 0xA000) {
-        if (address & 0x1) {
-            registers[targetRegister] = value;
-
-            updateProgramMapping();
-            updateCharacterMapping();
-        } else {
-            targetRegister = value & 0x07;
-            programMode = value & 0x40;
-            characterMode = value & 0x80;
-        }
-    } else if (address < 0xC000) {
-        if (address & 0x1) {
-            // TODO RAM protect!
-        } else  if (value & 0x1) {
-            mode = MirroringMode::HORIZONTAL;
-        } else {
-            mode = MirroringMode::VERTICAL;
-        }
-    } else if (address < 0xE000) {
-        if (address & 0x1) {
-            counter = 0x0000;
-            shouldReloadIRQ = true;
-        } else {
-            reloadValue = value;
-        }
-    } else {
-        if (address & 0x1) {
-            enableIRQ = true;
-        } else {
-            enableIRQ = false;
-            sendIRQ = false;
-        }
-    }
-}
-
-void nes::Mapper004::writePPU(uint16_t address, uint8_t value) { }
-
-unsigned int nes::Mapper004::size() {
-    return 0x205E + Mapper::size();
-}
-
-void nes::Mapper004::dump(uint8_t*& buffer) {
-    Mapper::dump(buffer);
-
-    uint8_t flags = programMode;
-    flags |= characterMode << 1;
-    flags |= sendIRQ << 2;
-    flags |= enableIRQ << 3;
-    flags |= shouldReloadIRQ << 4;
-
-    nes::write(buffer, targetRegister);
-    nes::write(buffer, flags);
-    nes::write(buffer, counter);
-    nes::write(buffer, reloadValue);
-    nes::write(buffer, lastCycle);
-    nes::write(buffer, cyclesDown);
-    nes::write(buffer, registers, 0x08);
-    nes::write(buffer, programBankPointers, 0x04);
-    nes::write(buffer, characterBankPointers, 0x08);
-    nes::write(buffer, ram, 0x2000);
-}
-
-void nes::Mapper004::load(uint8_t*& buffer) {
-    Mapper::load(buffer);
-
-    uint8_t flags = 0x00;
-
-    nes::read(buffer, targetRegister);
-    nes::read(buffer, flags);
-    nes::read(buffer, counter);
-    nes::read(buffer, reloadValue);
-    nes::read(buffer, lastCycle);
-    nes::read(buffer, cyclesDown);
-    nes::read(buffer, registers, 0x08);
-    nes::read(buffer, programBankPointers, 0x04);
-    nes::read(buffer, characterBankPointers, 0x08);
-    nes::read(buffer, ram, 0x2000);
-
-    programMode = flags & 0x01;
-    characterMode = flags & 0x02;
-    sendIRQ = flags & 0x04;
-    enableIRQ = flags & 0x08;
-    shouldReloadIRQ = flags & 0x10;
-}
-
-void nes::Mapper004::notify(uint16_t address, uint32_t cycle) {
-    if (cyclesDown > 0) {
-        if (lastCycle > cycle) {
-            cyclesDown += 89342 - lastCycle + cycle;
-        } else {
-            cyclesDown += cycle - lastCycle;
-        }
-    }
-
-    if (address & 0x1000) {
-        if (cyclesDown > 10) {
-            clockIRQ();
+        if (address == 0x10) {
+            address = 0x00;
+        } else if (address == 0x14) {
+            address = 0x04;
+        } else if (address == 0x18) {
+            address = 0x08;
+        } else if (address == 0x1C) {
+            address = 0x0C;
         }
 
-        cyclesDown = 0;
-    } else {
-        if (cyclesDown == 0) {
-            cyclesDown = 1;
-        }
-    }
-
-    lastCycle = cycle;
-}
-
-bool nes::Mapper004::shouldIRQ() {
-    bool irq = sendIRQ;
-
-    sendIRQ = false;
-
-    return irq;
-}
-
-void nes::Mapper004::updateProgramMapping() {
-    if (programMode) {
-        programBankPointers[2] = (registers[6] & 0x3F) * 0x2000;
-        programBankPointers[0] = (programBanks * 2 - 2) * 0x2000;
-    } else {
-        programBankPointers[0] = (registers[6] & 0x3F) * 0x2000;
-        programBankPointers[2] = (programBanks * 2 - 2) * 0x2000;
-    }
-
-    programBankPointers[1] = (registers[7] & 0x3F) * 0x2000;
-    programBankPointers[3] = (programBanks * 2 - 1) * 0x2000;
-}
-
-void nes::Mapper004::updateCharacterMapping() {
-    if (characterMode) {
-        characterBankPointers[0x0] = registers[0x2] * 0x0400;
-        characterBankPointers[0x1] = registers[0x3] * 0x0400;
-        characterBankPointers[0x2] = registers[0x4] * 0x0400;
-        characterBankPointers[0x3] = registers[0x5] * 0x0400;
-        characterBankPointers[0x4] = (registers[0x0] & 0xFE) * 0x0400;
-        characterBankPointers[0x5] = registers[0x0] * 0x0400 + 0x0400;
-        characterBankPointers[0x6] = (registers[0x1] & 0xFE) * 0x0400;
-        characterBankPointers[0x7] = registers[0x1] * 0x0400 + 0x0400;
-    } else {
-        characterBankPointers[0x0] = (registers[0x0] & 0xFE) * 0x0400;
-        characterBankPointers[0x1] = registers[0x0] * 0x0400 + 0x0400;
-        characterBankPointers[0x2] = (registers[0x1] & 0xFE) * 0x0400;
-        characterBankPointers[0x3] = registers[0x1] * 0x0400 + 0x0400;
-        characterBankPointers[0x4] = registers[0x2] * 0x0400;
-        characterBankPointers[0x5] = registers[0x3] * 0x0400;
-        characterBankPointers[0x6] = registers[0x4] * 0x0400;
-        characterBankPointers[0x7] = registers[0x5] * 0x0400;
+        return _memoryPalette[address];
     }
 }
 
-void nes::Mapper004::clockIRQ() {
-    if (counter == 0 || shouldReloadIRQ) {
-        counter = reloadValue;
-    } else {
-        counter--;
-    }
-
-    if (counter == 0 && enableIRQ) {
-        sendIRQ = true;
-    }
-
-    shouldReloadIRQ = false;
+uint8_t NES::readOAM(uint8_t address) {
+    return _memoryOAM[address];
 }
 
-
-nes::Mapper* nes::load(const char* path) {
+void NES::loadMapper(const char* path) {
     FILE* stream = fopen(path, "rb");
 
     if (!stream) {
-        return nullptr;
+        throw std::runtime_error("The file cannot be read.");
     }
 
     uint32_t header = getc(stream) << 24 | getc(stream) << 16 | getc(stream) << 8 | getc(stream);
 
     if (header != 0x4E45531A) {
-        return  nullptr;
+        throw std::runtime_error("The specified file is not a NES ROM.");
     }
 
     uint8_t programBanks = getc(stream);
@@ -549,7 +219,7 @@ nes::Mapper* nes::load(const char* path) {
     uint8_t flag7 = getc(stream);
 
     for (int k = 0; k < 0x8; k++) {
-        getc(stream);
+        (void)getc(stream);
     }
 
     bool mirroring = flag6 & 0x01;
@@ -567,20 +237,19 @@ nes::Mapper* nes::load(const char* path) {
 
     uint8_t mapperId = hiMapper << 4 | lowMapper;
 
-    uint8_t* programROM = new uint8_t[0x4000 * programBanks];
-    uint8_t* characterROM;
+    _memoryPRG = new uint8_t[0x4000 * programBanks];
 
     for (int k = 0; k < 0x4000 * programBanks; k++) {
-        programROM[k] = getc(stream);
+        _memoryPRG[k] = getc(stream);
     }
 
     if (characterBanks == 0) {
-        characterROM = new uint8_t[0x2000]{ 0 };
+        _memoryCHR = new uint8_t[0x2000]{ 0 };
     } else {
-        characterROM = new uint8_t[0x2000 * characterBanks];
+        _memoryCHR = new uint8_t[0x2000 * characterBanks];
 
         for (int k = 0; k < 0x2000 * characterBanks; k++) {
-            characterROM[k] = getc(stream);
+            _memoryCHR[k] = getc(stream);
         }
     }
 
@@ -588,257 +257,1656 @@ nes::Mapper* nes::load(const char* path) {
 
     MirroringMode mode = mirroring ? MirroringMode::VERTICAL : MirroringMode::HORIZONTAL;
 
-    if (mapperId == 0) {
-        return new Mapper000(programROM, characterROM, programBanks, characterBanks, mode);
-    } else if (mapperId == 1) {
-        return new Mapper001(programROM, characterROM, programBanks, characterBanks, mode);
-    } else if (mapperId == 3) {
-        return new Mapper003(programROM, characterROM, programBanks, characterBanks, mode);
-    } else if (mapperId == 4) {
-        return new Mapper004(programROM, characterROM, programBanks, characterBanks, mode);
+    switch (mapperId) {
+    case 0: _mapper = new Mapper000(*this, programBanks, characterBanks, mode); return;
+    case 1: _mapper = new Mapper001(*this, programBanks, characterBanks, mode); return;
+    case 2: _mapper = new Mapper002(*this, programBanks, characterBanks, mode); return;
+    case 3: _mapper = new Mapper003(*this, programBanks, characterBanks, mode); return;
+    case 4: _mapper = new Mapper004(*this, programBanks, characterBanks, mode); return;
+    default: throw std::runtime_error("The ROM Mapper is not supported.");
     }
-
-    return nullptr;
 }
 
-nes::PPU::PPU(Mapper& mapper) : mapper(mapper), pixelX(0), pixelY(0) { }
+bool NES::step(uint8_t* buffer, unsigned int frames) {
+    for (unsigned int k = 0; k < frames; k++) {
+        while (!_ppu->isFrameReady()) {
+            _cpu->tick();
 
-nes::PPU::~PPU() { }
-
-void nes::PPU::tick() {
-    if (delayDataWrite > 0) {
-        if (--delayDataWrite == 0) {
-            registerV = registerVDelayed;
-            registerT = registerV;
-
-            if (pixelY >= 241 || (!maskRenderBackground && !maskRenderForeground)) {
-                mapper.notify(registerV & 0x3FFF, pixelY * 341 + pixelX);
+            if (_cpu->isFrozen()) {
+                return true;
             }
         }
     }
 
-    if (pixelY < 240) {
-        if ((pixelX >= 2 && pixelX < 258) || (pixelX >= 321 && pixelX < 338)) {
-            fetchBackgroundData();
-        }
+    memcpy(buffer, _ppu->getFrameBuffer(), 0x2D000);
 
-        if (pixelX == 256) {
-            incrementScrollY();
-        } else if (pixelX == 257) {
-            resetScrollX();
-        }
+    return false;
+}
 
-        if (pixelX >= 2 && pixelX < 257) {
-            updateForegroundShifter();
-        }
+void NES::setControllerState(uint8_t state) {
+    _controllerState = state;
+}
 
-        if (pixelX < 65) {
-            clearForegroundData();
-        } else if (pixelX < 257) {
-            fetchForegroundData();
-        } else if (pixelX < 321) {
-            loadForegroundShifter();
-        }
-    } else if (pixelY == 241) {
-        if (pixelX == 0) {
-            mapper.notify(registerV, pixelY * 341 + pixelX);
-        } else if (pixelX == 1 && !preventNMI) {
-            statusVerticalBlank = true;
+unsigned int NES::size() {
+    unsigned int bufferSize = 0;
 
-            if (controlInteruptOnVBL) {
-                sendNMI = true;
-            }
-        }
-    } else if (pixelY == 261) {
-        if (pixelX == 1) {
-            statusSpriteOverflow = false;
-            statusSprite0Hit = false;
-            statusVerticalBlank = false;
+    dump<DumpOperation::SIZE>(bufferSize);
 
-            memset(foregroundShifter, 0x00, 0x10);
-        }
+    return bufferSize;
+}
 
-        if ((pixelX >= 2 && pixelX < 258) || (pixelX >= 321 && pixelX < 338)) {
-            fetchBackgroundData();
-        }
+void NES::save(uint8_t* buffer) {
+    dump<DumpOperation::DUMP>(buffer);
+}
 
-        if (pixelX == 256) {
-            incrementScrollY();
-        } else if (pixelX == 257) {
-            resetScrollX();
-        } else  if (pixelX >= 280 && pixelX < 305) {
-            resetScrollY();
-        }
+void NES::load(uint8_t* buffer) {
+    dump<DumpOperation::LOAD>(buffer);
+}
 
-        if (pixelX > 1 && pixelX < 257) {
-            updateForegroundShifter();
-        } else if (pixelX < 321) {
-            loadForegroundShifter();
-        }
+void NES::loadControllerShifter(bool polling) {
+    if (polling) {
+        _controllerShifter = _controllerState;
+    }
+}
+
+uint8_t NES::pollController() {
+    uint8_t value = _controllerShifter >> 7;
+
+    _controllerShifter <<= 1;
+
+    return value;
+}
+
+template<DumpOperation operation, class T>
+void NES::dump(T& buffer) {
+    _cpu->dump<operation>(buffer);
+    _ppu->dump<operation>(buffer);
+    _apu->dump<operation>(buffer);
+
+    _mapper->dump<operation>(buffer);
+
+    cynes::dump<operation>(buffer, _memoryCPU);
+    cynes::dump<operation>(buffer, _memoryOAM);
+    cynes::dump<operation>(buffer, _memoryVideo);
+    cynes::dump<operation>(buffer, _memoryPalette);
+    cynes::dump<operation>(buffer, _memoryExtraRAM);
+
+    cynes::dump<operation>(buffer, _controllerState);
+    cynes::dump<operation>(buffer, _controllerShifter);
+}
+
+template void NES::dump<DumpOperation::SIZE>(unsigned int&);
+template void NES::dump<DumpOperation::DUMP>(uint8_t*&);
+template void NES::dump<DumpOperation::LOAD>(uint8_t*&);
+
+
+
+CPU::CPU(NES& nes) : _nes(nes), _instructions(), _addressingModes() {
+    _frozen = false;
+
+    _targetAddress = 0x0000;
+    _programCounter = 0x0000;
+
+    _registerA = 0x00;
+    _registerX = 0x00;
+    _registerY = 0x00;
+    _registerM = 0x00;
+    _stackPointer = 0x00;
+
+    _status = 0x00;
+
+    _delayIRQ = false;
+    _shouldIRQ = false;
+    _lineMapperIRQ = false;
+    _lineFrameIRQ = false;
+    _lineDeltaIRQ = false;
+
+    _edgeDetectorNMI = false;
+    _delayNMI = false;
+    _shouldNMI = false;
+    _lineNMI = false;
+
+    void (CPU:: * instructions[256]) (void) = {
+        &CPU::BRK,&CPU::ORA,&CPU::JAM,&CPU::SLO,&CPU::NOP,&CPU::ORA,&CPU::ASL,&CPU::SLO,&CPU::PHP,&CPU::ORA,&CPU::AAL,&CPU::ANC,&CPU::NOP,&CPU::ORA,&CPU::ASL,&CPU::SLO,
+        &CPU::BPL,&CPU::ORA,&CPU::JAM,&CPU::SLO,&CPU::NOP,&CPU::ORA,&CPU::ASL,&CPU::SLO,&CPU::CLC,&CPU::ORA,&CPU::NOP,&CPU::SLO,&CPU::NOP,&CPU::ORA,&CPU::ASL,&CPU::SLO,
+        &CPU::JSR,&CPU::AND,&CPU::JAM,&CPU::RLA,&CPU::BIT,&CPU::AND,&CPU::ROL,&CPU::RLA,&CPU::PLP,&CPU::AND,&CPU::RAL,&CPU::ANC,&CPU::BIT,&CPU::AND,&CPU::ROL,&CPU::RLA,
+        &CPU::BMI,&CPU::AND,&CPU::JAM,&CPU::RLA,&CPU::NOP,&CPU::AND,&CPU::ROL,&CPU::RLA,&CPU::SEC,&CPU::AND,&CPU::NOP,&CPU::RLA,&CPU::NOP,&CPU::AND,&CPU::ROL,&CPU::RLA,
+        &CPU::RTI,&CPU::EOR,&CPU::JAM,&CPU::SRE,&CPU::NOP,&CPU::EOR,&CPU::LSR,&CPU::SRE,&CPU::PHA,&CPU::EOR,&CPU::LAR,&CPU::ALR,&CPU::JMP,&CPU::EOR,&CPU::LSR,&CPU::SRE,
+        &CPU::BVC,&CPU::EOR,&CPU::JAM,&CPU::SRE,&CPU::NOP,&CPU::EOR,&CPU::LSR,&CPU::SRE,&CPU::CLI,&CPU::EOR,&CPU::NOP,&CPU::SRE,&CPU::NOP,&CPU::EOR,&CPU::LSR,&CPU::SRE,
+        &CPU::RTS,&CPU::ADC,&CPU::JAM,&CPU::RRA,&CPU::NOP,&CPU::ADC,&CPU::ROR,&CPU::RRA,&CPU::PLA,&CPU::ADC,&CPU::RAR,&CPU::ARR,&CPU::JMP,&CPU::ADC,&CPU::ROR,&CPU::RRA,
+        &CPU::BVS,&CPU::ADC,&CPU::JAM,&CPU::RRA,&CPU::NOP,&CPU::ADC,&CPU::ROR,&CPU::RRA,&CPU::SEI,&CPU::ADC,&CPU::NOP,&CPU::RRA,&CPU::NOP,&CPU::ADC,&CPU::ROR,&CPU::RRA,
+        &CPU::NOP,&CPU::STA,&CPU::NOP,&CPU::SAX,&CPU::STY,&CPU::STA,&CPU::STX,&CPU::SAX,&CPU::DEY,&CPU::NOP,&CPU::TXA,&CPU::ANE,&CPU::STY,&CPU::STA,&CPU::STX,&CPU::SAX,
+        &CPU::BCC,&CPU::STA,&CPU::JAM,&CPU::SHA,&CPU::STY,&CPU::STA,&CPU::STX,&CPU::SAX,&CPU::TYA,&CPU::STA,&CPU::TXS,&CPU::TAS,&CPU::SHY,&CPU::STA,&CPU::SHX,&CPU::SHA,
+        &CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,&CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,&CPU::TAY,&CPU::LDA,&CPU::TAX,&CPU::LXA,&CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,
+        &CPU::BCS,&CPU::LDA,&CPU::JAM,&CPU::LAX,&CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,&CPU::CLV,&CPU::LDA,&CPU::TSX,&CPU::LAS,&CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,
+        &CPU::CPY,&CPU::CMP,&CPU::NOP,&CPU::DCP,&CPU::CPY,&CPU::CMP,&CPU::DEC,&CPU::DCP,&CPU::INY,&CPU::CMP,&CPU::DEX,&CPU::SBX,&CPU::CPY,&CPU::CMP,&CPU::DEC,&CPU::DCP,
+        &CPU::BNE,&CPU::CMP,&CPU::JAM,&CPU::DCP,&CPU::NOP,&CPU::CMP,&CPU::DEC,&CPU::DCP,&CPU::CLD,&CPU::CMP,&CPU::NOP,&CPU::DCP,&CPU::NOP,&CPU::CMP,&CPU::DEC,&CPU::DCP,
+        &CPU::CPX,&CPU::SBC,&CPU::NOP,&CPU::ISC,&CPU::CPX,&CPU::SBC,&CPU::INC,&CPU::ISC,&CPU::INX,&CPU::SBC,&CPU::NOP,&CPU::USB,&CPU::CPX,&CPU::SBC,&CPU::INC,&CPU::ISC,
+        &CPU::BEQ,&CPU::SBC,&CPU::JAM,&CPU::ISC,&CPU::NOP,&CPU::SBC,&CPU::INC,&CPU::ISC,&CPU::SED,&CPU::SBC,&CPU::NOP,&CPU::ISC,&CPU::NOP,&CPU::SBC,&CPU::INC,&CPU::ISC
+    };
+
+    void (CPU:: * addressingModes[256]) (void) = {
+        &CPU::IMP,&CPU::IXR,&CPU::ACC,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::ACC,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
+        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
+        &CPU::ABW,&CPU::IXR,&CPU::ACC,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::ACC,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
+        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
+        &CPU::IMP,&CPU::IXR,&CPU::ACC,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::ACC,&CPU::IMM,&CPU::ABW,&CPU::ABR,&CPU::ABR,&CPU::ABR,
+        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
+        &CPU::IMP,&CPU::IXR,&CPU::ACC,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::ACC,&CPU::IMM,&CPU::IND,&CPU::ABR,&CPU::ABR,&CPU::ABR,
+        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
+        &CPU::IMM,&CPU::IXW,&CPU::IMM,&CPU::IXW,&CPU::ZPW,&CPU::ZPW,&CPU::ZPW,&CPU::ZPW,&CPU::IMP,&CPU::IMM,&CPU::IMP,&CPU::IMM,&CPU::ABW,&CPU::ABW,&CPU::ABW,&CPU::ABW,
+        &CPU::REL,&CPU::IYW,&CPU::ACC,&CPU::IYW,&CPU::ZXW,&CPU::ZXW,&CPU::ZYW,&CPU::ZYW,&CPU::IMP,&CPU::AYW,&CPU::IMP,&CPU::AYW,&CPU::AXW,&CPU::AXW,&CPU::AYW,&CPU::AYW,
+        &CPU::IMM,&CPU::IXR,&CPU::IMM,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::IMP,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
+        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYR,&CPU::ZXR,&CPU::ZXR,&CPU::ZYR,&CPU::ZYR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYR,&CPU::AXR,&CPU::AXR,&CPU::AYR,&CPU::AYR,
+        &CPU::IMM,&CPU::IXR,&CPU::IMM,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::IMP,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
+        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
+        &CPU::IMM,&CPU::IXR,&CPU::IMM,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::IMP,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
+        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM
+    };
+
+    memcpy(_instructions, instructions, sizeof(instructions));
+    memcpy(_addressingModes, addressingModes, sizeof(addressingModes));
+}
+
+CPU::~CPU() { }
+
+void CPU::power() {
+    _frozen = false;
+
+    _lineNMI = false;
+    _lineMapperIRQ = false;
+    _lineFrameIRQ = false;
+    _lineDeltaIRQ = false;
+
+    _shouldIRQ = false;
+
+    _registerA = 0x00;
+    _registerX = 0x00;
+    _registerY = 0x00;
+    _stackPointer = 0xFD;
+
+    _status = Flag::I;
+
+    _programCounter = _nes.readCPU(0xFFFC);
+    _programCounter |= _nes.readCPU(0xFFFD) << 8;
+}
+
+void CPU::reset() {
+    _frozen = false;
+
+    _lineNMI = false;
+    _lineMapperIRQ = false;
+    _lineFrameIRQ = false;
+    _lineDeltaIRQ = false;
+
+    _stackPointer -= 3;
+
+    _status |= Flag::I;
+
+    _programCounter = _nes.readCPU(0xFFFC);
+    _programCounter |= _nes.readCPU(0xFFFD) << 8;
+}
+
+void CPU::tick() {
+    if (_frozen) {
+        return;
     }
 
-    uint8_t palette = blend();
+    uint8_t instruction = fetch();
 
-    if (pixelX > 0 && pixelX < 257 && pixelY < 240) {
-        memcpy(frameBuffer + (pixelY * 256 + pixelX - 1) * 3, PALETTE_COLORS[maskColorEmphasize][internalRead(0x3F00 | palette)], 3);
+    (this->*_addressingModes[instruction])();
+    (this->*_instructions[instruction])();
+
+    if (_delayNMI || _delayIRQ) {
+        _nes.read(_programCounter);
+        _nes.read(_programCounter);
+
+        _nes.write(0x100 | _stackPointer--, _programCounter >> 8);
+        _nes.write(0x100 | _stackPointer--, _programCounter & 0x00FF);
+
+        uint16_t address = _shouldNMI ? 0xFFFA : 0xFFFE;
+
+        _shouldNMI = false;
+
+        _nes.write(0x100 | _stackPointer--, _status | Flag::U);
+
+        setStatus(Flag::I, true);
+
+        _programCounter = _nes.read(address);
+        _programCounter |= _nes.read(address + 1) << 8;
+    }
+}
+
+void CPU::poll() {
+    _delayNMI = _shouldNMI;
+
+    if (!_edgeDetectorNMI && _lineNMI) {
+        _shouldNMI = true;
     }
 
-    pixelX++;
+    _edgeDetectorNMI = _lineNMI;
+    _delayIRQ = _shouldIRQ;
 
-    if (pixelX > 340) {
-        resetForegroundData();
+    _shouldIRQ = (_lineMapperIRQ || _lineFrameIRQ || _lineDeltaIRQ) && !getStatus(Flag::I);
+}
 
-        pixelX = 0;
-        pixelY++;
+void CPU::setNMI(bool nmi) {
+    _lineNMI = nmi;
+}
 
-        if (pixelY == 241) {
-            frameReady = true;
+void CPU::setMapperIRQ(bool irq) {
+    _lineMapperIRQ = irq;
+}
+
+void CPU::setFrameIRQ(bool irq) {
+    _lineFrameIRQ = irq;
+}
+
+void CPU::setDeltaIRQ(bool irq) {
+    _lineDeltaIRQ = irq;
+}
+
+bool CPU::isFrozen() const {
+    return _frozen;
+}
+
+uint8_t CPU::fetch() {
+    return _nes.read(_programCounter++);
+}
+
+void CPU::setStatus(uint8_t flag, bool value) {
+    if (value) {
+        _status |= flag;
+    } else {
+        _status &= ~flag;
+    }
+}
+
+bool CPU::getStatus(uint8_t flag) const {
+    return _status & flag;
+}
+
+void CPU::ABR() {
+    ABW();
+
+    _registerM = _nes.read(_targetAddress);
+}
+
+void CPU::ABW() {
+    _targetAddress = fetch();
+    _targetAddress |= fetch() << 8;
+}
+
+void CPU::ACC() {
+    _registerM = _nes.read(_programCounter);
+}
+
+void CPU::AXM() {
+    AXW();
+
+    _registerM = _nes.read(_targetAddress);
+}
+
+void CPU::AXR() {
+    _targetAddress = fetch();
+
+    uint16_t translated = _targetAddress + _registerX;
+
+    bool invalidAddress = (_targetAddress & 0xFF00) != (translated & 0xFF00);
+
+    _targetAddress = translated & 0x00FF;
+    _targetAddress |= fetch() << 8;
+
+    _registerM = _nes.read(_targetAddress);
+
+    if (invalidAddress) {
+        _targetAddress += 0x100;
+
+        _registerM = _nes.read(_targetAddress);
+    }
+}
+
+void CPU::AXW() {
+    _targetAddress = fetch();
+
+    uint16_t translated = _targetAddress + _registerX;
+
+    bool invalidAddress = (_targetAddress & 0xFF00) != (translated & 0xFF00);
+
+    _targetAddress = translated & 0x00FF;
+    _targetAddress |= fetch() << 8;
+
+    _registerM = _nes.read(_targetAddress);
+
+    if (invalidAddress) {
+        _targetAddress += 0x100;
+    }
+}
+
+void CPU::AYM() {
+    AYW();
+
+    _registerM = _nes.read(_targetAddress);
+}
+
+void CPU::AYR() {
+    _targetAddress = fetch();
+
+    uint16_t translated = _targetAddress + _registerY;
+
+    bool invalidAddress = (_targetAddress & 0xFF00) != (translated & 0xFF00);
+
+    _targetAddress = translated & 0x00FF;
+    _targetAddress |= fetch() << 8;
+
+    _registerM = _nes.read(_targetAddress);
+
+    if (invalidAddress) {
+        _targetAddress += 0x100;
+
+        _registerM = _nes.read(_targetAddress);
+    }
+}
+
+void CPU::AYW() {
+    _targetAddress = fetch();
+
+    uint16_t translated = _targetAddress + _registerY;
+
+    bool invalidAddress = (_targetAddress & 0xFF00) != (translated & 0xFF00);
+
+    _targetAddress = translated & 0x00FF;
+    _targetAddress |= fetch() << 8;
+
+    _registerM = _nes.read(_targetAddress);
+
+    if (invalidAddress) {
+        _targetAddress += 0x100;
+    }
+}
+
+void CPU::IMM() {
+    _registerM = fetch();
+}
+
+void CPU::IMP() {
+    _registerM = _nes.read(_programCounter);
+}
+
+void CPU::IND() {
+    uint16_t pointer = fetch();
+
+    pointer |= fetch() << 8;
+
+    if ((pointer & 0x00FF) == 0xFF) {
+        _targetAddress = _nes.read(pointer);
+        _targetAddress |= _nes.read(pointer & 0xFF00) << 8;
+    } else {
+        _targetAddress = _nes.read(pointer);
+        _targetAddress |= _nes.read(pointer + 1) << 8;
+    }
+}
+
+void CPU::IXR() {
+    IXW();
+
+    _registerM = _nes.read(_targetAddress);
+}
+
+void CPU::IXW() {
+    uint8_t pointer = fetch();
+
+    _registerM = _nes.read(pointer);
+
+    pointer += _registerX;
+
+    _targetAddress = _nes.read(pointer);
+    _targetAddress |= _nes.read(++pointer & 0xFF) << 8;
+}
+
+void CPU::IYM() {
+    IYW();
+
+    _registerM = _nes.read(_targetAddress);
+}
+
+void CPU::IYR() {
+    uint8_t pointer = fetch();
+
+    _targetAddress = _nes.read(pointer);
+
+    uint16_t translated = _targetAddress + _registerY;
+
+    bool invalidAddress = translated & 0xFF00;
+
+    _targetAddress = translated & 0x00FF;
+    _targetAddress |= _nes.read(++pointer & 0xFF) << 8;
+
+    _registerM = _nes.read(_targetAddress);
+
+    if (invalidAddress) {
+        _targetAddress += 0x100;
+
+        _registerM = _nes.read(_targetAddress);
+    }
+}
+
+void CPU::IYW() {
+    uint8_t pointer = fetch();
+
+    _targetAddress = _nes.read(pointer);
+
+    uint16_t translated = _targetAddress + _registerY;
+
+    bool invalidAddress = (_targetAddress & 0xFF00) != (translated & 0xFF00);
+
+    _targetAddress = translated & 0x00FF;
+    _targetAddress |= _nes.read(++pointer & 0xFF) << 8;
+
+    _registerM = _nes.read(_targetAddress);
+
+    if (invalidAddress) {
+        _targetAddress += 0x100;
+    }
+}
+
+void CPU::REL() {
+    _targetAddress = fetch();
+
+    if (_targetAddress & 0x80) {
+        _targetAddress |= 0xFF00;
+    }
+}
+
+void CPU::ZPR() {
+    ZPW();
+
+    _registerM = _nes.read(_targetAddress);
+}
+
+void CPU::ZPW() {
+    _targetAddress = fetch();
+}
+
+void CPU::ZXR() {
+    ZXW();
+
+    _registerM = _nes.read(_targetAddress);
+}
+
+void CPU::ZXW() {
+    _targetAddress = fetch();
+
+    _registerM = _nes.read(_targetAddress);
+
+    _targetAddress += _registerX;
+    _targetAddress &= 0x00FF;
+}
+
+void CPU::ZYR() {
+    ZYW();
+
+    _registerM = _nes.read(_targetAddress);
+}
+
+void CPU::ZYW() {
+    _targetAddress = fetch();
+
+    _registerM = _nes.read(_targetAddress);
+
+    _targetAddress += _registerY;
+    _targetAddress &= 0x00FF;
+}
+
+void CPU::AAL() {
+    setStatus(Flag::C, _registerA & 0x80);
+
+    _registerA <<= 1;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::ADC() {
+    uint16_t result = _registerA + _registerM + (getStatus(Flag::C) ? 0x01 : 0x00);
+
+    setStatus(Flag::C, result & 0xFF00);
+    setStatus(Flag::V, ~(_registerA ^ _registerM) & (_registerA ^ result) & 0x80);
+
+    _registerA = result & 0x00FF;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::ALR() {
+    _registerA &= _registerM;
+
+    setStatus(Flag::C, _registerA & 0x01);
+
+    _registerA >>= 1;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::ANC() {
+    _registerA &= _registerM;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+    setStatus(Flag::C, _registerA & 0x80);
+}
+
+void CPU::AND() {
+    _registerA &= _registerM;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::ANE() {
+    _registerA = (_registerA | 0xEE) & _registerX & _registerM;
+}
+
+void CPU::ARR() {
+    _registerA &= _registerM;
+
+    _registerA = (getStatus(Flag::C) ? 0x80 : 0x00) | (_registerA >> 1);
+
+    setStatus(Flag::C, _registerA & 0x40);
+    setStatus(Flag::V, bool(_registerA & 0x40) ^ bool(_registerA & 0x20));
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::ASL() {
+    _nes.write(_targetAddress, _registerM);
+
+    setStatus(Flag::C, _registerM & 0x80);
+
+    _registerM <<= 1;
+
+    setStatus(Flag::Z, !_registerM);
+    setStatus(Flag::N, _registerM & 0x80);
+
+    _nes.write(_targetAddress, _registerM);
+}
+
+void CPU::BCC() {
+    if (!getStatus(Flag::C)) {
+        if (_shouldIRQ && !_delayIRQ) {
+            _shouldIRQ = false;
         }
 
-        if (pixelY > 261) {
-            pixelY = 0;
+        _nes.read(_programCounter);
 
-            if (cycleLatch && (maskRenderBackground || maskRenderForeground)) {
-                pixelX++;
-            }
+        uint16_t translated = _targetAddress + _programCounter;
 
-            preventNMI = false;
-            cycleLatch = !cycleLatch;
+        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
+            _nes.read(_programCounter);
+        }
+
+        _programCounter = translated;
+    }
+}
+
+void CPU::BCS() {
+    if (getStatus(Flag::C)) {
+        if (_shouldIRQ && !_delayIRQ) {
+            _shouldIRQ = false;
+        }
+
+        _nes.read(_programCounter);
+
+        uint16_t translated = _targetAddress + _programCounter;
+
+        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
+            _nes.read(_programCounter);
+        }
+
+        _programCounter = translated;
+    }
+}
+
+void CPU::BEQ() {
+    if (getStatus(Flag::Z)) {
+        if (_shouldIRQ && !_delayIRQ) {
+            _shouldIRQ = false;
+        }
+
+        _nes.read(_programCounter);
+
+        uint16_t translated = _targetAddress + _programCounter;
+
+        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
+            _nes.read(_programCounter);
+        }
+
+        _programCounter = translated;
+    }
+}
+
+void CPU::BIT() {
+    setStatus(Flag::Z, !(_registerA & _registerM));
+    setStatus(Flag::V, _registerM & 0x40);
+    setStatus(Flag::N, _registerM & 0x80);
+}
+
+void CPU::BMI() {
+    if (getStatus(Flag::N)) {
+        if (_shouldIRQ && !_delayIRQ) {
+            _shouldIRQ = false;
+        }
+
+        _nes.read(_programCounter);
+
+        uint16_t translated = _targetAddress + _programCounter;
+
+        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
+            _nes.read(_programCounter);
+        }
+
+        _programCounter = translated;
+    }
+}
+
+void CPU::BNE() {
+    if (!getStatus(Flag::Z)) {
+        if (_shouldIRQ && !_delayIRQ) {
+            _shouldIRQ = false;
+        }
+
+        _nes.read(_programCounter);
+
+        uint16_t translated = _targetAddress + _programCounter;
+
+        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
+            _nes.read(_programCounter);
+        }
+
+        _programCounter = translated;
+    }
+}
+
+void CPU::BPL() {
+    if (!getStatus(Flag::N)) {
+        if (_shouldIRQ && !_delayIRQ) {
+            _shouldIRQ = false;
+        }
+
+        _nes.read(_programCounter);
+
+        uint16_t translated = _targetAddress + _programCounter;
+
+        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
+            _nes.read(_programCounter);
+        }
+
+        _programCounter = translated;
+    }
+}
+
+void CPU::BRK() {
+    _programCounter++;
+
+    _nes.write(0x100 | _stackPointer--, _programCounter >> 8);
+    _nes.write(0x100 | _stackPointer--, _programCounter & 0x00FF);
+
+    uint16_t address = _shouldNMI ? 0xFFFA : 0xFFFE;
+
+    _shouldNMI = false;
+
+    _nes.write(0x100 | _stackPointer--, _status | Flag::B | Flag::U);
+
+    setStatus(Flag::I, true);
+
+    _programCounter = _nes.read(address);
+    _programCounter |= _nes.read(address + 1) << 8;
+
+    _delayNMI = false;
+}
+
+void CPU::BVC() {
+    if (!getStatus(Flag::V)) {
+        if (_shouldIRQ && !_delayIRQ) {
+            _shouldIRQ = false;
+        }
+
+        _nes.read(_programCounter);
+
+        uint16_t translated = _targetAddress + _programCounter;
+
+        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
+            _nes.read(_programCounter);
+        }
+
+        _programCounter = translated;
+    }
+}
+
+void CPU::BVS() {
+    if (getStatus(Flag::V)) {
+        if (_shouldIRQ && !_delayIRQ) {
+            _shouldIRQ = false;
+        }
+
+        _nes.read(_programCounter);
+
+        uint16_t translated = _targetAddress + _programCounter;
+
+        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
+            _nes.read(_programCounter);
+        }
+
+        _programCounter = translated;
+    }
+}
+
+void CPU::CLC() {
+    setStatus(Flag::C, false);
+}
+
+void CPU::CLD() {
+    setStatus(Flag::D, false);
+}
+
+void CPU::CLI() {
+    setStatus(Flag::I, false);
+}
+
+void CPU::CLV() {
+    setStatus(Flag::V, false);
+}
+
+void CPU::CMP() {
+    setStatus(Flag::C, _registerA >= _registerM);
+    setStatus(Flag::Z, _registerA == _registerM);
+    setStatus(Flag::N, (_registerA - _registerM) & 0x80);
+}
+
+void CPU::CPX() {
+    setStatus(Flag::C, _registerX >= _registerM);
+    setStatus(Flag::Z, _registerX == _registerM);
+    setStatus(Flag::N, (_registerX - _registerM) & 0x80);
+}
+
+void CPU::CPY() {
+    setStatus(Flag::C, _registerY >= _registerM);
+    setStatus(Flag::Z, _registerY == _registerM);
+    setStatus(Flag::N, (_registerY - _registerM) & 0x80);
+}
+
+void CPU::DCP() {
+    _nes.write(_targetAddress, _registerM);
+
+    _registerM--;
+
+    setStatus(Flag::C, _registerA >= _registerM);
+    setStatus(Flag::Z, _registerA == _registerM);
+    setStatus(Flag::N, (_registerA - _registerM) & 0x80);
+
+    _nes.write(_targetAddress, _registerM);
+}
+
+void CPU::DEC() {
+    _nes.write(_targetAddress, _registerM);
+
+    _registerM--;
+
+    setStatus(Flag::Z, !_registerM);
+    setStatus(Flag::N, _registerM & 0x80);
+
+    _nes.write(_targetAddress, _registerM);
+}
+
+void CPU::DEX() {
+    _registerX--;
+
+    setStatus(Flag::Z, !_registerX);
+    setStatus(Flag::N, _registerX & 0x80);
+}
+
+void CPU::DEY() {
+    _registerY--;
+
+    setStatus(Flag::Z, !_registerY);
+    setStatus(Flag::N, _registerY & 0x80);
+}
+
+void CPU::EOR() {
+    _registerA ^= _registerM;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::INC() {
+    _nes.write(_targetAddress, _registerM);
+
+    _registerM++;
+
+    setStatus(Flag::Z, !_registerM);
+    setStatus(Flag::N, _registerM & 0x80);
+
+    _nes.write(_targetAddress, _registerM);
+}
+
+void CPU::INX() {
+    _registerX++;
+
+    setStatus(Flag::Z, !_registerX);
+    setStatus(Flag::N, _registerX & 0x80);
+}
+
+void CPU::INY() {
+    _registerY++;
+
+    setStatus(Flag::Z, !_registerY);
+    setStatus(Flag::N, _registerY & 0x80);
+}
+
+void CPU::ISC() {
+    _nes.write(_targetAddress, _registerM);
+
+    _registerM++;
+
+    uint8_t value = _registerM;
+
+    _registerM ^= 0xFF;
+
+    uint16_t result = _registerA + _registerM + (getStatus(Flag::C) ? 0x01 : 0x00);
+
+    setStatus(Flag::C, result & 0x0100);
+    setStatus(Flag::V, ~(_registerA ^ _registerM) & (_registerA ^ result) & 0x80);
+
+    _registerA = result & 0x00FF;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+
+    _nes.write(_targetAddress, value);
+}
+
+void CPU::JAM() {
+    _frozen = true;
+}
+
+void CPU::JMP() {
+    _programCounter = _targetAddress;
+}
+
+void CPU::JSR() {
+    _nes.read(_programCounter);
+
+    _programCounter--;
+
+    _nes.write(0x100 | _stackPointer--, _programCounter >> 8);
+    _nes.write(0x100 | _stackPointer--, _programCounter & 0x00FF);
+
+    _programCounter = _targetAddress;
+}
+
+void CPU::LAR() {
+    setStatus(Flag::C, _registerA & 0x01);
+
+    _registerA >>= 1;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::LAS() {
+    uint8_t result = _registerM & _stackPointer;
+
+    _registerA = result;
+    _registerX = result;
+    _stackPointer = result;
+}
+
+void CPU::LAX() {
+    _registerA = _registerM;
+    _registerX = _registerM;
+
+    setStatus(Flag::Z, !_registerM);
+    setStatus(Flag::N, _registerM & 0x80);
+}
+
+void CPU::LDA() {
+    _registerA = _registerM;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::LDX() {
+    _registerX = _registerM;
+
+    setStatus(Flag::Z, !_registerX);
+    setStatus(Flag::N, _registerX & 0x80);
+}
+
+void CPU::LDY() {
+    _registerY = _registerM;
+
+    setStatus(Flag::Z, !_registerY);
+    setStatus(Flag::N, _registerY & 0x80);
+}
+
+void CPU::LSR() {
+    _nes.write(_targetAddress, _registerM);
+
+    setStatus(Flag::C, _registerM & 0x01);
+
+    _registerM >>= 1;
+
+    setStatus(Flag::Z, !_registerM);
+    setStatus(Flag::N, _registerM & 0x80);
+
+    _nes.write(_targetAddress, _registerM);
+}
+
+void CPU::LXA() {
+    _registerA = _registerM;
+    _registerX = _registerM;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::NOP() {
+
+}
+
+void CPU::ORA() {
+    _registerA |= _registerM;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::PHA() {
+    _nes.write(0x100 | _stackPointer--, _registerA);
+}
+
+void CPU::PHP() {
+    _nes.write(0x100 | _stackPointer--, _status | Flag::B | Flag::U);
+}
+
+void CPU::PLA() {
+    _stackPointer++;
+
+    _nes.read(_programCounter);
+
+    _registerA = _nes.read(0x100 | _stackPointer);
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::PLP() {
+    _stackPointer++;
+
+    _nes.read(_programCounter);
+
+    _status = _nes.read(0x100 | _stackPointer) & 0xCF;
+}
+
+void CPU::RAL() {
+    bool carry = _registerA & 0x80;
+
+    _registerA = (getStatus(Flag::C) ? 0x01 : 0x00) | (_registerA << 1);
+
+    setStatus(Flag::C, carry);
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::RAR() {
+    bool carry = _registerA & 0x01;
+
+    _registerA = (getStatus(Flag::C) ? 0x80 : 0x00) | (_registerA >> 1);
+
+    setStatus(Flag::C, carry);
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::RLA() {
+    _nes.write(_targetAddress, _registerM);
+
+    bool carry = _registerM & 0x80;
+
+    _registerM = (getStatus(Flag::C) ? 0x01 : 0x00) | (_registerM << 1);
+    _registerA &= _registerM;
+
+    setStatus(Flag::C, carry);
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+
+    _nes.write(_targetAddress, _registerM);
+}
+
+void CPU::ROL() {
+    _nes.write(_targetAddress, _registerM);
+
+    bool carry = _registerM & 0x80;
+
+    _registerM = (getStatus(Flag::C) ? 0x01 : 0x00) | (_registerM << 1);
+
+    setStatus(Flag::C, carry);
+    setStatus(Flag::Z, !_registerM);
+    setStatus(Flag::N, _registerM & 0x80);
+
+    _nes.write(_targetAddress, _registerM);
+}
+
+void CPU::ROR() {
+    _nes.write(_targetAddress, _registerM);
+
+    bool carry = _registerM & 0x01;
+
+    _registerM = (getStatus(Flag::C) ? 0x80 : 0x00) | (_registerM >> 1);
+
+    setStatus(Flag::C, carry);
+    setStatus(Flag::Z, !_registerM);
+    setStatus(Flag::N, _registerM & 0x80);
+
+    _nes.write(_targetAddress, _registerM);
+}
+
+void CPU::RRA() {
+    _nes.write(_targetAddress, _registerM);
+
+    uint8_t carry = _registerM & 0x01;
+
+    _registerM = (getStatus(Flag::C) ? 0x80 : 0x00) | (_registerM >> 1);
+
+    uint16_t result = _registerA + _registerM + carry;
+
+    setStatus(Flag::C, result & 0x0100);
+    setStatus(Flag::V, ~(_registerA ^ _registerM) & (_registerA ^ result) & 0x80);
+
+    _registerA = result & 0x00FF;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+
+    _nes.write(_targetAddress, _registerM);
+}
+
+void CPU::RTI() {
+    _stackPointer++;
+
+    _nes.read(_programCounter);
+
+    _status = _nes.read(0x100 | _stackPointer) & 0xCF;
+    _programCounter = _nes.read(0x100 | ++_stackPointer);
+    _programCounter |= _nes.read(0x100 | ++_stackPointer) << 8;
+}
+
+void CPU::RTS() {
+    _stackPointer++;
+
+    _nes.read(_programCounter);
+    _nes.read(_programCounter);
+
+    _programCounter = _nes.read(0x100 | _stackPointer);
+    _programCounter |= _nes.read(0x100 | ++_stackPointer) << 8;
+
+    _programCounter++;
+}
+
+void CPU::SAX() {
+    _nes.write(_targetAddress, _registerA & _registerX);
+}
+
+void CPU::SBC() {
+    _registerM ^= 0xFF;
+
+    uint16_t result = _registerA + _registerM + (getStatus(Flag::C) ? 0x01 : 0x00);
+
+    setStatus(Flag::C, result & 0xFF00);
+    setStatus(Flag::V, ~(_registerA ^ _registerM) & (_registerA ^ result) & 0x80);
+
+    _registerA = result & 0x00FF;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::SBX() {
+    _registerX &= _registerA;
+
+    setStatus(Flag::C, _registerX >= _registerM);
+    setStatus(Flag::Z, _registerX == _registerM);
+
+    _registerX -= _registerM;
+
+    setStatus(Flag::N, _registerX & 0x80);
+}
+
+void CPU::SEC() {
+    setStatus(Flag::C, true);
+}
+
+void CPU::SED() {
+    setStatus(Flag::D, true);
+}
+
+void CPU::SEI() {
+    setStatus(Flag::I, true);
+}
+
+void CPU::SHA() {
+    _nes.write(_targetAddress, _registerA & _registerX & (uint8_t(_targetAddress >> 8) + 1));
+}
+
+void CPU::SHX() {
+    uint8_t addressHigh = 1 + (_targetAddress >> 8);
+
+    _nes.write(((_registerX & addressHigh) << 8) | _targetAddress & 0xFF, _registerX & addressHigh);
+}
+
+void CPU::SHY() {
+    uint8_t addressHigh = 1 + (_targetAddress >> 8);
+
+    _nes.write(((_registerY & addressHigh) << 8) | _targetAddress & 0xFF, _registerY & addressHigh);
+}
+
+void CPU::SLO() {
+    _nes.write(_targetAddress, _registerM);
+
+    setStatus(Flag::C, _registerM & 0x80);
+
+    _registerM <<= 1;
+    _registerA |= _registerM;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+
+    _nes.write(_targetAddress, _registerM);
+}
+
+void CPU::SRE() {
+    _nes.write(_targetAddress, _registerM);
+
+    setStatus(Flag::C, _registerM & 0x01);
+
+    _registerM >>= 1;
+    _registerA ^= _registerM;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+
+    _nes.write(_targetAddress, _registerM);
+}
+
+void CPU::STA() {
+    _nes.write(_targetAddress, _registerA);
+}
+
+void CPU::STX() {
+    _nes.write(_targetAddress, _registerX);
+}
+
+void CPU::STY() {
+    _nes.write(_targetAddress, _registerY);
+}
+
+void CPU::TAS() {
+    _stackPointer = _registerA & _registerX;
+
+    _nes.write(_targetAddress, _stackPointer & (uint8_t(_targetAddress >> 8) + 1));
+}
+
+void CPU::TAX() {
+    _registerX = _registerA;
+
+    setStatus(Flag::Z, !_registerX);
+    setStatus(Flag::N, _registerX & 0x80);
+}
+
+void CPU::TAY() {
+    _registerY = _registerA;
+
+    setStatus(Flag::Z, !_registerY);
+    setStatus(Flag::N, _registerY & 0x80);
+}
+
+void CPU::TSX() {
+    _registerX = _stackPointer;
+
+    setStatus(Flag::Z, !_registerX);
+    setStatus(Flag::N, _registerX & 0x80);
+}
+
+void CPU::TXA() {
+    _registerA = _registerX;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::TXS() {
+    _stackPointer = _registerX;
+}
+
+void CPU::TYA() {
+    _registerA = _registerY;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+void CPU::USB() {
+    _registerM ^= 0xFF;
+
+    uint16_t result = _registerA + _registerM + (getStatus(Flag::C) ? 0x01 : 0x00);
+
+    setStatus(Flag::C, result & 0x0100);
+    setStatus(Flag::V, ~(_registerA ^ _registerM) & (_registerA ^ result) & 0x80);
+
+    _registerA = result & 0x00FF;
+
+    setStatus(Flag::Z, !_registerA);
+    setStatus(Flag::N, _registerA & 0x80);
+}
+
+
+
+PPU::PPU(NES& nes) : _nes(nes) {
+    _pixelX = 0x0000;
+    _pixelY = 0x0000;
+
+    _renderingEnabled = false;
+    _renderingEnabledDelayed = false;
+    _preventVerticalBlank = false;
+
+    _controlIncrementMode = false;
+    _controlForegroundTable = false;
+    _controlBackgroundTable = false;
+    _controlForegroundLarge = false;
+    _controlInterruptOnVertivalBlank = false;
+
+    _maskGreyscaleMode = false;
+    _maskRenderBackgroundLeft = false;
+    _maskRenderForegroundLeft = false;
+    _maskRenderBackground = false;
+    _maskRenderForeground = false;
+
+    _maskColorEmphasize = 0x00;
+
+    _statusSpriteOverflow = false;
+    _statusSpriteZeroHit = false;
+    _statusVerticalBlank = false;
+
+    memset(_clockDecays, 0x00, 0x3);
+
+    _registerDecay = 0x00;
+
+    _latchCycle = false;
+    _latchAddress = false;
+
+    _registerT = 0x0000;
+    _registerV = 0x0000;
+    _delayedRegisterV = 0x0000;
+
+    _scrollX = 0x00;
+
+    _delayDataRead = 0x00;
+    _delayDataWrite = 0x00;
+    _bufferData = 0x00;
+
+    memset(_backgroundData, 0x00, 0x4);
+    memset(_backgroundShifter, 0x0000, 0x8);
+
+    memset(_foregroundData, 0x00, 0x20);
+    memset(_foregroundShifter, 0x00, 0x10);
+    memset(_foregroundAttributes, 0x00, 0x8);
+    memset(_foregroundPositions, 0x00, 0x8);
+
+    _foregroundDataPointer = 0x00;
+    _foregroundSpriteCount = 0x00;
+    _foregroundSpriteCountNext = 0x00;
+    _foregroundSpritePointer = 0x00;
+    _foregroundReadDelay = 0x00;
+
+    _foregroundSpriteAddress = 0x0000;
+
+    _foregroundSpriteZeroLine = false;
+    _foregroundSpriteZeroShould = false;
+    _foregroundSpriteZeroHit = false;
+
+    _foregroundEvaluationStep = SpriteEvaluationStep::LOAD_SECONDARY_OAM;
+}
+
+PPU::~PPU() {}
+
+void PPU::power() {
+    _pixelY = 0xFF00;
+    _pixelX = 0xFF00;
+
+    _renderingEnabled = false;
+    _renderingEnabledDelayed = false;
+    _preventVerticalBlank = false;
+
+    _controlIncrementMode = false;
+    _controlForegroundTable = false;
+    _controlBackgroundTable = false;
+    _controlForegroundLarge = false;
+    _controlInterruptOnVertivalBlank = false;
+
+    _maskGreyscaleMode = false;
+    _maskRenderBackgroundLeft = false;
+    _maskRenderForegroundLeft = false;
+    _maskRenderBackground = false;
+    _maskRenderForeground = false;
+
+    _maskColorEmphasize = 0x00;
+
+    _statusSpriteOverflow = true;
+    _statusSpriteZeroHit = false;
+    _statusVerticalBlank = true;
+
+    _foregroundSpritePointer = 0x00;
+
+    _latchAddress = false;
+    _latchCycle = false;
+
+    _registerT = 0x0000;
+    _registerV = 0x0000;
+    _scrollX = 0x00;
+
+    _delayDataWrite = 0x00;
+    _delayDataRead = 0x00;
+    _bufferData = 0x00;
+}
+
+void PPU::reset() {
+    _pixelY = 0xFF00;
+    _pixelX = 0xFF00;
+
+    _renderingEnabled = false;
+    _renderingEnabledDelayed = false;
+    _preventVerticalBlank = false;
+
+    _controlIncrementMode = false;
+    _controlForegroundTable = false;
+    _controlBackgroundTable = false;
+    _controlForegroundLarge = false;
+    _controlInterruptOnVertivalBlank = false;
+
+    _maskGreyscaleMode = false;
+    _maskRenderBackgroundLeft = false;
+    _maskRenderForegroundLeft = false;
+    _maskRenderBackground = false;
+    _maskRenderForeground = false;
+
+    _maskColorEmphasize = 0x00;
+
+    _latchAddress = false;
+    _latchCycle = false;
+
+    _registerT = 0x0000;
+    _registerV = 0x0000;
+    _scrollX = 0x00;
+
+    _delayDataWrite = 0x00;
+    _delayDataRead = 0x00;
+    _bufferData = 0x00;
+}
+
+void PPU::tick() {
+    if (_pixelX > 339) {
+        _pixelX = 0;
+
+        if (++_pixelY > 261) {
+            _pixelY = 0;
+            _foregroundSpriteCount = 0;
+
+            _latchCycle = !_latchCycle;
 
             for (int k = 0; k < 3; k++) {
-                if (clockDecays[k] > 0) {
-                    if (--clockDecays[k] == 0) {
-                        switch (k) {
-                        case 0: registerDecay &= 0x3F; break;
-                        case 1: registerDecay &= 0xDF; break;
-                        case 2: registerDecay &= 0xE0; break;
-                        }
+                if (_clockDecays[k] > 0 && --_clockDecays[k] == 0) {
+                    switch (k) {
+                    case 0: _registerDecay &= 0x3F; break;
+                    case 1: _registerDecay &= 0xDF; break;
+                    case 2: _registerDecay &= 0xE0; break;
                     }
+                }
+            }
+        }
+
+        resetForegroundData();
+
+        if (_pixelY == 261) {
+            _statusSpriteOverflow = false;
+            _statusSpriteZeroHit = false;
+
+            memset(_foregroundShifter, 0x00, 0x10);
+        }
+    } else {
+        _pixelX++;
+
+        if (_pixelY < 240) {
+            if (_pixelX >= 1 && _pixelX < 257 || _pixelX >= 321 && _pixelX < 337) {
+                loadBackgroundShifters();
+            }
+
+            if (_pixelX == 256) {
+                incrementScrollY();
+            } else if (_pixelX == 257) {
+                resetScrollX();
+            }
+
+            if (_pixelX >= 2 && _pixelX < 257) {
+                updateForegroundShifter();
+            }
+
+            if (_pixelX < 65) {
+                clearForegroundData();
+            } else if (_pixelX < 257) {
+                fetchForegroundData();
+            } else if (_pixelX < 321) {
+                loadForegroundShifter();
+            }
+
+            if (_pixelX > 0 && _pixelX < 257 && _pixelY < 240) {
+                memcpy(_frameBuffer + ((_pixelY << 8) + _pixelX - 1) * 3, PALETTE_COLORS[_maskColorEmphasize][_nes.readPPU(0x3F00 | blend())], 3);
+            }
+        } else if (_pixelY == 240 && _pixelX == 1) {
+            _nes.getMapper()->notifyStateA12(_registerV & 0x1000);
+        } else if (_pixelY == 261) {
+            if (_pixelX == 1) {
+                _statusVerticalBlank = false;
+
+                _nes.getCPU()->setNMI(false);
+            }
+
+            if (_pixelX >= 1 && _pixelX < 257 || _pixelX >= 321 && _pixelX < 337) {
+                loadBackgroundShifters();
+            }
+
+            if (_pixelX == 256) {
+                incrementScrollY();
+            } else if (_pixelX == 257) {
+                resetScrollX();
+            } else  if (_pixelX >= 280 && _pixelX < 305) {
+                resetScrollY();
+            }
+
+            if (_pixelX > 1) {
+                if (_pixelX < 257) {
+                    updateForegroundShifter();
+                } else if (_pixelX < 321) {
+                    loadForegroundShifter();
+                }
+            }
+
+            if (_renderingEnabled && (_pixelX == 337 || _pixelX == 339)) {
+                readAndNotifyA12(0x2000 | (_registerV & 0x0FFF));
+
+                if (_pixelX == 339 && _latchCycle) {
+                    _pixelX = 340;
+                }
+            }
+        } else if (_pixelX == 1 && _pixelY == 241) {
+            if (!_preventVerticalBlank) {
+                _statusVerticalBlank = true;
+
+                if (_controlInterruptOnVertivalBlank) {
+                    _nes.getCPU()->setNMI(true);
+                }
+            }
+
+            _preventVerticalBlank = false;
+            _frameReady = true;
+        }
+    }
+
+    if (_renderingEnabledDelayed != _renderingEnabled) {
+        _renderingEnabledDelayed = _renderingEnabled;
+
+        if (_pixelY < 240 || _pixelY == 261) {
+            if (!_renderingEnabledDelayed) {
+                _nes.getMapper()->notifyStateA12(_registerV & 0x1000);
+
+                if (_pixelX >= 65 && _pixelX <= 256) {
+                    _foregroundSpritePointer++;
                 }
             }
         }
     }
 
-    if (delayDataRead) {
-        delayDataRead--;
+    if (_renderingEnabled != (_maskRenderBackground || _maskRenderForeground)) {
+        _renderingEnabled = _maskRenderBackground || _maskRenderForeground;
     }
+
+
+    if (_delayDataWrite > 0 && --_delayDataWrite == 0) {
+        _registerV = _delayedRegisterV;
+        _registerT = _registerV;
+
+        if (_pixelY >= 240 && _pixelY != 261 || !_renderingEnabled) {
+            _nes.getMapper()->notifyStateA12(_registerV & 0x1000);
+        }
+    }
+
+    if (_delayDataRead > 0) {
+        _delayDataRead--;
+    }
+
+    _nes.getMapper()->tick();
 }
 
-void nes::PPU::write(uint8_t address, uint8_t value) {
-    registerDecay = value;
+void PPU::write(uint8_t addr, uint8_t value) {
+    memset(_clockDecays, DECAY_PERIOD, 3);
 
-    updateDecay(0xFF);
+    _registerDecay = value;
 
-    switch (address) {
+    switch (addr) {
     case Register::PPU_CTRL: {
-        registerT &= 0xF3FF;
-        registerT |= (value & 0x03) << 10;
+        _registerT &= 0xF3FF;
+        _registerT |= (value & 0x03) << 10;
 
-        controlIncrementMode = value & 0x04;
-        controlForegroundTable = value & 0x08;
-        controlBackgroundTable = value & 0x10;
-        controlForegroundLarge = value & 0x20;
-        controlInteruptOnVBL = value & 0x80;
+        _controlIncrementMode = value & 0x04;
+        _controlForegroundTable = value & 0x08;
+        _controlBackgroundTable = value & 0x10;
+        _controlForegroundLarge = value & 0x20;
+        _controlInterruptOnVertivalBlank = value & 0x80;
 
-        //"By toggling NMI_output ($2000 bit 7) during vertical blank without reading $2002, 
-        // a program can cause /NMI to be pulled low multiple times, causing multiple NMIs to be generated."
-
-        if (pixelY == 241) {
-            if (pixelX < 4 && !controlInteruptOnVBL) {
-                sendNMI = false;
-            }
-
-            if (pixelX < 3 && controlInteruptOnVBL && statusVerticalBlank) {
-                sendNMI = true;
-            }
+        if (!_controlInterruptOnVertivalBlank) {
+            _nes.getCPU()->setNMI(false);
+        } else if (_statusVerticalBlank) {
+            _nes.getCPU()->setNMI(true);
         }
 
         break;
     }
 
     case Register::PPU_MASK: {
-        maskGreyscaleMode = value & 0x01;
-        maskRenderBackgroundLeft = value & 0x02;
-        maskRenderForegroundLeft = value & 0x04;
-        maskRenderBackground = value & 0x08;
-        maskRenderForeground = value & 0x10;
-
-        maskColorEmphasize = value >> 5;
+        _maskGreyscaleMode = value & 0x01;
+        _maskRenderBackgroundLeft = value & 0x02;
+        _maskRenderForegroundLeft = value & 0x04;
+        _maskRenderBackground = value & 0x08;
+        _maskRenderForeground = value & 0x10;
+        _maskColorEmphasize = value >> 5;
 
         break;
     }
 
     case Register::OAM_ADDR: {
-        foregroundSpritePointer = value;
+        _foregroundSpritePointer = value;
 
         break;
     }
 
     case Register::OAM_DATA: {
-        if (pixelY >= 240 || !maskRenderBackground && !maskRenderForeground) {
-            if ((foregroundSpritePointer & 0x03) == 0x02) {
+        if (_pixelY >= 240 && _pixelY != 261 || !_renderingEnabled) {
+            if ((_foregroundSpritePointer & 0x03) == 0x02) {
                 value &= 0xE3;
             }
 
-            memorySprites[foregroundSpritePointer++] = value;
+            _nes.writeOAM(_foregroundSpritePointer++, value);
         } else {
-            foregroundSpritePointer += 4;
+            _foregroundSpritePointer += 4;
         }
 
         break;
     }
 
     case Register::PPU_SCROLL: {
-        if (!addressLatch) {
-            offsetX = value & 0x07;
+        if (!_latchAddress) {
+            _scrollX = value & 0x07;
 
-            registerT &= 0xFFE0;
-            registerT |= value >> 3;
+            _registerT &= 0xFFE0;
+            _registerT |= value >> 3;
         } else {
-            registerT &= 0x8C1F;
+            _registerT &= 0x8C1F;
 
-            registerT |= (value & 0xF8) << 2;
-            registerT |= (value & 0x07) << 12;
+            _registerT |= (value & 0xF8) << 2;
+            _registerT |= (value & 0x07) << 12;
         }
 
-        addressLatch = !addressLatch;
+        _latchAddress = !_latchAddress;
 
         break;
     }
 
     case Register::PPU_ADDR: {
-        if (!addressLatch) {
-            registerT &= 0x00FF;
-            registerT |= value << 8;
+        if (!_latchAddress) {
+            _registerT &= 0x00FF;
+            _registerT |= value << 8;
         } else {
-            registerT &= 0xFF00;
-            registerT |= value;
+            _registerT &= 0xFF00;
+            _registerT |= value;
 
-            delayDataWrite = 3;
-
-            registerVDelayed = registerT;
+            _delayDataWrite = 3;
+            _delayedRegisterV = _registerT;
         }
 
-        addressLatch = !addressLatch;
+        _latchAddress = !_latchAddress;
 
         break;
     }
 
     case Register::PPU_DATA: {
-        if ((registerV & 0x3FFF) >= 0x3F00) {
-            internalWrite(registerV, value);
+        if ((_registerV & 0x3FFF) >= 0x3F00) {
+            _nes.writePPU(_registerV, value);
         } else {
-            if (pixelY > 240 || !maskRenderBackground && !maskRenderForeground) {
-                internalWrite(registerV, value);
+            if (_pixelY >= 240 && _pixelY != 261 || !_renderingEnabled) {
+                writeAndNotifyA12(_registerV, value);
             } else {
-                internalWrite(registerV, registerV & 0xFF);
+                writeAndNotifyA12(_registerV, _registerV & 0xFF);
             }
         }
 
-        if (pixelY > 240 || !maskRenderBackground && !maskRenderForeground) {
-            registerV += controlIncrementMode ? 32 : 1;
+        if (_pixelY >= 240 && _pixelY != 261 || !_renderingEnabled) {
+            _registerV += _controlIncrementMode ? 32 : 1;
+            _registerV &= 0x7FFF;
 
-            mapper.notify(registerV, pixelY * 341 + pixelX);
+            _nes.getMapper()->notifyStateA12(_registerV & 0x1000);
         } else {
             incrementScrollX();
             incrementScrollY();
@@ -846,637 +1914,461 @@ void nes::PPU::write(uint8_t address, uint8_t value) {
 
         break;
     }
+
+    default: break;
     }
 }
 
-void nes::PPU::writeDMA(uint8_t value) {
-    memorySprites[foregroundSpritePointer++] = value;
-}
-
-uint8_t nes::PPU::read(uint8_t address) {
-    switch (address) {
+uint8_t PPU::read(uint8_t addr) {
+    switch (addr) {
     case Register::PPU_STATUS: {
-        registerDecay &= 0x1F;
-        registerDecay |= statusSpriteOverflow << 5;
-        registerDecay |= statusSprite0Hit << 6;
-        registerDecay |= statusVerticalBlank << 7;
+        memset(_clockDecays, DECAY_PERIOD, 2);
 
-        updateDecay(0x1F);
+        _latchAddress = false;
 
-        /*
-        Reading $2002 within a few PPU clocks of when VBL is set results in special-case behavior.
-        Reading one PPU clock before reads it as clear and never sets the flag or generates NMI for that frame.
-        Reading on the same PPU clock or one later reads it as set, clears it, and suppresses the NMI for that frame.
-        Reading two or more PPU clocks before/after it's set behaves normally (reads flag's value, clears it, and doesn't affect NMI operation).
-        This suppression behavior is due to the $2002 read pulling the NMI line back up too quickly after it drops (NMI is active low) for the CPU to see it.
-        (CPU inputs like NMI are sampled each clock.)
-        */
+        _registerDecay &= 0x1F;
+        _registerDecay |= _statusSpriteOverflow << 5;
+        _registerDecay |= _statusSpriteZeroHit << 6;
+        _registerDecay |= _statusVerticalBlank << 7;
 
-        statusVerticalBlank = false;
+        _statusVerticalBlank = false;
+        _nes.getCPU()->setNMI(false);
 
-        addressLatch = false;
-
-        if (pixelY == 241) {
-            if (pixelX == 1) {
-                preventNMI = true;
-            } else if (pixelX < 4) {
-                //return registerDecay & 0x7F;
-            }
+        if (_pixelY == 241 && _pixelX == 0) {
+            _preventVerticalBlank = true;
         }
 
-        return registerDecay;
+        break;
     }
 
     case Register::OAM_DATA: {
-        registerDecay = memorySprites[foregroundSpritePointer];
+        memset(_clockDecays, DECAY_PERIOD, 3);
 
-        if ((foregroundSpritePointer & 0x3) == 0x2) {
-            registerDecay &= 0xE3;
-        }
+        _registerDecay = _nes.readOAM(_foregroundSpritePointer);
 
-        updateDecay(0xFF);
-
-        return registerDecay;
+        break;
     }
 
     case Register::PPU_DATA: {
-        if (delayDataRead) {
-            return registerDecay;
+        if (_delayDataRead == 0) {
+            uint8_t value = readAndNotifyA12(_registerV);
+
+            if ((_registerV & 0x3FFF) >= 0x3F00) {
+                _registerDecay &= 0xC0;
+                _registerDecay |= value & 0x3F;
+
+                _clockDecays[0] = _clockDecays[2] = DECAY_PERIOD;
+
+                _bufferData = _nes.readPPU(_registerV - 0x1000);
+            } else {
+                _registerDecay = _bufferData;
+                _bufferData = value;
+
+                memset(_clockDecays, DECAY_PERIOD, 3);
+            }
+
+            if (_pixelY >= 240 && _pixelY != 261 || !_renderingEnabled) {
+                _registerV += _controlIncrementMode ? 32 : 1;
+                _registerV &= 0x7FFF;
+
+                _nes.getMapper()->notifyStateA12(_registerV & 0x1000);
+            } else {
+                incrementScrollX();
+                incrementScrollY();
+            }
+
+            _delayDataRead = 6;
         }
 
-        uint8_t value = internalRead(registerV);
+        break;
+    }
 
-        if (registerV >= 0x3F00) {
-            registerDecay &= 0xC0;
-            registerDecay |= value & 0x3F;
+    default: break;
+    }
 
-            updateDecay(0xC0);
+    return _registerDecay;
+}
 
-            bufferData = internalRead(registerV - 0x1000);
+uint8_t* PPU::getFrameBuffer() {
+    return _frameBuffer;
+}
+
+bool PPU::isFrameReady() {
+    bool frameReady = _frameReady;
+
+    _frameReady = false;
+
+    return frameReady;
+}
+
+void PPU::writeAndNotifyA12(uint16_t addr, uint8_t value) {
+    _nes.getMapper()->notifyStateA12(addr & 0x1000);
+    _nes.writePPU(addr, value);
+}
+
+uint8_t PPU::readAndNotifyA12(uint16_t addr) {
+    _nes.getMapper()->notifyStateA12(addr & 0x1000);
+
+    return _nes.readPPU(addr);
+}
+
+void PPU::incrementScrollX() {
+    if (_maskRenderBackground || _maskRenderForeground) {
+        if ((_registerV & 0x001F) == 0x1F) {
+            _registerV &= 0xFFE0;
+            _registerV ^= 0x0400;
         } else {
-            registerDecay = bufferData;
-            bufferData = value;
-
-            updateDecay(0xFF);
+            _registerV++;
         }
+    }
+}
 
-        delayDataRead = 6;
-
-        if (pixelY > 240 || !maskRenderBackground && !maskRenderForeground) {
-            registerV += controlIncrementMode ? 32 : 1;
-
-            mapper.notify(registerV, pixelY * 341 + pixelX);
+void PPU::incrementScrollY() {
+    if (_maskRenderBackground || _maskRenderForeground) {
+        if ((_registerV & 0x7000) != 0x7000) {
+            _registerV += 0x1000;
         } else {
-            incrementScrollX();
-            incrementScrollY();
-        }
+            _registerV &= 0x8FFF;
 
-        return registerDecay;
-    }
-
-    default: return registerDecay;
-    }
-}
-
-void nes::PPU::updateDecay(uint8_t mask) {
-    switch (mask) {
-    case 0x1F: memset(clockDecays, 30, 2); break;
-    case 0xC0: clockDecays[0] = 30; clockDecays[2] = 30; break;
-    case 0xFF: memset(clockDecays, 30, 3); break;
-    }
-}
-
-bool nes::PPU::shouldNMI() {
-    bool nmi = sendNMI;
-
-    sendNMI = false;
-
-    return nmi;
-}
-
-bool nes::PPU::shouldRender() {
-    bool render = frameReady;
-
-    frameReady = false;
-
-    return render;
-}
-
-uint8_t* nes::PPU::getFrameBuffer() {
-    return frameBuffer;
-}
-
-void nes::PPU::dump(uint8_t*& buffer) {
-    uint8_t controlFlags = controlIncrementMode;
-    controlFlags |= controlForegroundTable << 1;
-    controlFlags |= controlForegroundTable << 1;
-    controlFlags |= controlBackgroundTable << 2;
-    controlFlags |= controlForegroundLarge << 3;
-    controlFlags |= controlInteruptOnVBL << 4;
-    controlFlags |= foregroundSprite0Line << 5;
-    controlFlags |= foregroundSprite0Should << 6;
-    controlFlags |= foregroundSprite0Hit << 7;
-
-    uint8_t maskFlags = maskGreyscaleMode;
-    maskFlags |= maskRenderBackgroundLeft << 1;
-    maskFlags |= maskRenderForegroundLeft << 2;
-    maskFlags |= maskRenderBackground << 3;
-    maskFlags |= maskRenderForeground << 4;
-    maskFlags |= maskColorEmphasize << 5;
-
-    uint8_t statusFlags = sendNMI;
-    statusFlags |= preventNMI << 1;
-    statusFlags |= addressLatch << 2;
-    statusFlags |= cycleLatch << 3;
-    statusFlags |= frameReady << 4;
-    statusFlags |= statusSpriteOverflow << 5;
-    statusFlags |= statusSprite0Hit << 6;
-    statusFlags |= statusVerticalBlank << 7;
-
-    nes::write(buffer, pixelX);
-    nes::write(buffer, pixelY);
-    nes::write(buffer, bufferData);
-    nes::write(buffer, controlFlags);
-    nes::write(buffer, maskFlags);
-    nes::write(buffer, statusFlags);
-    nes::write(buffer, registerDecay);
-    nes::write(buffer, registerVDelayed);
-    nes::write(buffer, delayDataRead);
-    nes::write(buffer, delayDataWrite);
-    nes::write(buffer, registerT);
-    nes::write(buffer, registerV);
-    nes::write(buffer, offsetX);
-    nes::write(buffer, foregroundDataPointer);
-    nes::write(buffer, foregroundSpriteCount);
-    nes::write(buffer, foregroundSpriteCountNext);
-    nes::write(buffer, foregroundSpritePointer);
-    nes::write(buffer, foregroundReadDelay);
-    nes::write(buffer, foregroundOffset);
-    nes::write(buffer, foregroundEvaluationStep);
-    nes::write(buffer, backgroundShifter, 0x4);
-    nes::write(buffer, clockDecays, 0x3);
-    nes::write(buffer, backgroundData, 0x4);
-    nes::write(buffer, foregroundData, 0x20);
-    nes::write(buffer, foregroundShifter, 0x10);
-    nes::write(buffer, foregroundAttributes, 0x8);
-    nes::write(buffer, foregroundPositions, 0x8);
-    nes::write(buffer, memoryVideo, 0x1000);
-    nes::write(buffer, memoryPalette, 0x20);
-    nes::write(buffer, memorySprites, 0x100);
-}
-
-void nes::PPU::load(uint8_t*& buffer) {
-    uint8_t controlFlags = 0x00;
-    uint8_t maskFlags = 0x00;
-    uint8_t statusFlags = 0x00;
-
-    nes::read(buffer, pixelX);
-    nes::read(buffer, pixelY);
-    nes::read(buffer, bufferData);
-    nes::read(buffer, controlFlags);
-    nes::read(buffer, maskFlags);
-    nes::read(buffer, statusFlags);
-    nes::read(buffer, registerDecay);
-    nes::read(buffer, registerVDelayed);
-    nes::read(buffer, delayDataRead);
-    nes::read(buffer, delayDataWrite);
-    nes::read(buffer, registerT);
-    nes::read(buffer, registerV);
-    nes::read(buffer, offsetX);
-    nes::read(buffer, foregroundDataPointer);
-    nes::read(buffer, foregroundSpriteCount);
-    nes::read(buffer, foregroundSpriteCountNext);
-    nes::read(buffer, foregroundSpritePointer);
-    nes::read(buffer, foregroundReadDelay);
-    nes::read(buffer, foregroundOffset);
-    nes::read(buffer, foregroundEvaluationStep);
-    nes::read(buffer, backgroundShifter, 0x4);
-    nes::read(buffer, clockDecays, 0x3);
-    nes::read(buffer, backgroundData, 0x4);
-    nes::read(buffer, foregroundData, 0x20);
-    nes::read(buffer, foregroundShifter, 0x10);
-    nes::read(buffer, foregroundAttributes, 0x8);
-    nes::read(buffer, foregroundPositions, 0x8);
-    nes::read(buffer, memoryVideo, 0x1000);
-    nes::read(buffer, memoryPalette, 0x20);
-    nes::read(buffer, memorySprites, 0x100);
-
-    controlIncrementMode = controlFlags & 0x01;
-    controlForegroundTable = controlFlags & 0x02;
-    controlBackgroundTable = controlFlags & 0x04;
-    controlForegroundLarge = controlFlags & 0x08;
-    controlInteruptOnVBL = controlFlags & 0x10;
-    foregroundSprite0Line = controlFlags & 0x20;
-    foregroundSprite0Should = controlFlags & 0x40;
-    foregroundSprite0Hit = controlFlags & 0x80;
-
-    maskGreyscaleMode = maskFlags & 0x01;
-    maskRenderBackgroundLeft = maskFlags & 0x02;
-    maskRenderForegroundLeft = maskFlags & 0x04;
-    maskRenderBackground = maskFlags & 0x08;
-    maskRenderForeground = maskFlags & 0x10;
-    maskColorEmphasize = maskFlags >> 5;
-
-    sendNMI = statusFlags & 0x01;
-    preventNMI = statusFlags & 0x02;
-    addressLatch = statusFlags & 0x04;
-    cycleLatch = statusFlags & 0x08;
-    frameReady = statusFlags & 0x10;
-    statusSpriteOverflow = statusFlags & 0x20;
-    statusSprite0Hit = statusFlags & 0x40;
-    statusVerticalBlank = statusFlags & 0x80;
-}
-
-void nes::PPU::internalWrite(uint16_t address, uint8_t value) {
-    address &= 0x3FFF;
-
-    if (address < 0x2000) {
-        mapper.notify(address, pixelY * 341 + pixelX);
-        mapper.writePPU(address, value);
-    } else if (address < 0x3F00) {
-        memoryVideo[mapper.getMirroredAddress(address)] = value;
-    } else {
-        address &= 0x001F;
-
-        if (address == 0x0010) {
-            address = 0x0000;
-        } else if (address == 0x0014) {
-            address = 0x0004;
-        } else if (address == 0x0018) {
-            address = 0x0008;
-        } else if (address == 0x001C) {
-            address = 0x000C;
-        }
-
-        memoryPalette[address] = value;
-    }
-}
-
-uint8_t nes::PPU::internalRead(uint16_t address) {
-    address &= 0x3FFF;
-
-    if (address < 0x2000) {
-        mapper.notify(address, pixelY * 341 + pixelX);
-
-        return mapper.readPPU(address);
-    } else if (address < 0x3F00) {
-        return memoryVideo[mapper.getMirroredAddress(address)];
-    } else {
-        address &= 0x001F;
-
-        if (address == 0x0010) {
-            address = 0x0000;
-        } else if (address == 0x0014) {
-            address = 0x0004;
-        } else if (address == 0x0018) {
-            address = 0x0008;
-        } else if (address == 0x001C) {
-            address = 0x000C;
-        }
-
-        return memoryPalette[address];
-    }
-}
-
-void nes::PPU::incrementScrollX() {
-    if (maskRenderBackground || maskRenderForeground) {
-        if ((registerV & 0x001F) == 0x1F) {
-            registerV &= 0xFFE0;
-            registerV ^= 0x0400;
-        } else {
-            registerV++;
-        }
-    }
-}
-
-void nes::PPU::incrementScrollY() {
-    if (maskRenderBackground || maskRenderForeground) {
-        if ((registerV & 0x7000) != 0x7000) {
-            registerV += 0x1000;
-        } else {
-            registerV &= 0x8FFF;
-
-            uint8_t coarseY = (registerV & 0x03E0) >> 5;
+            uint8_t coarseY = (_registerV & 0x03E0) >> 5;
 
             if (coarseY == 0x1D) {
                 coarseY = 0;
-                registerV ^= 0x0800;
-            } else if (((registerV >> 5) & 0x1F) == 0x1F) {
+                _registerV ^= 0x0800;
+            } else if (((_registerV >> 5) & 0x1F) == 0x1F) {
                 coarseY = 0;
             } else {
                 coarseY++;
             }
 
-            registerV = (registerV & 0xFC1F) | (coarseY << 5);
+            _registerV &= 0xFC1F;
+            _registerV |= coarseY << 5;
         }
     }
 }
 
-void nes::PPU::resetScrollX() {
-    if (maskRenderBackground || maskRenderForeground) {
-        registerV &= 0xFBE0;
-        registerV |= registerT & 0x041F;
+void PPU::resetScrollX() {
+    if (_maskRenderBackground || _maskRenderForeground) {
+        _registerV &= 0xFBE0;
+        _registerV |= _registerT & 0x041F;
     }
 }
 
-void nes::PPU::resetScrollY() {
-    if (maskRenderBackground || maskRenderForeground) {
-        registerV &= 0x841F;
-        registerV |= registerT & 0x7BE0;
+void PPU::resetScrollY() {
+    if (_maskRenderBackground || _maskRenderForeground) {
+        _registerV &= 0x841F;
+        _registerV |= _registerT & 0x7BE0;
     }
 }
 
-void nes::PPU::fetchBackgroundData() {
-    updateBackgroundShifter();
 
-    switch ((pixelX - 1) & 0x07) {
-    case 0x0: {
-        backgroundShifter[0] = (backgroundShifter[0] & 0xFF00) | backgroundData[2];
-        backgroundShifter[1] = (backgroundShifter[1] & 0xFF00) | backgroundData[3];
+void PPU::loadBackgroundShifters() {
+    updateBackgroundShifters();
 
-        if (backgroundData[1] & 0x01) {
-            backgroundShifter[2] = (backgroundShifter[2] & 0xFF00) | 0xFF;
-        } else {
-            backgroundShifter[2] = (backgroundShifter[2] & 0xFF00);
-        }
-
-        if (backgroundData[1] & 0x02) {
-            backgroundShifter[3] = (backgroundShifter[3] & 0xFF00) | 0xFF;
-        } else {
-            backgroundShifter[3] = (backgroundShifter[3] & 0xFF00);
-        }
-
-        backgroundData[0] = internalRead(0x2000 | (registerV & 0x0FFF));
-
-        break;
-    }
-
-    case 0x2: {
-        backgroundData[1] = internalRead(0x23C0 | (registerV & 0x0C00) | ((registerV >> 4) & 0x38) | ((registerV >> 2) & 0x07));
-
-        if (registerV & 0x0040) {
-            backgroundData[1] >>= 4;
-        }
-
-        if (registerV & 0x0002) {
-            backgroundData[1] >>= 2;
-        }
-
-        backgroundData[1] &= 0x03;
-
-        break;
-    }
-
-    case 0x4: {
-        uint16_t address = controlBackgroundTable << 12;
-
-        address |= backgroundData[0] << 4;
-        address |= (registerV >> 12) & 0x07;
-
-        backgroundData[2] = internalRead(address);
-
-        break;
-    }
-
-    case 0x6: {
-        uint16_t address = controlBackgroundTable << 12;
-
-        address |= backgroundData[0] << 4;
-        address |= 8 + ((registerV >> 12) & 0x07);
-
-        backgroundData[3] = internalRead(address);
-
-        break;
-    }
-
-    case 0x7: incrementScrollX(); break;
-    }
-}
-
-void nes::PPU::updateBackgroundShifter() {
-    if (maskRenderBackground) {
-        backgroundShifter[0] <<= 1;
-        backgroundShifter[1] <<= 1;
-        backgroundShifter[2] <<= 1;
-        backgroundShifter[3] <<= 1;
-    }
-}
-
-void nes::PPU::resetForegroundData() {
-    foregroundSpriteCountNext = foregroundSpriteCount;
-
-    foregroundDataPointer = 0;
-    foregroundSpriteCount = 0;
-    foregroundEvaluationStep = 0x0;
-    foregroundSprite0Line = foregroundSprite0Should;
-    foregroundSprite0Should = false;
-    foregroundSprite0Hit = false;
-}
-
-void nes::PPU::clearForegroundData() {
-    if (pixelX & 0x01) {
-        foregroundData[foregroundDataPointer++] = 0xFF;
-
-        foregroundDataPointer &= 0x1F;
-    }
-}
-
-void nes::PPU::fetchForegroundData() {
-    if (pixelX % 2 == 0 && (maskRenderBackground || maskRenderForeground)) {
-        uint8_t spriteSize = controlForegroundLarge ? 16 : 8;
-
-        switch (foregroundEvaluationStep) {
-        case 0x0: {
-            foregroundData[foregroundSpriteCount * 4 + (foregroundSpritePointer & 0x03)] = memorySprites[foregroundSpritePointer];
-
-            if (!(foregroundSpritePointer & 0x3)) {
-                int16_t offsetY = int16_t(pixelY) - int16_t(memorySprites[foregroundSpritePointer]);
-
-                if (offsetY >= 0 && offsetY < spriteSize) {
-                    if (!foregroundSpritePointer++) {
-                        foregroundSprite0Should = true;
-                    }
-                } else {
-                    foregroundSpritePointer += 4;
-
-                    if (!foregroundSpritePointer) {
-                        foregroundEvaluationStep = 0x2;
-                    } else if (foregroundSpriteCount == 8) {
-                        foregroundEvaluationStep = 0x1;
-                    }
-                }
-            } else if (!(++foregroundSpritePointer & 0x03)) {
-                foregroundSpriteCount++;
-
-                if (!foregroundSpritePointer) {
-                    foregroundEvaluationStep = 0x2;
-                } else if (foregroundSpriteCount == 8) {
-                    foregroundEvaluationStep = 0x1;
-                }
-            }
-
-            break;
-        }
-
+    if (_renderingEnabled) {
+        switch (_pixelX & 0x07) {
         case 0x1: {
-            if (foregroundReadDelay) {
-                foregroundReadDelay--;
+            _backgroundShifter[0] = (_backgroundShifter[0] & 0xFF00) | _backgroundData[2];
+            _backgroundShifter[1] = (_backgroundShifter[1] & 0xFF00) | _backgroundData[3];
+
+            if (_backgroundData[1] & 0x01) {
+                _backgroundShifter[2] = (_backgroundShifter[2] & 0xFF00) | 0xFF;
             } else {
-                int16_t offsetY = int16_t(pixelY) - int16_t(memorySprites[foregroundSpritePointer]);
+                _backgroundShifter[2] = (_backgroundShifter[2] & 0xFF00);
+            }
+
+            if (_backgroundData[1] & 0x02) {
+                _backgroundShifter[3] = (_backgroundShifter[3] & 0xFF00) | 0xFF;
+            } else {
+                _backgroundShifter[3] = (_backgroundShifter[3] & 0xFF00);
+            }
+
+            uint16_t address = 0x2000;
+            address |= _registerV & 0x0FFF;
+
+            _backgroundData[0] = readAndNotifyA12(address);
+
+            break;
+        }
+
+        case 0x3: {
+            uint16_t address = 0x23C0;
+            address |= _registerV & 0x0C00;
+            address |= (_registerV >> 4) & 0x38;
+            address |= (_registerV >> 2) & 0x07;
+
+            _backgroundData[1] = readAndNotifyA12(address);
+
+            if (_registerV & 0x0040) {
+                _backgroundData[1] >>= 4;
+            }
+
+            if (_registerV & 0x0002) {
+                _backgroundData[1] >>= 2;
+            }
+
+            _backgroundData[1] &= 0x03;
+
+            break;
+        }
+
+        case 0x5: {
+            uint16_t address = _controlBackgroundTable << 12;
+            address |= _backgroundData[0] << 4;
+            address |= _registerV >> 12;
+
+            _backgroundData[2] = readAndNotifyA12(address);
+
+            break;
+        } case 0x7: {
+            uint16_t address = _controlBackgroundTable << 12;
+            address |= _backgroundData[0] << 4;
+            address |= _registerV >> 12;
+            address += 0x8;
+
+            _backgroundData[3] = readAndNotifyA12(address);
+
+            break;
+
+        }
+
+        case 0x0: incrementScrollX(); break;
+        }
+    }
+}
+
+void PPU::updateBackgroundShifters() {
+    if (_maskRenderBackground || _maskRenderForeground) {
+        _backgroundShifter[0] <<= 1;
+        _backgroundShifter[1] <<= 1;
+        _backgroundShifter[2] <<= 1;
+        _backgroundShifter[3] <<= 1;
+    }
+}
+
+void PPU::resetForegroundData() {
+    _foregroundSpriteCountNext = _foregroundSpriteCount;
+
+    _foregroundDataPointer = 0;
+    _foregroundSpriteCount = 0;
+    _foregroundEvaluationStep = SpriteEvaluationStep::LOAD_SECONDARY_OAM;
+    _foregroundSpriteZeroLine = _foregroundSpriteZeroShould;
+    _foregroundSpriteZeroShould = false;
+    _foregroundSpriteZeroHit = false;
+}
+
+void PPU::clearForegroundData() {
+    if (_pixelX & 0x01) {
+        _foregroundData[_foregroundDataPointer++] = 0xFF;
+
+        _foregroundDataPointer &= 0x1F;
+    }
+}
+
+void PPU::fetchForegroundData() {
+    if (_pixelX % 2 == 0 && _renderingEnabled) {
+        uint8_t spriteSize = _controlForegroundLarge ? 16 : 8;
+
+        switch (_foregroundEvaluationStep) {
+        case SpriteEvaluationStep::LOAD_SECONDARY_OAM: {
+            uint8_t spriteData = _nes.readOAM(_foregroundSpritePointer);
+
+            _foregroundData[_foregroundSpriteCount * 4 + (_foregroundSpritePointer & 0x03)] = spriteData;
+
+            if (!(_foregroundSpritePointer & 0x3)) {
+                int16_t offsetY = int16_t(_pixelY) - int16_t(spriteData);
 
                 if (offsetY >= 0 && offsetY < spriteSize) {
-                    statusSpriteOverflow = true;
-
-                    foregroundSpritePointer++;
-                    foregroundReadDelay = 3;
-                } else {
-                    uint8_t low = (foregroundSpritePointer + 1) & 0x03;
-
-                    foregroundSpritePointer += 0x04;
-                    foregroundSpritePointer &= 0xFC;
-
-                    if (!foregroundSpritePointer) {
-                        foregroundEvaluationStep = 0x2;
+                    if (!_foregroundSpritePointer++) {
+                        _foregroundSpriteZeroShould = true;
                     }
+                } else {
+                    _foregroundSpritePointer += 4;
 
-                    foregroundSpritePointer |= low;
+                    if (!_foregroundSpritePointer) {
+                        _foregroundEvaluationStep = SpriteEvaluationStep::IDLE;
+                    } else if (_foregroundSpriteCount == 8) {
+                        _foregroundEvaluationStep = SpriteEvaluationStep::INCREMENT_POINTER;
+                    }
+                }
+            } else if (!(++_foregroundSpritePointer & 0x03)) {
+                _foregroundSpriteCount++;
+
+                if (!_foregroundSpritePointer) {
+                    _foregroundEvaluationStep = SpriteEvaluationStep::IDLE;
+                } else if (_foregroundSpriteCount == 8) {
+                    _foregroundEvaluationStep = SpriteEvaluationStep::INCREMENT_POINTER;
                 }
             }
 
             break;
         }
 
-        default: foregroundSpritePointer = 0;
-        }
-    }
-}
+        case SpriteEvaluationStep::INCREMENT_POINTER: {
+            if (_foregroundReadDelay) {
+                _foregroundReadDelay--;
+            } else {
+                int16_t offsetY = int16_t(_pixelY) - int16_t(_nes.readOAM(_foregroundSpritePointer));
 
-void nes::PPU::loadForegroundShifter() {
-    foregroundSpritePointer = 0;
+                if (offsetY >= 0 && offsetY < spriteSize) {
+                    _statusSpriteOverflow = true;
 
-    if (pixelX == 257) {
-        foregroundDataPointer = 0;
-    }
-
-    if (foregroundDataPointer == foregroundSpriteCount) {
-        // return;
-    }
-
-    switch ((pixelX - 1) & 0x7) {
-    case 0x4: {
-        foregroundOffset = pixelY - foregroundData[foregroundDataPointer * 4];
-
-        break;
-    }
-
-    case 0x5: {
-        uint16_t addressPattern = 0x0000;
-
-        if (controlForegroundLarge) {
-            addressPattern = (foregroundData[foregroundDataPointer * 4 + 1] & 0x01) << 12;
-
-            if (foregroundData[foregroundDataPointer * 4 + 2] & 0x80) {
-                if (foregroundOffset < 8) {
-                    addressPattern |= ((foregroundData[foregroundDataPointer * 4 + 1] & 0xFE) + 1) << 4;
+                    _foregroundSpritePointer++;
+                    _foregroundReadDelay = 3;
                 } else {
-                    addressPattern |= ((foregroundData[foregroundDataPointer * 4 + 1] & 0xFE)) << 4;
-                }
+                    uint8_t low = (_foregroundSpritePointer + 1) & 0x03;
 
-                addressPattern |= (7 - foregroundOffset) & 0x07;
-            } else {
-                if (foregroundOffset < 8) {
-                    addressPattern |= ((foregroundData[foregroundDataPointer * 4 + 1] & 0xFE)) << 4;
+                    _foregroundSpritePointer += 0x04;
+                    _foregroundSpritePointer &= 0xFC;
+
+                    if (!_foregroundSpritePointer) {
+                        _foregroundEvaluationStep = SpriteEvaluationStep::IDLE;
+                    }
+
+                    _foregroundSpritePointer |= low;
+                }
+            }
+
+            break;
+        }
+
+        default: _foregroundSpritePointer = 0;
+        }
+    }
+}
+
+void PPU::loadForegroundShifter() {
+    if (_renderingEnabled) {
+        _foregroundSpritePointer = 0;
+
+        if (_pixelX == 257) {
+            _foregroundDataPointer = 0;
+        }
+
+        switch (_pixelX & 0x7) {
+        case 0x1: {
+            _nes.getMapper()->notifyStateA12(false);
+
+            break;
+        }
+
+        case 0x5: {
+            uint8_t spriteIndex = _foregroundData[_foregroundDataPointer * 4 + 1];
+            uint8_t spriteAttribute = _foregroundData[_foregroundDataPointer * 4 + 2];
+
+            uint8_t offset = 0x00;
+
+            if (_foregroundDataPointer < _foregroundSpriteCount) {
+                offset = _pixelY - _foregroundData[_foregroundDataPointer * 4];
+            }
+
+            _foregroundSpriteAddress = 0x0000;
+
+            if (_controlForegroundLarge) {
+                _foregroundSpriteAddress = (spriteIndex & 0x01) << 12;
+
+                if (spriteAttribute & 0x80) {
+                    if (offset < 8) {
+                        _foregroundSpriteAddress |= ((spriteIndex & 0xFE) + 1) << 4;
+                    } else {
+                        _foregroundSpriteAddress |= ((spriteIndex & 0xFE)) << 4;
+                    }
                 } else {
-                    addressPattern |= ((foregroundData[foregroundDataPointer * 4 + 1] & 0xFE) + 1) << 4;
+                    if (offset < 8) {
+                        _foregroundSpriteAddress |= ((spriteIndex & 0xFE)) << 4;
+                    } else {
+                        _foregroundSpriteAddress |= ((spriteIndex & 0xFE) + 1) << 4;
+                    }
                 }
-
-                addressPattern |= foregroundOffset & 0x07;
-            }
-        } else {
-            addressPattern = controlForegroundTable << 12 | foregroundData[foregroundDataPointer * 4 + 1] << 4;
-
-            if (foregroundData[foregroundDataPointer * 4 + 2] & 0x80) {
-                addressPattern |= 7 - foregroundOffset;
             } else {
-                addressPattern |= foregroundOffset;
+                _foregroundSpriteAddress = _controlForegroundTable << 12 | spriteIndex << 4;
             }
+
+            if (spriteAttribute & 0x80) {
+                _foregroundSpriteAddress |= (7 - offset) & 0x07;
+            } else {
+                _foregroundSpriteAddress |= offset & 0x07;
+            }
+
+            uint8_t spritePatternLSBPlane = readAndNotifyA12(_foregroundSpriteAddress);
+
+
+            if (spriteAttribute & 0x40) {
+                spritePatternLSBPlane = (spritePatternLSBPlane & 0xF0) >> 4 | (spritePatternLSBPlane & 0x0F) << 4;
+                spritePatternLSBPlane = (spritePatternLSBPlane & 0xCC) >> 2 | (spritePatternLSBPlane & 0x33) << 2;
+                spritePatternLSBPlane = (spritePatternLSBPlane & 0xAA) >> 1 | (spritePatternLSBPlane & 0x55) << 1;
+            }
+
+            _foregroundShifter[_foregroundDataPointer * 2] = spritePatternLSBPlane;
+
+            break;
         }
 
-        uint8_t spritePatternLSBPlane = internalRead(addressPattern);
-        uint8_t spritePatternMSBPlane = internalRead(addressPattern + 8);
+        case 0x7: {
+            uint8_t spritePatternMSBPlane = readAndNotifyA12(_foregroundSpriteAddress + 8);
 
-        if (foregroundData[foregroundDataPointer * 4 + 2] & 0x40) {
-            spritePatternLSBPlane = (spritePatternLSBPlane & 0xF0) >> 4 | (spritePatternLSBPlane & 0x0F) << 4;
-            spritePatternLSBPlane = (spritePatternLSBPlane & 0xCC) >> 2 | (spritePatternLSBPlane & 0x33) << 2;
-            spritePatternLSBPlane = (spritePatternLSBPlane & 0xAA) >> 1 | (spritePatternLSBPlane & 0x55) << 1;
+            if (_foregroundData[_foregroundDataPointer * 4 + 2] & 0x40) {
+                spritePatternMSBPlane = (spritePatternMSBPlane & 0xF0) >> 4 | (spritePatternMSBPlane & 0x0F) << 4;
+                spritePatternMSBPlane = (spritePatternMSBPlane & 0xCC) >> 2 | (spritePatternMSBPlane & 0x33) << 2;
+                spritePatternMSBPlane = (spritePatternMSBPlane & 0xAA) >> 1 | (spritePatternMSBPlane & 0x55) << 1;
+            }
 
-            spritePatternMSBPlane = (spritePatternMSBPlane & 0xF0) >> 4 | (spritePatternMSBPlane & 0x0F) << 4;
-            spritePatternMSBPlane = (spritePatternMSBPlane & 0xCC) >> 2 | (spritePatternMSBPlane & 0x33) << 2;
-            spritePatternMSBPlane = (spritePatternMSBPlane & 0xAA) >> 1 | (spritePatternMSBPlane & 0x55) << 1;
+            _foregroundShifter[_foregroundDataPointer * 2 + 1] = spritePatternMSBPlane;
+            _foregroundPositions[_foregroundDataPointer] = _foregroundData[_foregroundDataPointer * 4 + 3];
+            _foregroundAttributes[_foregroundDataPointer] = _foregroundData[_foregroundDataPointer * 4 + 2];
+
+            _foregroundDataPointer++;
+
+            break;
         }
-
-        foregroundShifter[foregroundDataPointer * 2] = spritePatternLSBPlane;
-        foregroundShifter[foregroundDataPointer * 2 + 1] = spritePatternMSBPlane;
-
-        break;
-    }
-
-    case 0x6: {
-        foregroundAttributes[foregroundDataPointer] = foregroundData[foregroundDataPointer * 4 + 2];
-
-        break;
-    }
-
-    case 0x7: {
-        foregroundPositions[foregroundDataPointer] = foregroundData[foregroundDataPointer * 4 + 3];
-
-        foregroundDataPointer++;
-
-        break;
-    }
+        }
     }
 }
 
-void nes::PPU::updateForegroundShifter() {
-    if (maskRenderForeground) {
-        for (uint8_t sprite = 0; sprite < foregroundSpriteCountNext; sprite++) {
-            if (foregroundPositions[sprite] > 0) {
-                foregroundPositions[sprite] --;
+void PPU::updateForegroundShifter() {
+    if (_maskRenderForeground) {
+        for (uint8_t sprite = 0; sprite < _foregroundSpriteCountNext; sprite++) {
+            if (_foregroundPositions[sprite] > 0) {
+                _foregroundPositions[sprite] --;
             } else {
-                foregroundShifter[sprite * 2] <<= 1;
-                foregroundShifter[sprite * 2 + 1] <<= 1;
+                _foregroundShifter[sprite * 2] <<= 1;
+                _foregroundShifter[sprite * 2 + 1] <<= 1;
             }
         }
     }
 }
 
-uint8_t nes::PPU::blend() {
+uint8_t PPU::blend() {
+    if (!_renderingEnabled && (_registerV & 0x3FFF) >= 0x3F00) {
+        return _registerV & 0x1F;
+    }
+
     uint8_t backgroundPixel = 0x00;
     uint8_t backgroundPalette = 0x00;
 
-    if (maskRenderBackground && (pixelX > 8 || maskRenderBackgroundLeft)) {
-        uint16_t bitMask = 0x8000 >> offsetX;
+    if (_maskRenderBackground && (_pixelX > 8 || _maskRenderBackgroundLeft)) {
+        uint16_t bitMask = 0x8000 >> _scrollX;
 
-        backgroundPixel = ((backgroundShifter[0] & bitMask) > 0) | (((backgroundShifter[1] & bitMask) > 0) << 1);
-        backgroundPalette = ((backgroundShifter[2] & bitMask) > 0) | (((backgroundShifter[3] & bitMask) > 0) << 1);
+        backgroundPixel = ((_backgroundShifter[0] & bitMask) > 0) | (((_backgroundShifter[1] & bitMask) > 0) << 1);
+        backgroundPalette = ((_backgroundShifter[2] & bitMask) > 0) | (((_backgroundShifter[3] & bitMask) > 0) << 1);
     }
 
     uint8_t foregroundPixel = 0x00;
     uint8_t foregroundPalette = 0x00;
     uint8_t foregroundPriority = 0x00;
 
-    if (maskRenderForeground && (pixelX > 8 || maskRenderForegroundLeft)) {
-        foregroundSprite0Hit = false;
+    if (_maskRenderForeground && (_pixelX > 8 || _maskRenderForegroundLeft)) {
+        _foregroundSpriteZeroHit = false;
 
-        for (uint8_t sprite = 0; sprite < foregroundSpriteCountNext; sprite++) {
-            if (foregroundPositions[sprite] == 0) {
-                foregroundPixel = ((foregroundShifter[sprite * 2] & 0x80) > 0) | (((foregroundShifter[sprite * 2 + 1] & 0x80) > 0) << 1);
-                foregroundPalette = (foregroundAttributes[sprite] & 0x03) + 0x04;
-                foregroundPriority = (foregroundAttributes[sprite] & 0x20) == 0x00;
+        for (uint8_t sprite = 0; sprite < _foregroundSpriteCountNext; sprite++) {
+            if (_foregroundPositions[sprite] == 0) {
+                foregroundPixel = ((_foregroundShifter[sprite * 2] & 0x80) > 0) | (((_foregroundShifter[sprite * 2 + 1] & 0x80) > 0) << 1);
+                foregroundPalette = (_foregroundAttributes[sprite] & 0x03) + 0x04;
+                foregroundPriority = (_foregroundAttributes[sprite] & 0x20) == 0x00;
 
                 if (foregroundPixel != 0) {
-                    if (sprite == 0) {
-                        foregroundSprite0Hit = true;
+                    if (sprite == 0 && _pixelX != 256) {
+                        _foregroundSpriteZeroHit = true;
                     }
 
                     break;
@@ -1488,11 +2380,7 @@ uint8_t nes::PPU::blend() {
     uint8_t finalPixel = 0x00;
     uint8_t finalPalette = 0x00;
 
-    if (!maskRenderBackground && !maskRenderForeground && (registerV & 0x3FFF) >= 0x3F00) {
-        return registerV & 0x1F;
-    }
-
-    if (pixelX > 0 && pixelX < 258) {
+    if (_pixelX > 0 && _pixelY < 258) {
         if (backgroundPixel == 0 && foregroundPixel > 0) {
             finalPixel = foregroundPixel;
             finalPalette = foregroundPalette;
@@ -1508,1292 +2396,649 @@ uint8_t nes::PPU::blend() {
                 finalPalette = backgroundPalette;
             }
 
-            if (foregroundSprite0Hit && foregroundSprite0Line && (pixelX > 8 || maskRenderBackgroundLeft || maskRenderForegroundLeft)) {
-                statusSprite0Hit = true;
+            if (_foregroundSpriteZeroHit && _foregroundSpriteZeroLine && (_pixelX > 8 || _maskRenderBackgroundLeft || _maskRenderForegroundLeft)) {
+                _statusSpriteZeroHit = true;
             }
         }
     }
 
     finalPixel |= finalPalette << 2;
 
-    if (maskGreyscaleMode) {
+    if (_maskGreyscaleMode) {
         finalPixel &= 0x30;
     }
 
     return finalPixel;
 }
 
-nes::CPU::CPU(Mapper& mapper, PPU& ppu) : mapper(mapper), ppu(ppu) {
-    registerA = 0x00;
-    registerX = 0x00;
-    registerY = 0x00;
 
-    status = 0x34;
 
-    stackPointer = 0xFD;
-    controllerShifter = 0x00;
+APU::APU(NES& nes) : _nes(nes) {
+    _latchCycle = false;
 
-    programCounter = read(0xFFFC) | (read(0xFFFD) << 8);
+    _delayDMA = 0x00;
+    _addressDMA = 0x00;
 
-    frozen = false;
+    _pendingDMA = false;
 
-    for (int k = 0; k < 5; k++) {
-        internalTick();
+    _openBus = 0x00;
+
+    _frameCounterClock = 0x0000;
+    _delayFrameReset = 0x0000;
+
+    memset(_channelCounters, 0x00, 4);
+    memset(_channelEnabled, false, 4);
+    memset(_channelHalted, false, 4);
+
+    _stepMode = false;
+
+    _inhibitFrameIRQ = false;
+    _sendFrameIRQ = false;
+
+    _deltaChannelRemainingBytes = 0x0000;
+    _deltaChannelSampleLength = 0x0000;
+    _deltaChannelPeriodCounter = 0x0000;
+    _deltaChannelPeriodLoad = 0x0000;
+
+    _deltaChannelBitsInBuffer = 0x00;
+
+    _deltaChannelShouldLoop = false;
+    _deltaChannelEnableIRQ = false;
+    _deltaChannelSampleBufferEmpty = false;
+
+    _enableDMC = false;
+    _sendDeltaChannelIRQ = false;
+}
+
+APU::~APU() { }
+
+void APU::power() {
+    _latchCycle = false;
+
+    _delayDMA = 0x00;
+    _addressDMA = 0x00;
+
+    _pendingDMA = false;
+
+    _openBus = 0x00;
+
+    _frameCounterClock = 0x0000;
+    _delayFrameReset = 0x0000;
+
+    memset(_channelCounters, 0x00, 4);
+    memset(_channelEnabled, false, 4);
+    memset(_channelHalted, false, 4);
+
+    _stepMode = false;
+
+    _inhibitFrameIRQ = false;
+    _sendFrameIRQ = false;
+
+    _deltaChannelRemainingBytes = 0x0000;
+    _deltaChannelSampleLength = 0x0000;
+    _deltaChannelPeriodCounter = PERIOD_DMC_TABLE[0];
+    _deltaChannelPeriodLoad = PERIOD_DMC_TABLE[0];
+
+    _deltaChannelBitsInBuffer = 0x08;
+
+    _deltaChannelShouldLoop = false;
+    _deltaChannelEnableIRQ = false;
+    _deltaChannelSampleBufferEmpty = true;
+
+    _enableDMC = false;
+    _sendDeltaChannelIRQ = false;
+}
+
+void APU::reset() {
+    _enableDMC = false;
+
+    memset(_channelCounters, 0x00, 4);
+    memset(_channelEnabled, false, 4);
+
+    _sendDeltaChannelIRQ = false;
+    _deltaChannelRemainingBytes = 0;
+
+    _latchCycle = false;
+
+    _delayDMA = 0x00;
+    _sendFrameIRQ = false;
+    _sendDeltaChannelIRQ = false;
+    _deltaChannelPeriodCounter = PERIOD_DMC_TABLE[0];
+    _deltaChannelPeriodLoad = PERIOD_DMC_TABLE[0];
+    _deltaChannelRemainingBytes = 0;
+    _deltaChannelSampleBufferEmpty = true;
+    _deltaChannelBitsInBuffer = 8;
+
+    _nes.write(0x4015, 0x00);
+    _nes.write(0x4017, _stepMode << 7 | _inhibitFrameIRQ << 6);
+}
+
+void APU::tick(bool reading, bool preventLoad) {
+    if (reading) {
+        performPendingDMA();
+    }
+
+    _latchCycle = !_latchCycle;
+
+    if (_stepMode) {
+        if (_delayFrameReset > 0 && --_delayFrameReset == 0) {
+            _frameCounterClock = 0;
+        } else if (++_frameCounterClock == 37282) {
+            _frameCounterClock = 0;
+        } if (_frameCounterClock == 14913 || _frameCounterClock == 37281) {
+            updateCounters();
+        }
+    } else {
+        if (_delayFrameReset > 0 && --_delayFrameReset == 0) {
+            _frameCounterClock = 0;
+        } else if (++_frameCounterClock == 29830) {
+            _frameCounterClock = 0;
+
+            if (!_inhibitFrameIRQ) {
+                setFrameIRQ(true);
+            }
+        }
+
+        if (_frameCounterClock == 14913 || _frameCounterClock == 29829) {
+            updateCounters();
+        }
+
+        if (_frameCounterClock >= 29828 && !_inhibitFrameIRQ) {
+            setFrameIRQ(true);
+        }
+    }
+
+    if (--_deltaChannelPeriodCounter == 0) {
+        _deltaChannelPeriodCounter = _deltaChannelPeriodLoad;
+
+        if (--_deltaChannelBitsInBuffer == 0) {
+            _deltaChannelBitsInBuffer = 8;
+
+            if (!_deltaChannelSampleBufferEmpty) {
+                _deltaChannelSampleBufferEmpty = true;
+            }
+
+            if (_deltaChannelRemainingBytes > 0 && !preventLoad) {
+                loadDeltaChannelByte(reading);
+            }
+        }
     }
 }
 
-nes::CPU::~CPU() { }
+void APU::write(uint8_t address, uint8_t value) {
+    _openBus = value;
 
-void nes::CPU::tick() {
-    if (frozen) {
+    switch (address) {
+    case Register::PULSE_1_0: _channelHalted[0x0] = value & 0x20; break;
+    case Register::PULSE_1_3: if (_channelEnabled[0x0]) _channelCounters[0x0] = LENGTH_COUNTER_TABLE[value >> 3]; break;
+    case Register::PULSE_2_0: _channelHalted[0x1] = value & 0x20; break;
+    case Register::PULSE_2_3: if (_channelEnabled[0x1]) _channelCounters[0x1] = LENGTH_COUNTER_TABLE[value >> 3]; break;
+    case Register::TRIANGLE_0: _channelHalted[0x2] = value & 0x80; break;
+    case Register::TRIANGLE_3: if (_channelEnabled[0x2]) _channelCounters[0x2] = LENGTH_COUNTER_TABLE[value >> 3]; break;
+    case Register::NOISE_0: _channelHalted[0x3] = value & 0x20; break;
+    case Register::NOISE_3: if (_channelEnabled[0x3]) _channelCounters[0x3] = LENGTH_COUNTER_TABLE[value >> 3]; break;
+    case Register::OAM_DMA: performDMA(value); break;
+    case Register::DELTA_3: _deltaChannelSampleLength = (value << 4) + 1; break;
+
+    case Register::DELTA_0: {
+        _deltaChannelEnableIRQ = value & 0x80;
+        _deltaChannelShouldLoop = value & 0x40;
+        _deltaChannelPeriodLoad = PERIOD_DMC_TABLE[value & 0x0F];
+
+        if (!_deltaChannelEnableIRQ) {
+            setDeltaIRQ(false);
+        }
+
+        break;
+    }
+
+    case Register::CTRL_STATUS: {
+        _enableDMC = value & 0x10;
+
+        for (uint8_t channel = 0; channel < 0x4; channel++) {
+            _channelEnabled[channel] = value & (1 << channel);
+
+            if (!_channelEnabled[channel]) {
+                _channelCounters[channel] = 0;
+            }
+        }
+
+        setDeltaIRQ(false);
+
+        if (!_enableDMC) {
+            _deltaChannelRemainingBytes = 0;
+        } else {
+            if (_deltaChannelRemainingBytes == 0) {
+                _deltaChannelRemainingBytes = _deltaChannelSampleLength;
+                if (_deltaChannelSampleBufferEmpty) {
+                    loadDeltaChannelByte(false);
+                }
+            }
+        }
+
+        break;
+    }
+
+    case Register::FRAME_COUNTER: {
+        _stepMode = value & 0x80;
+        _inhibitFrameIRQ = value & 0x40;
+
+        if (_inhibitFrameIRQ) {
+            setFrameIRQ(false);
+        }
+
+        _delayFrameReset = _latchCycle ? 4 : 3;
+
+        if (_stepMode) {
+            updateCounters();
+        }
+
+        break;
+    }
+    }
+}
+
+uint8_t APU::read(uint8_t address) {
+    if (address == Register::CTRL_STATUS) {
+        _openBus = _sendDeltaChannelIRQ << 7;
+        _openBus |= _sendFrameIRQ << 6;
+        _openBus |= (_deltaChannelRemainingBytes > 0) << 4;
+
+        for (uint8_t channel = 0; channel < 0x4; channel++) {
+            _openBus |= (_channelCounters[channel] > 0) << channel;
+        }
+
+        setFrameIRQ(false);
+    }
+
+    return _openBus;
+}
+
+void APU::updateCounters() {
+    for (uint8_t channel = 0; channel < 0x4; channel++) {
+        if (!_channelHalted[channel] && _channelCounters[channel] > 0) {
+            _channelCounters[channel]--;
+        }
+    }
+}
+
+void APU::loadDeltaChannelByte(bool reading) {
+    uint8_t delay = _delayDMA;
+
+    if (delay == 0) {
+        if (reading) {
+            delay = 0x4;
+        } else {
+            delay = 0x3;
+        }
+    }
+
+    for (uint8_t i = 0; i < delay; i++) {
+        tick(false, true);
+
+        _nes.getPPU()->tick();
+        _nes.getPPU()->tick();
+        _nes.getPPU()->tick();
+        _nes.getCPU()->poll();
+    }
+
+    _deltaChannelSampleBufferEmpty = false;
+
+    if (--_deltaChannelRemainingBytes == 0) {
+        if (_deltaChannelShouldLoop) {
+            _deltaChannelRemainingBytes = _deltaChannelSampleLength;
+        } else if (_deltaChannelEnableIRQ) {
+            setDeltaIRQ(true);
+        }
+    }
+}
+
+void APU::performDMA(uint8_t address) {
+    _addressDMA = address;
+    _pendingDMA = true;
+}
+
+void APU::performPendingDMA() {
+    if (!_pendingDMA) {
         return;
     }
 
-    if (spriteTransferActive) {
-        internalTick();
+    _pendingDMA = false;
+    _delayDMA = 0x2;
 
-        if (!spriteTransferSynchronized) {
-            if (cycleLatch) {
-                spriteTransferSynchronized = true;
+    if (!_latchCycle) {
+        _nes.dummyRead();
+    }
+
+    _nes.dummyRead();
+
+    uint16_t currentAddress = _addressDMA << 8;
+    uint8_t lowByte = 0x00;
+
+    _nes.write(0x2004, _nes.read(currentAddress++));
+
+    while ((lowByte = currentAddress & 0xFF) != 0) {
+        uint8_t value = _nes.read(currentAddress++);
+
+        if (lowByte == 254) {
+            _delayDMA = 0x1;
+
+            _nes.write(0x2004, value);
+
+            _delayDMA = 0x2;
+        } else if (lowByte == 255) {
+            _delayDMA = 0x3;
+
+            _nes.write(0x2004, value);
+
+            _delayDMA = 0x0;
+        } else {
+            _nes.write(0x2004, value);
+        }
+    }
+}
+
+void APU::setFrameIRQ(bool irq) {
+    _sendFrameIRQ = irq;
+
+    _nes.getCPU()->setFrameIRQ(irq);
+}
+
+void APU::setDeltaIRQ(bool irq) {
+    _sendDeltaChannelIRQ = irq;
+
+    _nes.getCPU()->setDeltaIRQ(irq);
+}
+
+
+
+Mapper::Mapper(NES& nes, uint8_t bankSizePRG, uint8_t bankSizeCHR, uint8_t bankCountPRG, uint8_t bankCountCHR, MirroringMode mode) :
+    _nes(nes), BANK_SIZE_PRG(bankSizePRG), BANK_SIZE_CHR(bankSizeCHR), BANK_COUNT_PRG(bankCountPRG), BANK_COUNT_CHR(bankCountCHR), _mode(mode),
+    BANK_MASK_PRG(0xFFFF >> (16 - bankSizePRG)), BANK_MASK_CHR(0xFFFF >> (16 - bankSizeCHR)) {
+    if (BANK_SIZE_PRG > 15 || BANK_SIZE_CHR > 13) {
+        throw "Invalid bank size";
+    }
+
+    _bankIndexPRG = new uint32_t[0x8000 >> BANK_SIZE_PRG]{ 0x00 };
+    _bankIndexCHR = new uint32_t[0x2000 >> BANK_SIZE_CHR]{ 0x00 };
+
+    _writableRAM = true;
+}
+
+Mapper::~Mapper() {
+    delete[] _bankIndexPRG;
+    delete[] _bankIndexCHR;
+}
+
+uint16_t Mapper::getMirroredAddress(uint16_t address) const {
+    switch (_mode) {
+    case MirroringMode::ONE_SCREEN_LOW: return address & 0x3FF;
+    case MirroringMode::ONE_SCREEN_HIGH: return (address & 0x3FF) + 0xC00;
+    case MirroringMode::VERTICAL: return address & 0x7FF;
+    case MirroringMode::HORIZONTAL: return address & 0xBFF;
+    default: return address & 0xFFF;
+    }
+}
+
+uint32_t Mapper::getAddressCPU(uint16_t address) const {
+    return _bankIndexPRG[address >> BANK_SIZE_PRG] + (address & BANK_MASK_PRG);
+}
+
+uint32_t Mapper::getAddressPPU(uint16_t address) const {
+    return _bankIndexCHR[address >> BANK_SIZE_CHR] + (address & BANK_MASK_CHR);
+}
+
+bool Mapper::isRAMWritable() const {
+    return _writableRAM;
+}
+
+
+Mapper000::Mapper000(NES& nes, uint8_t bankCountPRG, uint8_t bankCountCHR, MirroringMode mode) :
+    Mapper(nes, 14, 13, bankCountPRG, bankCountCHR, mode) {
+    _bankIndexPRG[0x0] = 0x0000;
+
+    if (bankCountPRG > 1) {
+        _bankIndexPRG[0x1] = 0x4000;
+    } else {
+        _bankIndexPRG[0x1] = 0x0000;
+    }
+}
+
+Mapper000::~Mapper000() { }
+
+
+Mapper001::Mapper001(NES& nes, uint8_t bankCountPRG, uint8_t bankCountCHR, MirroringMode mode) :
+    Mapper(nes, 14, 12, bankCountPRG, bankCountCHR, mode) {
+    _bankIndexPRG[0x0] = 0x0000;
+    _bankIndexPRG[0x1] = (bankCountPRG - 1) * 0x4000;
+
+    _counter = 0x00;
+    _registerControl = 0x00;
+    _registerLoad = 0x00;
+}
+
+Mapper001::~Mapper001() {}
+
+void Mapper001::writeCPU(uint16_t address, uint8_t value) {
+    if (value & 0x80) {
+        _registerLoad = 0x00;
+
+        _counter = 0;
+    } else {
+        _registerLoad >>= 1;
+        _registerLoad |= (value & 0x01) << 4;
+
+        if (++_counter == 5) {
+            uint8_t registerTarget = (address >> 13) & 0x03;
+
+            switch (registerTarget) {
+            case 0: {
+                _registerControl = _registerLoad & 0x1F;
+
+                switch (_registerControl & 0x03) {
+                case 0: _mode = MirroringMode::ONE_SCREEN_LOW; break;
+                case 1: _mode = MirroringMode::ONE_SCREEN_HIGH; break;
+                case 2: _mode = MirroringMode::VERTICAL; break;
+                case 3: _mode = MirroringMode::HORIZONTAL; break;
+                }
+
+                break;
+            }
+
+            case 1: {
+                if (_registerControl & 0x10) {
+                    _bankIndexCHR[0x0] = (_registerLoad & 0x1F) * 0x1000;
+                } else {
+                    _bankIndexCHR[0x0] = (_registerLoad & 0x1E) * 0x1000;
+                    _bankIndexCHR[0x1] = (_registerLoad & 0x1E) * 0x1000 + 0x1000;
+                }
+
+                break;
+            }
+
+            case 2: {
+                if (_registerControl & 0x10) {
+                    _bankIndexCHR[0x1] = (_registerLoad & 0x1F) * 0x1000;
+                }
+
+                break;
+            }
+
+            case 3: {
+                if (_registerControl & 0x08) {
+                    if (_registerControl & 0x04) {
+                        _bankIndexPRG[0x0] = (_registerLoad & 0x0F) * 0x4000;
+                        _bankIndexPRG[0x1] = (BANK_COUNT_PRG - 1) * 0x4000;
+                    } else {
+                        _bankIndexPRG[0x1] = (_registerLoad & 0xF) * 0x4000;
+                    }
+                } else {
+                    _bankIndexPRG[0x0] = (_registerLoad & 0x0E) * 0x4000;
+                    _bankIndexPRG[0x1] = (_registerLoad & 0x0E) * 0x4000 + 0x4000;
+                }
+
+                _writableRAM = ~_registerLoad & 0x10;
+
+                break;
+            }
+            }
+
+            _registerLoad = 0x00;
+            _counter = 0x00;
+        }
+    }
+}
+
+Mapper002::Mapper002(NES& nes, uint8_t bankCountPRG, uint8_t bankCountCHR, MirroringMode mode) :
+    Mapper(nes, 14, 13, bankCountPRG, bankCountCHR, mode) {
+    _bankIndexPRG[0x0] = 0x0000;
+    _bankIndexPRG[0x1] = (BANK_COUNT_PRG - 1) * 0x4000;
+}
+
+Mapper002::~Mapper002() { }
+
+void Mapper002::writeCPU(uint16_t address, uint8_t value) {
+    _bankIndexPRG[0x0] = value * 0x4000;
+}
+
+
+Mapper003::Mapper003(NES& nes, uint8_t bankCountPRG, uint8_t bankCountCHR, MirroringMode mode) :
+    Mapper(nes, 14, 13, bankCountPRG, bankCountCHR, mode) {
+    _bankIndexPRG[0x0] = 0x0000;
+
+    if (bankCountPRG > 1) {
+        _bankIndexPRG[0x1] = 0x4000;
+    } else {
+        _bankIndexPRG[0x1] = 0x0000;
+    }
+}
+
+Mapper003::~Mapper003() { }
+
+void Mapper003::writeCPU(uint16_t address, uint8_t value) {
+    _bankIndexCHR[0x0] = value * 0x2000;
+}
+
+
+Mapper004::Mapper004(NES& nes, uint8_t bankCountPRG, uint8_t bankCountCHR, MirroringMode mode) :
+    Mapper(nes, 13, 10, bankCountPRG, bankCountCHR, mode) {
+    _bankIndexPRG[0x0] = 0x0000;
+    _bankIndexPRG[0x1] = 0x2000;
+    _bankIndexPRG[0x2] = (bankCountPRG * 2 - 2) * 0x2000;
+    _bankIndexPRG[0x3] = (bankCountPRG * 2 - 1) * 0x2000;
+
+    memset(_registers, 0x0000, 0x20);
+
+    _tick = 0x0000;
+    _counter = 0x0000;
+    _counterReload = 0x0000;
+
+    _targetRegister = 0x00;
+
+    _modePRG = false;
+    _modeCHR = false;
+
+    _enableIRQ = false;
+    _shouldReloadIRQ = false;
+}
+
+Mapper004::~Mapper004() { }
+
+void Mapper004::tick() {
+    if (_tick > 0 && _tick < 11) {
+        _tick++;
+    }
+}
+
+void Mapper004::notifyStateA12(bool state) {
+    if (state) {
+        if (_tick > 10) {
+            if (_counter == 0 || _shouldReloadIRQ) {
+                _counter = _counterReload;
+            } else {
+                _counter--;
+            }
+
+            if (_counter == 0 && _enableIRQ) {
+                _nes.getCPU()->setMapperIRQ(true);
+            }
+
+            _shouldReloadIRQ = false;
+        }
+
+        _tick = 0;
+    } else {
+        if (_tick == 0) {
+            _tick = 1;
+        }
+    }
+}
+
+void Mapper004::writeCPU(uint16_t address, uint8_t value) {
+    if (address < 0x2000) {
+        if (address & 0x1) {
+            if (_targetRegister < 2) {
+                value &= 0xFE;
+            }
+
+            _registers[_targetRegister] = value;
+
+            if (_modePRG) {
+                _bankIndexPRG[0x2] = (_registers[0x6] & 0x3F) * 0x2000;
+                _bankIndexPRG[0x0] = (BANK_COUNT_PRG * 2 - 2) * 0x2000;
+            } else {
+                _bankIndexPRG[0x0] = (_registers[0x6] & 0x3F) * 0x2000;
+                _bankIndexPRG[0x2] = (BANK_COUNT_PRG * 2 - 2) * 0x2000;
+            }
+
+            _bankIndexPRG[0x1] = (_registers[0x7] & 0x3F) * 0x2000;
+            _bankIndexPRG[0x3] = (BANK_COUNT_PRG * 2 - 1) * 0x2000;
+
+            if (_modeCHR) {
+                _bankIndexCHR[0x0] = _registers[0x2] * 0x0400;
+                _bankIndexCHR[0x1] = _registers[0x3] * 0x0400;
+                _bankIndexCHR[0x2] = _registers[0x4] * 0x0400;
+                _bankIndexCHR[0x3] = _registers[0x5] * 0x0400;
+                _bankIndexCHR[0x4] = (_registers[0x0] & 0xFE) * 0x0400;
+                _bankIndexCHR[0x5] = _registers[0x0] * 0x0400 + 0x0400;
+                _bankIndexCHR[0x6] = (_registers[0x1] & 0xFE) * 0x0400;
+                _bankIndexCHR[0x7] = _registers[0x1] * 0x0400 + 0x0400;
+            } else {
+                _bankIndexCHR[0x0] = (_registers[0x0] & 0xFE) * 0x0400;
+                _bankIndexCHR[0x1] = _registers[0x0] * 0x0400 + 0x0400;
+                _bankIndexCHR[0x2] = (_registers[0x1] & 0xFE) * 0x0400;
+                _bankIndexCHR[0x3] = _registers[0x1] * 0x0400 + 0x0400;
+                _bankIndexCHR[0x4] = _registers[0x2] * 0x0400;
+                _bankIndexCHR[0x5] = _registers[0x3] * 0x0400;
+                _bankIndexCHR[0x6] = _registers[0x4] * 0x0400;
+                _bankIndexCHR[0x7] = _registers[0x5] * 0x0400;
             }
         } else {
-            if (!cycleLatch) {
-                spriteTransferValue = silentRead(spriteTransferAddress);
-            } else {
-                ppu.writeDMA(spriteTransferValue);
-
-                if ((++spriteTransferAddress & 0x00FF) == 0) {
-                    spriteTransferActive = false;
-                    spriteTransferSynchronized = false;
-                }
-            }
+            _targetRegister = value & 0x07;
+            _modePRG = value & 0x40;
+            _modeCHR = value & 0x80;
         }
-    } else {
-        uint8_t instruction = fetch();
-
-        (this->*INSTRUCTION_SET[instruction][1])();
-        (this->*INSTRUCTION_SET[instruction][0])();
-    }
-
-    if (ppu.shouldNMI()) {
-        interrupt(true);
-    }
-
-    if (mapper.shouldIRQ()) {
-        interrupt(false);
-    }
-
-    cycleLatch = !cycleLatch;
-}
-
-void nes::CPU::reset() {
-    programCounter = read(0xFFFC) | (read(0xFFFD) << 8);
-
-    status |= Flag::I;
-
-    stackPointer -= 3;
-
-    frozen = false;
-
-    for (int k = 0; k < 5; k++) {
-        internalTick();
-    }
-}
-
-void nes::CPU::interrupt(bool nmi) {
-    if (nmi || !getStatus(Flag::I)) {
-        write(0x100 | stackPointer--, programCounter >> 8);
-        write(0x100 | stackPointer--, programCounter & 0x00FF);
-
-        setStatus(Flag::B, 0);
-        setStatus(Flag::U, 1);
-
-        write(0x100 | stackPointer--, status);
-
-        setStatus(Flag::I, 1);
-
-        targetAddress = nmi ? 0xFFFA : 0xFFFE;
-
-        for (int k = 0; k < 2; k++) {
-            internalTick();
-        }
-
-        programCounter = read(targetAddress);
-        programCounter |= read(targetAddress + 1) << 8;
-    }
-}
-
-void nes::CPU::silentWrite(uint16_t address, uint8_t value) {
-    if (address < 0x2000) {
-        memory[address & 0x7FF] = value;
-    } else if (address >= 0x6000 && address < 0x8000) {
-        mapper.writeCPU(address, value);
-    }
-}
-
-uint8_t nes::CPU::silentRead(uint16_t address) {
-    if (address < 0x2000) {
-        return memory[address & 0x7FF];
-    } else if (address >= 0x6000 && address < 0x8000) {
-        return mapper.readCPU(address);
-    }
-    
-    return 0x00;
-}
-
-void nes::CPU::setControllerState(uint8_t state) {
-    controllerShifter = state;
-}
-
-bool nes::CPU::isFrozen() {
-    return frozen;
-}
-
-bool nes::CPU::isPollingController() {
-    return pollingController;
-}
-
-void nes::CPU::dump(uint8_t*& buffer) {
-    uint8_t flags = frozen | (cycleLatch << 1) | (spriteTransferActive << 2) | (spriteTransferSynchronized << 3);
-
-    nes::write(buffer, registerA);
-    nes::write(buffer, registerX);
-    nes::write(buffer, registerY);
-    nes::write(buffer, status);
-    nes::write(buffer, stackPointer);
-    nes::write(buffer, programCounter);
-    nes::write(buffer, controllerShifter);
-    nes::write(buffer, spriteTransferValue);
-    nes::write(buffer, spriteTransferAddress);
-    nes::write(buffer, flags);
-    nes::write(buffer, memory, 0x800);
-}
-
-void nes::CPU::load(uint8_t*& buffer) {
-    uint8_t flags = 0x00;
-
-    nes::read(buffer, registerA);
-    nes::read(buffer, registerX);
-    nes::read(buffer, registerY);
-    nes::read(buffer, status);
-    nes::read(buffer, stackPointer);
-    nes::read(buffer, programCounter);
-    nes::read(buffer, controllerShifter);
-    nes::read(buffer, spriteTransferValue);
-    nes::read(buffer, spriteTransferAddress);
-    nes::read(buffer, flags);
-    nes::read(buffer, memory, 0x800);
-
-    frozen = flags & 0x1;
-    cycleLatch = flags & 0x2;
-    spriteTransferActive = flags & 0x4;
-    spriteTransferSynchronized = flags & 0x8;
-}
-
-void nes::CPU::internalTick() {
-    // TODO tick APU one time
-
-    for (int k = 0; k < 3; k++) {
-        ppu.tick();
-    }
-}
-
-uint8_t nes::CPU::fetch() {
-    return read(programCounter++);
-}
-
-void nes::CPU::write(uint16_t address, uint8_t value) {
-    ppu.tick();
-    ppu.tick();
-
-    if (address < 0x2000) {
-        memory[address & 0x7FF] = value;
     } else if (address < 0x4000) {
-        ppu.write(address & 0x0007, value);
-    } else if (address == 0x4014) {
-        spriteTransferAddress = value << 8;
-        spriteTransferActive = true;
-    } else if (address == 0x4016) {
-        pollingController = value & 0x01;
-    } else if (address < 0x4018) {
-        //TODO
+        if (address & 0x1) {
+            _writableRAM = ~value & 0x40;
+        } else  if (value & 0x1) {
+            _mode = MirroringMode::HORIZONTAL;
+        } else {
+            _mode = MirroringMode::VERTICAL;
+        }
+    } else if (address < 0x6000) {
+        if (address & 0x1) {
+            _counter = 0x0000;
+            _shouldReloadIRQ = true;
+        } else {
+            _counterReload = value;
+        }
     } else {
-        mapper.writeCPU(address, value);
-    }
-
-    ppu.tick();
-}
-
-uint8_t nes::CPU::read(uint16_t address) {
-    ppu.tick();
-
-    uint8_t value = 0x00;
-
-    if (address < 0x2000) {
-        value = memory[address & 0x7FF];
-    } else if (address < 0x4000) {
-        value = ppu.read(address & 0x0007);
-    } else if (address == 0x4016) {
-        value = (controllerShifter & 0x80) > 0;
-
-        controllerShifter <<= 1;
-    } else if (address < 0x4018) {
-        // TODO
-    } else {
-        value = mapper.readCPU(address);
-    }
-
-    ppu.tick();
-    ppu.tick();
-
-    return value;
-}
-
-void nes::CPU::setStatus(uint8_t flag, bool value) {
-    if (value) {
-        status |= flag;
-    } else {
-        status &= ~flag;
-    }
-}
-
-bool nes::CPU::getStatus(uint8_t flag) {
-    return status & flag;
-}
-
-void nes::CPU::ABR() {
-    ABW();
-
-    registerM = read(targetAddress);
-}
-
-void nes::CPU::ABW() {
-    targetAddress = fetch();
-    targetAddress |= fetch() << 8;
-}
-
-void nes::CPU::ACC() {
-    registerM = read(programCounter);
-}
-
-void nes::CPU::AXM() {
-    AXW();
-
-    registerM = read(targetAddress);
-}
-
-void nes::CPU::AXR() {
-    targetAddress = fetch();
-
-    uint16_t translated = targetAddress + registerX;
-
-    bool invalidAddress = (targetAddress & 0xFF00) != (translated & 0xFF00);
-
-    targetAddress = translated & 0x00FF;
-    targetAddress |= fetch() << 8;
-
-    registerM = read(targetAddress);
-
-    if (invalidAddress) {
-        targetAddress += 0x100;
-
-        registerM = read(targetAddress);
-    }
-}
-
-void nes::CPU::AXW() {
-    targetAddress = fetch();
-
-    uint16_t translated = targetAddress + registerX;
-
-    bool invalidAddress = (targetAddress & 0xFF00) != (translated & 0xFF00);
-
-    targetAddress = translated & 0x00FF;
-    targetAddress |= fetch() << 8;
-
-    registerM = read(targetAddress);
-
-    if (invalidAddress) {
-        targetAddress += 0x100;
-    }
-}
-
-void nes::CPU::AYM() {
-    AYW();
-
-    registerM = read(targetAddress);
-}
-
-void nes::CPU::AYR() {
-    targetAddress = fetch();
-
-    uint16_t translated = targetAddress + registerY;
-
-    bool invalidAddress = (targetAddress & 0xFF00) != (translated & 0xFF00);
-
-    targetAddress = translated & 0x00FF;
-    targetAddress |= fetch() << 8;
-
-    registerM = read(targetAddress);
-
-    if (invalidAddress) {
-        targetAddress += 0x100;
-
-        registerM = read(targetAddress);
-    }
-}
-
-void nes::CPU::AYW() {
-    targetAddress = fetch();
-
-    uint16_t translated = targetAddress + registerY;
-
-    bool invalidAddress = (targetAddress & 0xFF00) != (translated & 0xFF00);
-
-    targetAddress = translated & 0x00FF;
-    targetAddress |= fetch() << 8;
-
-    registerM = read(targetAddress);
-
-    if (invalidAddress) {
-        targetAddress += 0x100;
-    }
-}
-
-void nes::CPU::IMM() {
-    registerM = fetch();
-}
-
-void nes::CPU::IMP() {
-    registerM = fetch();
-
-    setStatus(Flag::C, false);
-}
-
-void nes::CPU::IND() {
-    uint16_t pointer = fetch();
-
-    pointer |= fetch() << 8;
-
-    if ((pointer & 0x00FF) == 0xFF) {
-        targetAddress = read(pointer);
-        targetAddress |= read(pointer & 0xFF00) << 8;
-    } else {
-        targetAddress = read(pointer);
-        targetAddress |= read(pointer + 1) << 8;
-    }
-}
-
-void nes::CPU::IXR() {
-    IXW();
-
-    registerM = read(targetAddress);
-}
-
-void nes::CPU::IXW() {
-    uint8_t pointer = fetch();
-
-    registerM = read(pointer);
-
-    pointer += registerX;
-
-    targetAddress = read(pointer);
-    targetAddress |= read(++pointer & 0xFF) << 8;
-}
-
-void nes::CPU::IYM() {
-    IYW();
-
-    registerM = read(targetAddress);
-}
-
-void nes::CPU::IYR() {
-    uint8_t pointer = fetch();
-
-    targetAddress = read(pointer);
-
-    uint16_t translated = targetAddress + registerY;
-
-    bool invalidAddress = translated & 0xFF00;
-
-    targetAddress = translated & 0x00FF;
-    targetAddress |= read(++pointer & 0xFF) << 8;
-
-    registerM = read(targetAddress);
-
-    if (invalidAddress) {
-        targetAddress += 0x100;
-
-        registerM = read(targetAddress);
-    }
-}
-
-void nes::CPU::IYW() {
-    uint8_t pointer = fetch();
-
-    targetAddress = read(pointer);
-
-    uint16_t translated = targetAddress + registerY;
-
-    bool invalidAddress = (targetAddress & 0xFF00) != (translated & 0xFF00);
-
-    targetAddress = translated & 0x00FF;
-    targetAddress |= read(++pointer & 0xFF) << 8;
-
-    registerM = read(targetAddress);
-
-    if (invalidAddress) {
-        targetAddress += 0x100;
-    }
-}
-
-void nes::CPU::REL() {
-    targetAddress = fetch();
-
-    if (targetAddress & 0x80) {
-        targetAddress |= 0xFF00;
-    }
-}
-
-void nes::CPU::ZPR() {
-    ZPW();
-
-    registerM = read(targetAddress);
-}
-
-void nes::CPU::ZPW() {
-    targetAddress = fetch();
-}
-
-void nes::CPU::ZXR() {
-    ZXW();
-
-    registerM = read(targetAddress);
-}
-
-void nes::CPU::ZXW() {
-    targetAddress = fetch();
-
-    registerM = read(targetAddress);
-
-    targetAddress += registerX;
-    targetAddress &= 0x00FF;
-}
-
-void nes::CPU::ZYR() {
-    ZYW();
-
-    registerM = read(targetAddress);
-}
-
-void nes::CPU::ZYW() {
-    targetAddress = fetch();
-
-    registerM = read(targetAddress);
-
-    targetAddress += registerY;
-    targetAddress &= 0x00FF;
-}
-
-void nes::CPU::AAL() {
-    setStatus(Flag::C, registerA & 0x80);
-
-    registerA <<= 1;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::ADC() {
-    uint16_t result = registerA + registerM + getStatus(Flag::C);
-
-    setStatus(Flag::C, result & 0x0100);
-    setStatus(Flag::V, ~(registerA ^ registerM) & (registerA ^ result) & 0x80);
-
-    registerA = result & 0x00FF;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::ALR() {
-    registerA &= registerM;
-
-    setStatus(Flag::C, registerA & 0x01);
-
-    registerA >>= 1;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::ANC() {
-    registerA &= registerM;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-    setStatus(Flag::C, registerA & 0x80);
-}
-
-void nes::CPU::AND() {
-    registerA &= registerM;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::ANE() {
-    registerA = (registerA | 0xEE) & registerX & registerM;
-}
-
-void nes::CPU::ARR() {
-    registerA &= registerM;
-
-    registerA = (getStatus(Flag::C) << 7) | (registerA >> 1);
-
-    setStatus(Flag::C, registerA & 0x40);
-    setStatus(Flag::V, bool(registerA & 0x40) ^ bool(registerA & 0x20));
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::ASL() {
-    write(targetAddress, registerM);
-
-    setStatus(Flag::C, registerM & 0x80);
-
-    registerM <<= 1;
-
-    setStatus(Flag::Z, !registerM);
-    setStatus(Flag::N, registerM & 0x80);
-
-    write(targetAddress, registerM);
-}
-
-void nes::CPU::BCC() {
-    if (!getStatus(Flag::C)) {
-        read(programCounter);
-
-        uint16_t translated = targetAddress + programCounter;
-
-        if ((translated & 0xFF00) != (programCounter & 0xFF00)) {
-            read(programCounter);
-        }
-
-        programCounter = translated;
-    }
-}
-
-void nes::CPU::BCS() {
-    if (getStatus(Flag::C)) {
-        read(programCounter);
-
-        uint16_t translated = targetAddress + programCounter;
-
-        if ((translated & 0xFF00) != (programCounter & 0xFF00)) {
-            read(programCounter);
-        }
-
-        programCounter = translated;
-    }
-}
-
-void nes::CPU::BEQ() {
-    if (getStatus(Flag::Z)) {
-        read(programCounter);
-
-        uint16_t translated = targetAddress + programCounter;
-
-        if ((translated & 0xFF00) != (programCounter & 0xFF00)) {
-            read(programCounter);
-        }
-
-        programCounter = translated;
-    }
-}
-
-void nes::CPU::BIT() {
-    setStatus(Flag::Z, !(registerA & registerM));
-    setStatus(Flag::V, registerM & 0x40);
-    setStatus(Flag::N, registerM & 0x80);
-}
-
-void nes::CPU::BMI() {
-    if (getStatus(Flag::N)) {
-        read(programCounter);
-
-        uint16_t translated = targetAddress + programCounter;
-
-        if ((translated & 0xFF00) != (programCounter & 0xFF00)) {
-            read(programCounter);
-        }
-
-        programCounter = translated;
-    }
-}
-
-void nes::CPU::BNE() {
-    if (!getStatus(Flag::Z)) {
-        read(programCounter);
-
-        uint16_t translated = targetAddress + programCounter;
-
-        if ((translated & 0xFF00) != (programCounter & 0xFF00)) {
-            read(programCounter);
-        }
-
-        programCounter = translated;
-    }
-}
-
-void nes::CPU::BPL() {
-    if (!getStatus(Flag::N)) {
-        read(programCounter);
-
-        uint16_t translated = targetAddress + programCounter;
-
-        if ((translated & 0xFF00) != (programCounter & 0xFF00)) {
-            read(programCounter);
-        }
-
-        programCounter = translated;
-    }
-}
-
-void nes::CPU::BRK() {
-    programCounter++;
-
-    write(0x100 | stackPointer--, programCounter >> 8);
-    write(0x100 | stackPointer--, programCounter & 0x00FF);
-
-    setStatus(Flag::I, 1);
-
-    write(0x100 | stackPointer--, status | Flag::B);
-
-    programCounter = read(0xFFFE);
-    programCounter |= read(0xFFFF) << 8;
-}
-
-void nes::CPU::BVC() {
-    if (!getStatus(Flag::V)) {
-        read(programCounter);
-
-        uint16_t translated = targetAddress + programCounter;
-
-        programCounter = programCounter & 0xFF00 | ((programCounter & 0x00FF) + (targetAddress & 0x00FF)) & 0xFF;
-
-        if (translated != programCounter) {
-            read(programCounter);
-
-            programCounter = translated;
+        if (address & 0x1) {
+            _enableIRQ = true;
+        } else {
+            _enableIRQ = false;
+            _nes.getCPU()->setMapperIRQ(false);
         }
     }
-}
-
-void nes::CPU::BVS() {
-    if (getStatus(Flag::V)) {
-        read(programCounter);
-
-        uint16_t translated = targetAddress + programCounter;
-
-        programCounter = programCounter & 0xFF00 | ((programCounter & 0x00FF) + (targetAddress & 0x00FF)) & 0xFF;
-
-        if (translated != programCounter) {
-            read(programCounter);
-
-            programCounter = translated;
-        }
-    }
-}
-
-void nes::CPU::CLC() {
-    setStatus(Flag::C, 0);
-}
-
-void nes::CPU::CLD() {
-    setStatus(Flag::D, 0);
-}
-
-void nes::CPU::CLI() {
-    setStatus(Flag::I, 0);
-}
-
-void nes::CPU::CLV() {
-    setStatus(Flag::V, 0);
-}
-
-void nes::CPU::CMP() {
-    setStatus(Flag::C, registerA >= registerM);
-    setStatus(Flag::Z, registerA == registerM);
-    setStatus(Flag::N, (registerA - registerM) & 0x80);
-}
-
-void nes::CPU::CPX() {
-    setStatus(Flag::C, registerX >= registerM);
-    setStatus(Flag::Z, registerX == registerM);
-    setStatus(Flag::N, (registerX - registerM) & 0x80);
-}
-
-void nes::CPU::CPY() {
-    setStatus(Flag::C, registerY >= registerM);
-    setStatus(Flag::Z, registerY == registerM);
-    setStatus(Flag::N, (registerY - registerM) & 0x80);
-}
-
-void nes::CPU::DCP() {
-    write(targetAddress, registerM);
-
-    registerM--;
-
-    setStatus(Flag::C, registerA >= registerM);
-    setStatus(Flag::Z, registerA == registerM);
-    setStatus(Flag::N, (registerA - registerM) & 0x80);
-
-    write(targetAddress, registerM);
-}
-
-void nes::CPU::DEC() {
-    write(targetAddress, registerM);
-
-    registerM--;
-
-    setStatus(Flag::Z, !registerM);
-    setStatus(Flag::N, registerM & 0x80);
-
-    write(targetAddress, registerM);
-}
-
-void nes::CPU::DEX() {
-    registerX--;
-
-    setStatus(Flag::Z, !registerX);
-    setStatus(Flag::N, registerX & 0x80);
-}
-
-void nes::CPU::DEY() {
-    registerY--;
-
-    setStatus(Flag::Z, !registerY);
-    setStatus(Flag::N, registerY & 0x80);
-}
-
-void nes::CPU::EOR() {
-    registerA ^= registerM;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::INC() {
-    write(targetAddress, registerM);
-
-    registerM++;
-
-    setStatus(Flag::Z, !registerM);
-    setStatus(Flag::N, registerM & 0x80);
-
-    write(targetAddress, registerM);
-}
-
-void nes::CPU::INX() {
-    registerX++;
-
-    setStatus(Flag::Z, !registerX);
-    setStatus(Flag::N, registerX & 0x80);
-}
-
-void nes::CPU::INY() {
-    registerY++;
-
-    setStatus(Flag::Z, !registerY);
-    setStatus(Flag::N, registerY & 0x80);
-}
-
-void nes::CPU::ISC() {
-    write(targetAddress, registerM);
-
-    registerM++;
-
-    uint8_t value = registerM;
-
-    registerM ^= 0xFF;
-
-    uint16_t result = registerA + registerM + getStatus(Flag::C);
-
-    setStatus(Flag::C, result & 0x0100);
-    setStatus(Flag::V, ~(registerA ^ registerM) & (registerA ^ result) & 0x80);
-
-    registerA = result & 0x00FF;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-
-    write(targetAddress, value);
-}
-
-void nes::CPU::JAM() {
-    frozen = true;
-}
-
-void nes::CPU::JMP() {
-    programCounter = targetAddress;
-}
-
-void nes::CPU::JSR() {
-    internalTick();
-
-    write(0x100 | stackPointer--, programCounter >> 8);
-    write(0x100 | stackPointer--, programCounter & 0x00FF);
-
-    programCounter = fetch() << 8;
-    programCounter |= targetAddress;
-}
-
-void nes::CPU::LAR() {
-    setStatus(Flag::C, registerA & 0x01);
-
-    registerA >>= 1;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::LAS() {
-    uint8_t result = registerM & stackPointer;
-
-    registerA = result;
-    registerX = result;
-    stackPointer = result;
-}
-
-void nes::CPU::LAX() {
-    registerA = registerM;
-    registerX = registerM;
-
-    setStatus(Flag::Z, !registerM);
-    setStatus(Flag::N, registerM & 0x80);
-}
-
-void nes::CPU::LDA() {
-    registerA = registerM;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::LDX() {
-    registerX = registerM;
-
-    setStatus(Flag::Z, !registerX);
-    setStatus(Flag::N, registerX & 0x80);
-}
-
-void nes::CPU::LDY() {
-    registerY = registerM;
-
-    setStatus(Flag::Z, !registerY);
-    setStatus(Flag::N, registerY & 0x80);
-}
-
-void nes::CPU::LSR() {
-    write(targetAddress, registerM);
-
-    setStatus(Flag::C, registerM & 0x01);
-
-    registerM >>= 1;
-
-    setStatus(Flag::Z, !registerM);
-    setStatus(Flag::N, registerM & 0x80);
-
-    write(targetAddress, registerM);
-}
-
-void nes::CPU::LXA() {
-    registerA = registerM;
-    registerX = registerM;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::NOP() { }
-
-void nes::CPU::ORA() {
-    registerA |= registerM;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::PHA() {
-    write(0x100 | stackPointer--, registerA);
-}
-
-void nes::CPU::PHP() {
-    write(0x100 | stackPointer--, status | Flag::B | Flag::U);
-}
-
-void nes::CPU::PLA() {
-    stackPointer++;
-    internalTick();
-
-    registerA = read(0x100 | stackPointer);
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::PLP() {
-    stackPointer++;
-    internalTick();
-
-    status = read(0x100 | stackPointer);
-
-    setStatus(Flag::B, 0);
-    setStatus(Flag::U, 1);
-}
-
-void nes::CPU::RAL() {
-    bool status = registerA & 0x80;
-
-    registerA = uint8_t(getStatus(Flag::C)) | (registerA << 1);
-
-    setStatus(Flag::C, status);
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::RAR() {
-    bool status = registerA & 0x01;
-
-    registerA = (getStatus(Flag::C) << 7) | (registerA >> 1);
-
-    setStatus(Flag::C, status);
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::RLA() {
-    write(targetAddress, registerM);
-
-    bool status = registerM & 0x80;
-
-    registerM = uint8_t(getStatus(Flag::C)) | (registerM << 1);
-
-    setStatus(Flag::C, status);
-
-    registerA &= registerM;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-
-    write(targetAddress, registerM);
-}
-
-void nes::CPU::ROL() {
-    write(targetAddress, registerM);
-
-    bool status = registerM & 0x80;
-
-    registerM = uint8_t(getStatus(Flag::C)) | (registerM << 1);
-
-    setStatus(Flag::C, status);
-    setStatus(Flag::Z, !registerM);
-    setStatus(Flag::N, registerM & 0x80);
-
-    write(targetAddress, registerM);
-}
-
-void nes::CPU::ROR() {
-    write(targetAddress, registerM);
-
-    bool status = registerM & 0x01;
-
-    registerM = (getStatus(Flag::C) << 7) | (registerM >> 1);
-
-    setStatus(Flag::C, status);
-    setStatus(Flag::Z, !registerM);
-    setStatus(Flag::N, registerM & 0x80);
-
-    write(targetAddress, registerM);
-}
-
-void nes::CPU::RRA() {
-    write(targetAddress, registerM);
-
-    bool status = registerM & 0x01;
-
-    registerM = (getStatus(Flag::C) << 7) | (registerM >> 1);
-
-    uint16_t result = registerA + registerM + status;
-
-    setStatus(Flag::C, result & 0x0100);
-    setStatus(Flag::V, ~(registerA ^ registerM) & (registerA ^ result) & 0x80);
-
-    registerA = result & 0x00FF;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-
-    write(targetAddress, registerM);
-}
-
-void nes::CPU::RTI() {
-    stackPointer++;
-    internalTick();
-
-    status = read(0x100 | stackPointer);
-
-    setStatus(Flag::B, 0);
-    setStatus(Flag::U, 1);
-
-    programCounter = read(0x100 | ++stackPointer);
-    programCounter |= read(0x100 | ++stackPointer) << 8;
-}
-
-void nes::CPU::RTS() {
-    stackPointer++;
-    internalTick();
-
-    programCounter = read(0x100 | stackPointer);
-    programCounter |= read(0x100 | ++stackPointer) << 8;
-
-    programCounter++;
-
-    internalTick();
-}
-
-void nes::CPU::SAX() {
-    write(targetAddress, registerA & registerX);
-}
-
-void nes::CPU::SBC() {
-    registerM ^= 0xFF;
-
-    uint16_t result = registerA + registerM + getStatus(Flag::C);
-
-    setStatus(Flag::C, result & 0x0100);
-    setStatus(Flag::V, ~(registerA ^ registerM) & (registerA ^ result) & 0x80);
-
-    registerA = result & 0x00FF;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::SBX() {
-    registerX &= registerA;
-
-    setStatus(Flag::C, registerX >= registerM);
-    setStatus(Flag::Z, registerX == registerM);
-
-    registerX -= registerM;
-
-    setStatus(Flag::N, registerX & 0x80);
-}
-
-void nes::CPU::SEC() {
-    setStatus(Flag::C, 1);
-}
-
-void nes::CPU::SED() {
-    setStatus(Flag::D, 1);
-}
-
-void nes::CPU::SEI() {
-    setStatus(Flag::I, 1);
-}
-
-void nes::CPU::SHA() {
-    write(targetAddress, registerA & registerX & (uint8_t(targetAddress >> 8) + 1));
-}
-
-void nes::CPU::SHX() {
-    uint8_t addressHigh = 1 + (targetAddress >> 8);
-
-    write(((registerX & addressHigh) << 8) | targetAddress & 0xFF, registerX & addressHigh);
-}
-
-void nes::CPU::SHY() {
-    uint8_t addressHigh = 1 + (targetAddress >> 8);
-
-    write(((registerY & addressHigh) << 8) | targetAddress & 0xFF, registerY & addressHigh);
-}
-
-void nes::CPU::SLO() {
-    write(targetAddress, registerM);
-
-    setStatus(Flag::C, registerM & 0x80);
-
-    registerM <<= 1;
-
-    registerA |= registerM;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-
-    write(targetAddress, registerM);
-}
-
-void nes::CPU::SRE() {
-    write(targetAddress, registerM);
-
-    setStatus(Flag::C, registerM & 0x01);
-
-    registerM >>= 1;
-
-    registerA ^= registerM;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-
-    write(targetAddress, registerM);
-}
-
-void nes::CPU::STA() {
-    write(targetAddress, registerA);
-}
-
-void nes::CPU::STX() {
-    write(targetAddress, registerX);
-}
-
-void nes::CPU::STY() {
-    write(targetAddress, registerY);
-}
-
-void nes::CPU::TAS() {
-    stackPointer = registerA & registerX;
-
-    write(targetAddress, stackPointer & (uint8_t(targetAddress >> 8) + 1));
-}
-
-void nes::CPU::TAX() {
-    registerX = registerA;
-
-    setStatus(Flag::Z, !registerX);
-    setStatus(Flag::N, registerX & 0x80);
-}
-
-void nes::CPU::TAY() {
-    registerY = registerA;
-
-    setStatus(Flag::Z, !registerY);
-    setStatus(Flag::N, registerY & 0x80);
-}
-
-void nes::CPU::TSX() {
-    registerX = stackPointer;
-
-    setStatus(Flag::Z, !registerX);
-    setStatus(Flag::N, registerX & 0x80);
-}
-
-void nes::CPU::TXA() {
-    registerA = registerX;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::TXS() {
-    stackPointer = registerX;
-}
-
-void nes::CPU::TYA() {
-    registerA = registerY;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-void nes::CPU::USB() {
-    registerM ^= 0xFF;
-
-    uint16_t result = registerA + registerM + getStatus(Flag::C);
-
-    setStatus(Flag::C, result & 0x0100);
-    setStatus(Flag::V, ~(registerA ^ registerM) & (registerA ^ result) & 0x80);
-
-    registerA = result & 0x00FF;
-
-    setStatus(Flag::Z, !registerA);
-    setStatus(Flag::N, registerA & 0x80);
-}
-
-nes::NES::NES(Mapper* mapper) : mapper(mapper) {
-    ppu = new PPU(*mapper);
-    cpu = new CPU(*mapper, *ppu);
-}
-
-nes::NES::~NES() {
-    if (running) {
-        runningFrame.join();
-    }
-
-    delete cpu;
-    delete ppu;
-    delete mapper;
-}
-
-void nes::NES::waitFrame() {
-    if(running) {
-        runningFrame.join();
-
-        running = false;
-    }
-}
-
-void nes::NES::nextFrame(unsigned int frames) {
-    auto run = [this](unsigned int f) -> void {
-        for(unsigned int k = 0; k < f; k++) {
-            while (!ppu->shouldRender() && !cpu->isFrozen()) {
-                cpu->tick();
-
-                if (cpu->isPollingController()) {
-                    cpu->setControllerState(controllerState);
-                }
-            }
-        }
-    };
-
-    runningFrame = std::thread(run, frames);
-
-    running = true;
-}
-
-void nes::NES::setControllerState(uint8_t state) {
-    controllerState = state;
-}
-
-void nes::NES::write(uint16_t address, uint8_t value) {
-    cpu->silentWrite(address, value);
-}
-
-uint8_t nes::NES::read(uint16_t address) {
-    return cpu->silentRead(address);
-}
-
-uint8_t* nes::NES::getFrameBuffer() {
-    return ppu->getFrameBuffer();
-}
-
-bool nes::NES::isFrozen() {
-    return cpu->isFrozen();
-}
-
-unsigned int nes::NES::size() {
-    return cpu->size() + ppu->size() + mapper->size();
-}
-
-void nes::NES::dump(uint8_t*& buffer) {
-    cpu->dump(buffer);
-    ppu->dump(buffer);
-    mapper->dump(buffer);
-}
-
-void nes::NES::load(uint8_t*& buffer) {
-    cpu->load(buffer);
-    ppu->load(buffer);
-    mapper->load(buffer);
 }

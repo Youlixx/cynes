@@ -1,210 +1,26 @@
 # cynes - C/C++ NES emulator with Python bindings
 # Copyright (C) 2021  Combey Theo <https://www.gnu.org/licenses/>
 
-from cynes import wrapper
+from cynes.emulator import NESHeadless
 
 import numpy as np
-import sdl2
+
+import warnings
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    
+    import sdl2
 
 
-class NESHeadless:
-    """
-    The base emulator class.
-
-    A NESHeadless implements the basic attributes and methods to interact with
-    the C API to run a NES emulator. Using this class, there is no window
-    rendering (see the NES class instead).
-
-    Attributes
-    ----------
-    controller: int
-        The controller state represented over a single byte.
-    should_close: bool
-        Set to True when the emulator should be closed.
-
-    Methods
-    -------
-    step(frames)
-        Computes the next frame and returns the frame buffer.
-    save()
-        Returns a dump of the current console state.
-    load(buffer)
-        Loads back a save state.
-    frozen()
-        Returns whether or not the CPU is frozen.
-    close()
-        Closes the emulator.
-    """
-
-    INPUT_RIGHT = 0x01
-    INPUT_LEFT = 0x02
-    INPUT_DOWN = 0x04
-    INPUT_UP = 0x08
-    INPUT_START = 0x10
-    INPUT_SELECT = 0x20
-    INPUT_B = 0x40
-    INPUT_A = 0x80
-
-    def __init__(self, rom: str):
-        """
-        Instanciate the NES emulator.
-
-        Arguments
-        ---------
-        rom: str
-            The path to the NES file containing the game data.
-
-        Notes
-        -----
-        The emulator initialisation can fail if the ROM file cannot be found or 
-        if the Mapper used by the game is currently not supported.
-        """
-
-        self.__emulator = wrapper.NES_CreateEmulator(rom)
-
-        if self.__emulator == 0:
-            raise Exception(
-                f"Unable de load the ROM {rom}, the mapper used might not be" \
-                f"supported yet."
-            )
-
-        self.__frame_buffer = np.zeros(shape=(240, 256, 3), dtype=np.uint8)
-        self.__state_size = wrapper.NES_GetSaveStateSize(self.__emulator)
-        self._should_close = False
-
-        self.controller = 0x00
-
-    def __setitem__(self, address: int, value: int) -> None:
-        """
-        Writes a value in the emulator memory at the specified address. Note 
-        that this write is "silent", meaning that it has no impact on the 
-        emulation and does not tick the internal emulator components. Only the 
-        RAM at addresses between 0x0000 - 0x1FFF and 0x6000 - 0x7FFF (Mapper 
-        RAM) can be accessed.
-
-        Arguments
-        ---------
-        address: int
-            The RAM address to write to.
-        value: int
-            The value to write in the RAM.
-        """
-
-        if not isinstance(address, int):
-            raise TypeError("Only integer indexes are supported.")
-
-        wrapper.NES_WriteMemory(self.__emulator, address, value)
-
-    def __getitem__(self, address: int) -> int:
-        """
-        Reads a value in the emulator memory at the specified address. Note that 
-        this read is "silent", meaning that it has no impact on the emulation 
-        and does not tick the internal emulator components. Only the RAM at 
-        addresses between 0x0000 - 0x1FFF and 0x6000 - 0x7FFF (Mapper RAM) can 
-        be accessed.
-
-        Arguments
-        ---------
-        address: int
-            The RAM address to read from.
-
-        Return
-        ------
-        value: int
-            The value read from the RAM.
-        """
-
-        if not isinstance(address, int):
-            raise TypeError("Only integer indexes are supported.")
-
-        return wrapper.NES_ReadMemory(self.__emulator, address)
-
-    def step(self, frames: int = 1) -> np.ndarray:
-        """
-        Runs the emulator for the specified amount of frame. To save 
-        computational time, the current frame buffer content is instantly 
-        returned, and then the next frames are computed in a separated thread.
-
-        Arguments
-        ---------
-        frames: int (optional)
-            Indicates the number of frames for which the emulator is ran.
-
-        Return
-        ------
-        frame_buffer: np.ndarray
-            The numpy array containing the frame buffer (shape 240x256x3)
-        """
-        
-        self._should_close |= wrapper.NES_RunEmulator(
-            self.__emulator, frames, self.controller, self.__frame_buffer
-        )
-
-        return self.__frame_buffer
-
-    def save(self) -> np.ndarray:
-        """
-        Dumps the current emulator state into a save state. The size of the dump 
-        is variable and depend on the mapper used by the loaded game. The save 
-        state basically acts as a checkpoint that can be restored at any time 
-        without corrupting the NES memory. Note that this operation can be quite 
-        constly as it necessites a lot of IO operations, so it should be used 
-        cautiously.
-
-        Return
-        ------
-        buffer: np.ndarray
-            The numpy array containing the dump.
-        """
-
-        buffer = np.zeros(shape=(self.__state_size,), dtype=np.uint8)
-
-        wrapper.NES_SaveState(self.__emulator, buffer)
-
-        return buffer
-        
-    def load(self, buffer: np.ndarray) -> None:
-        """
-        Restores the emulator state from a save state. The save state basically 
-        acts as a checkpoint that can be restored at any time without corrupting 
-        the NES memory. Note that this operation can be quite constly as it 
-        necessites a lot of IO operations, so it should be used cautiously.
-
-        Arguments
-        ---------
-        buffer: np.ndarray
-            The numpy array containing the dump.
-        """
-
-        wrapper.NES_LoadState(self.__emulator, buffer)
-
-    def should_close(self) -> bool:
-        """
-        Returns whether or not the emulator should be closed. When this function
-        returns True, then any call to class method will do nothing.
-
-        Return
-        ------
-        should_close: bool
-            If set to True then the emulator should not be used anymore.
-        """
-
-        return self._should_close
-
-    def close(self) -> None:
-        """
-        This function should be called when the emulator is not used anymore. 
-        It is automatically called when the object is deleted, so if you use the 
-        emulator until the end of the program, you do not need to call it.
-        """
-
-        wrapper.NES_DestroyEmulator(self.__emulator)
-
-        self._should_close = True
-        self.__emulator = 0
-
-    def __del__(self):
-        self.close()
+NES_INPUT_RIGHT = 0x01
+NES_INPUT_LEFT = 0x02
+NES_INPUT_DOWN = 0x04
+NES_INPUT_UP = 0x08
+NES_INPUT_START = 0x10
+NES_INPUT_SELECT = 0x20
+NES_INPUT_B = 0x40
+NES_INPUT_A = 0x80
 
 
 class NES(NESHeadless):
@@ -237,7 +53,7 @@ class NES(NESHeadless):
 
     def __init__(self, rom: str, default_handlers: bool = True, scale: int = 3):
         """
-        Instanciate the NES emulator.
+        Initializes the NES emulator.
 
         Arguments
         ---------
@@ -254,7 +70,11 @@ class NES(NESHeadless):
         if the Mapper used by the game is currently not supported.
         """
 
+        self.__closed = True
+
         super().__init__(rom)
+
+        self.__closed = False
 
         self.__window = sdl2.SDL_CreateWindow(
             bytes(rom, "ascii"), 
@@ -290,8 +110,6 @@ class NES(NESHeadless):
             self.register(sdl2.SDL_SCANCODE_LEFT, self.__input_left)
             self.register(sdl2.SDL_SCANCODE_RIGHT, self.__input_right)
 
-        self.__closed = False
-
     def register(self, key_code: int, handler) -> None:
         """
         Registers a new key handler. The handler function will be called when 
@@ -308,28 +126,28 @@ class NES(NESHeadless):
         self.__handlers[key_code] = handler
 
     def __input_a(self) -> None:
-        self.controller |= NES.INPUT_A
+        self.controller |= NES_INPUT_A
 
     def __input_b(self) -> None:
-        self.controller |= NES.INPUT_B
+        self.controller |= NES_INPUT_B
 
     def __input_select(self) -> None:
-        self.controller |= NES.INPUT_SELECT
+        self.controller |= NES_INPUT_SELECT
 
     def __input_start(self) -> None:
-        self.controller |= NES.INPUT_START
+        self.controller |= NES_INPUT_START
 
     def __input_up(self) -> None:
-        self.controller |= NES.INPUT_UP
+        self.controller |= NES_INPUT_UP
 
     def __input_down(self) -> None:
-        self.controller |= NES.INPUT_DOWN
+        self.controller |= NES_INPUT_DOWN
 
     def __input_left(self) -> None:
-        self.controller |= NES.INPUT_LEFT
+        self.controller |= NES_INPUT_LEFT
 
     def __input_right(self) -> None:
-        self.controller |= NES.INPUT_RIGHT
+        self.controller |= NES_INPUT_RIGHT
 
     def __input_escape(self) -> None:
         self._should_close = True
@@ -399,11 +217,8 @@ class NES(NESHeadless):
 
         self.__closed = True
 
-        super().close()
-
     def __del__(self):
         self.close()
 
 
-__version__ = "0.0.1"
-__all__ = ["NESHeadless", "NES"]
+__version__ = "0.0.2"

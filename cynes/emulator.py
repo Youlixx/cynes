@@ -15,9 +15,7 @@ class NESHeadless:
     Attributes
     ----------
     controller: int
-        The controller state represented over a single byte.
-    should_close: bool
-        Set to True when the emulator should be closed.
+        The controllers state represented over two bytes.
 
     Methods
     -------
@@ -45,18 +43,18 @@ class NESHeadless:
         Notes
         -----
         The emulator initialisation can fail if the ROM file cannot be found or 
-        if the Mapper used by the game is currently not supported.
+        if the Mapper used by the game is currently unsupported.
         """
 
         ...
 
     def __setitem__(self, address: int, value: int) -> None:
         """
-        Writes a value in the emulator memory at the specified address. Note 
-        that this write is "silent", meaning that it has no impact on the 
-        emulation and does not tick the internal emulator components. Only the 
-        RAM at addresses between 0x0000 - 0x1FFF and 0x6000 - 0x7FFF (Mapper 
-        RAM) can be accessed.
+        Writes a value in the emulator memory at the specified address. Note
+        that writing to certains addresses may desynchronise the components of
+        the console, leading to undefined behavior. Only the RAM at addresses 
+        between 0x0000 - 0x1FFF and 0x6000 - 0x7FFF (Mapper RAM) can be accessed
+        safely.
 
         Arguments
         ---------
@@ -71,10 +69,10 @@ class NESHeadless:
     def __getitem__(self, address: int) -> int:
         """
         Reads a value in the emulator memory at the specified address. Note that 
-        this read is "silent", meaning that it has no impact on the emulation 
-        and does not tick the internal emulator components. Only the RAM at 
-        addresses between 0x0000 - 0x1FFF and 0x6000 - 0x7FFF (Mapper RAM) can 
-        be accessed.
+        reading to certains addresses may desynchronise the components of the 
+        console, leading to undefined behavior. Only the RAM at addresses 
+        between 0x0000 - 0x1FFF and 0x6000 - 0x7FFF (Mapper RAM) can be accessed
+        safely.
 
         Arguments
         ---------
@@ -92,22 +90,15 @@ class NESHeadless:
     def reset(self) -> None:
         """
         Sends a reset signal to the emulator. Note that reseting the NES is 
-        different from re-created a new emulator as the RAM content is not 
+        different from re-creating a new emulator as the RAM content is not 
         erased.
-
-        Arguments
-        ---------
-        index: int
-            The index of the emulator.
         """
 
         ...
 
     def step(self, frames: int = 1) -> np.ndarray:
         """
-        Runs the emulator for the specified amount of frame. To save 
-        computational time, the current frame buffer content is instantly 
-        returned, and then the next frames are computed in a separated thread.
+        Runs the emulator for the specified amount of frame. 
 
         Arguments
         ---------
@@ -129,7 +120,7 @@ class NESHeadless:
         state basically acts as a checkpoint that can be restored at any time 
         without corrupting the NES memory. Note that this operation can be quite 
         constly as it necessites a lot of IO operations, so it should be used 
-        cautiously.
+        sparsely.
 
         Return
         ------
@@ -144,7 +135,7 @@ class NESHeadless:
         Restores the emulator state from a save state. The save state basically 
         acts as a checkpoint that can be restored at any time without corrupting 
         the NES memory. Note that this operation can be quite constly as it 
-        necessites a lot of IO operations, so it should be used cautiously.
+        necessites a lot of IO operations, so it should be used sparsely.
 
         Arguments
         ---------
@@ -156,8 +147,8 @@ class NESHeadless:
 
     def should_close(self) -> bool:
         """
-        Returns whether or not the emulator should be closed. When this function
-        returns True, then any call to class method will do nothing.
+        Returns whether or not the emulator should be closed or reset. When this 
+        function returns True, then any call to class method will do nothing.
 
         Return
         ------

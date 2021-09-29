@@ -19,7 +19,7 @@ ext_module_wrapper = Extension(
 
 setup (
     name = "cynes",
-    version="0.0.2",
+    version="0.0.3",
     author="Theo Combey",
     author_email="combey.theo@hotmail.com",
     description="C/C++ NES emulator with Python bindings",
@@ -54,7 +54,8 @@ setup (
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9"
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10"
     ],
-    python_requires=">=3.6, <=3.9",
+    python_requires=">=3.6",
 )

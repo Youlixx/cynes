@@ -1,6 +1,3 @@
-// cynes - C/C++ NES emulator with Python bindings
-// Copyright (C) 2021  Combey Theo <https://www.gnu.org/licenses/>
-
 #ifndef __CYNES_EMULATOR_H__
 #define __CYNES_EMULATOR_H__
 
@@ -70,16 +67,16 @@ namespace cynes {
 		uint8_t read(uint16_t address);
 		uint8_t readCPU(uint16_t address);
 		uint8_t readPPU(uint16_t address);
-		uint8_t readOAM(uint8_t address);
+		uint8_t readOAM(uint8_t address) const;
 
-		bool step(uint8_t* buffer, unsigned int frames);
+		uint8_t getOpenBus() const;
+
+		bool step(uint8_t* buffer, uint16_t controllers, unsigned int frames);
 
 		unsigned int size();
 
 		void save(uint8_t* buffer);
 		void load(uint8_t* buffer);
-
-		void setControllerState(uint8_t state);
 
 	private:
 		CPU* _cpu;
@@ -92,27 +89,137 @@ namespace cynes {
 		uint8_t _memoryCPU[0x800];
 
 		uint8_t _memoryOAM[0x100];
-		uint8_t _memoryVideo[0x1000];
 		uint8_t _memoryPalette[0x20];
 
-		uint8_t _memoryExtraRAM[0x2000];
+		uint8_t _openBus;
 
-		uint8_t* _memoryPRG;
-		uint8_t* _memoryCHR;
-
-		uint8_t _controllerState;
-		uint8_t _controllerShifter;
+		uint8_t _controllerStates[0x2];
+		uint8_t _controllerShifters[0x2];
 
 	private:
 		void loadMapper(const char* rom);
 
 		void loadControllerShifter(bool polling);
 
-		uint8_t pollController();
+		uint8_t pollController(uint8_t player);
 
 	private:
 		template<DumpOperation operation, class T> void dump(T& buffer);
 	};
+
+    
+    class APU {
+    public:
+        APU(NES& nes);
+        ~APU();
+
+    public:
+        void power();
+        void reset();
+
+        void tick(bool reading, bool preventLoad = false);
+
+        void write(uint8_t address, uint8_t value);
+
+        uint8_t read(uint8_t address);
+
+    private:
+        NES& _nes;
+
+    private:
+        void updateCounters();
+        void loadDeltaChannelByte(bool reading);
+
+        void performDMA(uint8_t address);
+        void performPendingDMA();
+
+        void setFrameIRQ(bool irq);
+        void setDeltaIRQ(bool irq);
+
+    private:
+        bool _latchCycle;
+
+        uint8_t _delayDMA;
+        uint8_t _addressDMA;
+
+        bool _pendingDMA;
+
+        uint8_t _openBus;
+
+    private:
+        uint32_t _frameCounterClock;
+        uint32_t _delayFrameReset;
+
+        uint8_t _channelCounters[0x4];
+
+        bool _channelEnabled[0x4];
+        bool _channelHalted[0x4];
+
+        bool _stepMode;
+
+        bool _inhibitFrameIRQ;
+        bool _sendFrameIRQ;
+
+        const uint8_t LENGTH_COUNTER_TABLE[0x20] = {
+            0x0A, 0xFE, 0x14, 0x02, 0x28, 0x04, 0x50, 0x06, 0xA0, 0x08, 0x3C, 0x0A, 0x0E, 0x0C, 0x1A, 0x0E,
+            0x0C, 0x10, 0x18, 0x12, 0x30, 0x14, 0x60, 0x16, 0xC0, 0x18, 0x48, 0x1A, 0x10, 0x1C, 0x20, 0x1E
+        };
+
+    private:
+        uint16_t _deltaChannelRemainingBytes;
+        uint16_t _deltaChannelSampleLength;
+        uint16_t _deltaChannelPeriodCounter;
+        uint16_t _deltaChannelPeriodLoad;
+
+        uint8_t _deltaChannelBitsInBuffer;
+
+        bool _deltaChannelShouldLoop;
+        bool _deltaChannelEnableIRQ;
+        bool _deltaChannelSampleBufferEmpty;
+
+        bool _enableDMC;
+        bool _sendDeltaChannelIRQ;
+
+        const uint16_t PERIOD_DMC_TABLE[0x10] = {
+            0x1AC, 0x17C, 0x154, 0x140, 0x11E, 0x0FE, 0x0E2, 0x0D6, 0x0BE, 0x0A0, 0x08E, 0x080, 0x06A, 0x054, 0x048, 0x036
+        };
+
+    private:
+        enum Register : uint8_t {
+            PULSE_1_0 = 0x00, PULSE_1_3 = 0x03, PULSE_2_0 = 0x04, PULSE_2_3 = 0x07, TRIANGLE_0 = 0x08, TRIANGLE_3 = 0x0B, NOISE_0 = 0x0C, NOISE_3 = 0x0F,
+            DELTA_0 = 0x10, DELTA_3 = 0x13, OAM_DMA = 0x14, CTRL_STATUS = 0x15, FRAME_COUNTER = 0x17
+        };
+
+    public:
+        template<DumpOperation operation, class T> void dump(T& buffer) {
+            cynes::dump<operation>(buffer, _latchCycle);
+            cynes::dump<operation>(buffer, _delayDMA);
+            cynes::dump<operation>(buffer, _addressDMA);
+            cynes::dump<operation>(buffer, _pendingDMA);
+            cynes::dump<operation>(buffer, _openBus);
+
+            cynes::dump<operation>(buffer, _frameCounterClock);
+            cynes::dump<operation>(buffer, _delayFrameReset);
+            cynes::dump<operation>(buffer, _channelCounters);
+            cynes::dump<operation>(buffer, _channelEnabled);
+            cynes::dump<operation>(buffer, _channelHalted);
+            cynes::dump<operation>(buffer, _stepMode);
+            cynes::dump<operation>(buffer, _inhibitFrameIRQ);
+            cynes::dump<operation>(buffer, _sendFrameIRQ);
+
+            cynes::dump<operation>(buffer, _deltaChannelRemainingBytes);
+            cynes::dump<operation>(buffer, _deltaChannelSampleLength);
+            cynes::dump<operation>(buffer, _deltaChannelPeriodCounter);
+            cynes::dump<operation>(buffer, _deltaChannelPeriodLoad);
+            cynes::dump<operation>(buffer, _deltaChannelBitsInBuffer);
+            cynes::dump<operation>(buffer, _deltaChannelShouldLoop);
+            cynes::dump<operation>(buffer, _deltaChannelEnableIRQ);
+            cynes::dump<operation>(buffer, _deltaChannelSampleBufferEmpty);
+            cynes::dump<operation>(buffer, _enableDMC);
+            cynes::dump<operation>(buffer, _sendDeltaChannelIRQ);
+        }
+    };
+
 
     class CPU {
     public:
@@ -221,6 +328,7 @@ namespace cynes {
         }
     };
 
+
 	class PPU {
 	public:
 		PPU(NES& nes);
@@ -254,10 +362,6 @@ namespace cynes {
 		bool _renderingEnabled;
 		bool _renderingEnabledDelayed;
 		bool _preventVerticalBlank;
-
-		void writeAndNotifyA12(uint16_t addr, uint8_t value);
-
-		uint8_t readAndNotifyA12(uint16_t addr);
 
 	private:
 		bool _controlIncrementMode;
@@ -509,228 +613,193 @@ namespace cynes {
 		}
 	};
 
-	class APU {
-	public:
-		APU(NES& nes);
-		~APU();
-
-	public:
-		void power();
-		void reset();
-
-		void tick(bool reading, bool preventLoad = false);
-
-		void write(uint8_t address, uint8_t value);
-
-		uint8_t read(uint8_t address);
-
-	private:
-		NES& _nes;
-
-	private:
-		void updateCounters();
-		void loadDeltaChannelByte(bool reading);
-
-		void performDMA(uint8_t address);
-		void performPendingDMA();
-
-		void setFrameIRQ(bool irq);
-		void setDeltaIRQ(bool irq);
-
-	private:
-		bool _latchCycle;
-
-		uint8_t _delayDMA;
-		uint8_t _addressDMA;
-
-		bool _pendingDMA;
-
-		uint8_t _openBus;
-
-	private:
-		uint32_t _frameCounterClock;
-		uint32_t _delayFrameReset;
-
-		uint8_t _channelCounters[0x4];
-
-		bool _channelEnabled[0x4];
-		bool _channelHalted[0x4];
-
-		bool _stepMode;
-
-		bool _inhibitFrameIRQ;
-		bool _sendFrameIRQ;
-
-		const uint8_t LENGTH_COUNTER_TABLE[0x20] = {
-			0x0A, 0xFE, 0x14, 0x02, 0x28, 0x04, 0x50, 0x06, 0xA0, 0x08, 0x3C, 0x0A, 0x0E, 0x0C, 0x1A, 0x0E,
-			0x0C, 0x10, 0x18, 0x12, 0x30, 0x14, 0x60, 0x16, 0xC0, 0x18, 0x48, 0x1A, 0x10, 0x1C, 0x20, 0x1E
-		};
-
-	private:
-		uint16_t _deltaChannelRemainingBytes;
-		uint16_t _deltaChannelSampleLength;
-		uint16_t _deltaChannelPeriodCounter;
-		uint16_t _deltaChannelPeriodLoad;
-
-		uint8_t _deltaChannelBitsInBuffer;
-
-		bool _deltaChannelShouldLoop;
-		bool _deltaChannelEnableIRQ;
-		bool _deltaChannelSampleBufferEmpty;
-
-		bool _enableDMC;
-		bool _sendDeltaChannelIRQ;
-
-		const uint16_t PERIOD_DMC_TABLE[0x10] = {
-			0x1AC, 0x17C, 0x154, 0x140, 0x11E, 0x0FE, 0x0E2, 0x0D6, 0x0BE, 0x0A0, 0x08E, 0x080, 0x06A, 0x054, 0x048, 0x036
-		};
-
-	private:
-		enum Register : uint8_t {
-			PULSE_1_0 = 0x00, PULSE_1_3 = 0x03, PULSE_2_0 = 0x04, PULSE_2_3 = 0x07, TRIANGLE_0 = 0x08, TRIANGLE_3 = 0x0B, NOISE_0 = 0x0C, NOISE_3 = 0x0F,
-			DELTA_0 = 0x10, DELTA_3 = 0x13, OAM_DMA = 0x14, CTRL_STATUS = 0x15, FRAME_COUNTER = 0x17
-		};
-
-	public:
-		template<DumpOperation operation, class T> void dump(T& buffer) {
-			cynes::dump<operation>(buffer, _latchCycle);
-			cynes::dump<operation>(buffer, _delayDMA);
-			cynes::dump<operation>(buffer, _addressDMA);
-			cynes::dump<operation>(buffer, _pendingDMA);
-			cynes::dump<operation>(buffer, _openBus);
-
-			cynes::dump<operation>(buffer, _frameCounterClock);
-			cynes::dump<operation>(buffer, _delayFrameReset);
-			cynes::dump<operation>(buffer, _channelCounters);
-			cynes::dump<operation>(buffer, _channelEnabled);
-			cynes::dump<operation>(buffer, _channelHalted);
-			cynes::dump<operation>(buffer, _stepMode);
-			cynes::dump<operation>(buffer, _inhibitFrameIRQ);
-			cynes::dump<operation>(buffer, _sendFrameIRQ);
-
-			cynes::dump<operation>(buffer, _deltaChannelRemainingBytes);
-			cynes::dump<operation>(buffer, _deltaChannelSampleLength);
-			cynes::dump<operation>(buffer, _deltaChannelPeriodCounter);
-			cynes::dump<operation>(buffer, _deltaChannelPeriodLoad);
-			cynes::dump<operation>(buffer, _deltaChannelBitsInBuffer);
-			cynes::dump<operation>(buffer, _deltaChannelShouldLoop);
-			cynes::dump<operation>(buffer, _deltaChannelEnableIRQ);
-			cynes::dump<operation>(buffer, _deltaChannelSampleBufferEmpty);
-			cynes::dump<operation>(buffer, _enableDMC);
-			cynes::dump<operation>(buffer, _sendDeltaChannelIRQ);
-		}
-	};
 
 	enum class MirroringMode : uint8_t {
-		ONE_SCREEN_LOW, ONE_SCREEN_HIGH, HORIZONTAL, VERTICAL
+		NONE, ONE_SCREEN_LOW, ONE_SCREEN_HIGH, HORIZONTAL, VERTICAL
+	};
+
+	struct NESMetadata {
+	public:
+		uint16_t sizePRG = 0x00;
+		uint16_t sizeCHR = 0x00;
+
+		uint8_t* trainer = nullptr;
+		uint8_t* memoryPRG = nullptr;
+		uint8_t* memoryCHR = nullptr;
 	};
 
 	class Mapper {
 	public:
-		Mapper(NES& nes, uint8_t bankSizePRG, uint8_t bankSizeCHR, uint8_t bankCountPRG, uint8_t bankCountCHR, MirroringMode mode);
+		Mapper(NES& nes, NESMetadata metadata, MirroringMode mode, uint8_t sizeWRAM = 0x8, uint8_t sizeVRAM = 0x2, uint8_t sizeERAM = 0x0);
 		virtual ~Mapper();
 
 	public:
-		virtual void tick() { }
-		virtual void notifyStateA12(bool state) { }
+		virtual void tick();
 
-		virtual void writeCPU(uint16_t address, uint8_t value) { }
+		virtual void writeCPU(uint16_t address, uint8_t value);
+		virtual void writePPU(uint16_t address, uint8_t value);
 
-		uint16_t getMirroredAddress(uint16_t address) const;
+		virtual uint8_t readCPU(uint16_t address);
+		virtual uint8_t readPPU(uint16_t address);
 
-		uint32_t getAddressCPU(uint16_t address) const;
-		uint32_t getAddressPPU(uint16_t address) const;
+	protected:
+		struct MemoryBank {
+		public:
+			uint8_t* memory = nullptr;
 
-		bool isRAMWritable() const;
+			bool access = false;
+
+			template<DumpOperation operation, class T> void dump(T& buffer) {
+				cynes::dump<operation>(buffer, memory);
+				cynes::dump<operation>(buffer, access);
+			}
+		};
 
 	protected:
 		NES& _nes;
 
-	private:
-		const uint8_t BANK_SIZE_PRG;
-		const uint8_t BANK_SIZE_CHR;
+	protected:
+		const uint16_t SIZE_PRG;
+		const uint16_t SIZE_CHR;
 
-		const uint16_t BANK_MASK_PRG;
-		const uint16_t BANK_MASK_CHR;
+		const uint8_t SIZE_WRAM;
+		const uint8_t SIZE_VRAM;
+		const uint8_t SIZE_ERAM;
+
+		uint8_t* _memoryPRG;
+		uint8_t* _memoryCHR;
+
+		uint8_t* _memoryWRAM;
+		uint8_t* _memoryVRAM;
+		uint8_t* _memoryERAM;
+
+		MemoryBank _banksCPU[0x40];
+		MemoryBank _banksPPU[0x10];
 
 	protected:
-		const uint8_t BANK_COUNT_PRG;
-		const uint8_t BANK_COUNT_CHR;
+		void setBankPRG(uint8_t page, uint16_t address);
+		void setBankPRG(uint8_t page, uint8_t size, uint16_t address);
 
-		uint32_t* _bankIndexPRG;
-		uint32_t* _bankIndexCHR;
+		void setBankWRAM(uint8_t page, uint16_t address, bool access);
+		void setBankWRAM(uint8_t page, uint8_t size, uint16_t address, bool access);
 
-		MirroringMode _mode;
+		void setBankCHR(uint8_t page, uint16_t address);
+		void setBankCHR(uint8_t page, uint8_t size, uint16_t address);
 
-		bool _writableRAM;
+		void setBankVRAM(uint8_t page, uint16_t address, bool access);
+		void setBankVRAM(uint8_t page, uint8_t size, uint16_t address, bool access);
+
+		void setBankERAMCPU(uint8_t page, uint16_t address, bool access);
+		void setBankERAMCPU(uint8_t page, uint8_t size, uint16_t address, bool access);
+
+		void setBankERAMPPU(uint8_t page, uint16_t address, bool access);
+		void setBankERAMPPU(uint8_t page, uint8_t size, uint16_t address, bool access);
+
+		void removeBankCPU(uint8_t page);
+		void removeBankCPU(uint8_t page, uint8_t size);
+
+		void setMirroringMode(MirroringMode mode);
+
+		void mirrorBankCPU(uint8_t page, uint8_t size, uint8_t mirror);
+		void mirrorBankPPU(uint8_t page, uint8_t size, uint8_t mirror);
 
 	public:
 		template<DumpOperation operation, class T> void dump(T& buffer) {
-			cynes::dump<operation>(buffer, _bankIndexPRG, BANK_COUNT_PRG);
-			cynes::dump<operation>(buffer, _bankIndexCHR, BANK_COUNT_CHR);
-			cynes::dump<operation>(buffer, _mode);
-			cynes::dump<operation>(buffer, _writableRAM);
+			for (uint8_t k = 0x00; k < 0x40; k++) {
+				_banksCPU[k].dump<operation>(buffer);
+			}
+
+			for (uint8_t k = 0x00; k < 0x10; k++) {
+				_banksPPU[k].dump<operation>(buffer);
+			}
+
+			if (SIZE_WRAM) {
+				cynes::dump<operation>(buffer, _memoryWRAM, SIZE_WRAM << 10);
+			}
+
+			if (SIZE_VRAM) {
+				cynes::dump<operation>(buffer, _memoryVRAM, SIZE_VRAM << 10);
+			}
+
+			if (SIZE_ERAM) {
+				cynes::dump<operation>(buffer, _memoryERAM, SIZE_ERAM << 10);
+			}
 		}
 	};
 
-	class Mapper000 : public Mapper {
+
+	class NROM : public Mapper {
 	public:
-		Mapper000(NES& nes, uint8_t bankCountPRG, uint8_t bankCountCHR, MirroringMode mode);
-		~Mapper000();
+		NROM(NES& nes, NESMetadata metadata, MirroringMode mode);
+		~NROM();
 	};
 
-	class Mapper001 : public Mapper {
+	class MMC1 : public Mapper {
 	public:
-		Mapper001(NES& nes, uint8_t bankCountPRG, uint8_t bankCountCHR, MirroringMode mode);
-		~Mapper001();
+		MMC1(NES& nes, NESMetadata metadata, MirroringMode mode);
+		~MMC1();
 
 	public:
+		virtual void tick();
+
 		virtual void writeCPU(uint16_t address, uint8_t value);
 
 	private:
-		uint8_t _counter;
+		void writeRegister(uint8_t registerTarget, uint8_t value);
+		void updateBanks();
 
-		uint8_t _registerControl;
-		uint8_t _registerLoad;
+	private:
+		uint8_t _tick;
+
+		uint8_t _registers[0x4];
+
+		uint8_t _register;
+		uint8_t _counter;
 
 	public:
 		template<DumpOperation operation, class T> void dump(T& buffer) {
 			Mapper::dump<operation>(buffer);
 
+			cynes::dump<operation>(buffer, _tick);
+			cynes::dump<operation>(buffer, _registers);
+			cynes::dump<operation>(buffer, _register);
 			cynes::dump<operation>(buffer, _counter);
-			cynes::dump<operation>(buffer, _registerControl);
-			cynes::dump<operation>(buffer, _registerLoad);
 		}
 	};
 
-	class Mapper002 : public Mapper {
+	class UxROM : public Mapper {
 	public:
-		Mapper002(NES& nes, uint8_t bankCountPRG, uint8_t bankCountCHR, MirroringMode mode);
-		~Mapper002();
+		UxROM(NES& nes, NESMetadata metadata, MirroringMode mode);
+		~UxROM();
 
 	public:
 		virtual void writeCPU(uint16_t address, uint8_t value);
 	};
 
-	class Mapper003 : public Mapper {
+	class CNROM : public Mapper {
 	public:
-		Mapper003(NES& nes, uint8_t bankCountPRG, uint8_t bankCountCHR, MirroringMode mode);
-		~Mapper003();
+		CNROM(NES& nes, NESMetadata metadata, MirroringMode mode);
+		~CNROM();
 
 	public:
 		virtual void writeCPU(uint16_t address, uint8_t value);
 	};
 
-	class Mapper004 : public Mapper {
+	class MMC3 : public Mapper {
 	public:
-		Mapper004(NES& nes, uint8_t bankCountPRG, uint8_t bankCountCHR, MirroringMode mode);
-		~Mapper004();
+		MMC3(NES& nes, NESMetadata metadata, MirroringMode mode);
+		~MMC3();
 
 	public:
 		virtual void tick();
-		virtual void notifyStateA12(bool state);
 
 		virtual void writeCPU(uint16_t address, uint8_t value);
+		virtual void writePPU(uint16_t address, uint8_t value);
+
+		virtual uint8_t readPPU(uint16_t address);
+
+	private:
+		void updateState(bool state);
 
 	private:
 		uint32_t _tick;
@@ -740,7 +809,7 @@ namespace cynes {
 		uint16_t _counter;
 		uint16_t _counterReload;
 
-		uint8_t _targetRegister;
+		uint8_t _registerTarget;
 
 		bool _modePRG;
 		bool _modeCHR;
@@ -756,12 +825,119 @@ namespace cynes {
 			cynes::dump<operation>(buffer, _registers);
 			cynes::dump<operation>(buffer, _counter);
 			cynes::dump<operation>(buffer, _counterReload);
-			cynes::dump<operation>(buffer, _targetRegister);
+			cynes::dump<operation>(buffer, _registerTarget);
 			cynes::dump<operation>(buffer, _modePRG);
 			cynes::dump<operation>(buffer, _modeCHR);
 			cynes::dump<operation>(buffer, _enableIRQ);
 			cynes::dump<operation>(buffer, _shouldReloadIRQ);
 		}
+	};
+
+	class AxROM : public Mapper {
+	public:
+		AxROM(NES& nes, NESMetadata metadata);
+		~AxROM();
+
+	public:
+		virtual void writeCPU(uint16_t address, uint8_t value);
+	};
+
+	template<uint8_t bankSize>
+	class MMC : public Mapper {
+	public:
+		MMC(NES& nes, NESMetadata metadata, MirroringMode mode) :
+			Mapper(nes, metadata, mode) {
+			setBankCHR(0x0, 0x8, 0x0);
+
+			setBankPRG(0x20, bankSize, 0x0);
+			setBankPRG(0x20 + bankSize, 0x20 - bankSize, SIZE_PRG - 0x20 + bankSize);
+
+			setBankWRAM(0x18, 0x8, 0x0, true);
+
+			memset(_latches, false, 0x2);
+			memset(_selectedBanks, 0x0, 0x4);
+		}
+
+		~MMC() { }
+
+	public:
+		virtual void writeCPU(uint16_t address, uint8_t value) {
+			if (address < 0xA000) {
+				Mapper::writeCPU(address, value);
+			} else if (address < 0xB000) {
+				setBankPRG(0x20, bankSize, (value & 0xF) * bankSize);
+			} else if (address < 0xC000) {
+				_selectedBanks[0x0] = value & 0x1F; updateBanks();
+			} else if (address < 0xD000) {
+				_selectedBanks[0x1] = value & 0x1F; updateBanks();
+			} else if (address < 0xE000) {
+				_selectedBanks[0x2] = value & 0x1F; updateBanks();
+			} else if (address < 0xF000) {
+				_selectedBanks[0x3] = value & 0x1F; updateBanks();
+			} else {
+				if (value & 0x01) {
+					setMirroringMode(MirroringMode::HORIZONTAL);
+				} else {
+					setMirroringMode(MirroringMode::VERTICAL);
+				}
+			}
+		}
+
+		virtual uint8_t readPPU(uint16_t address) {
+			uint8_t value = Mapper::readPPU(address);
+
+			if (address == 0x0FD8) {
+				_latches[0] = true; updateBanks();
+			} else if (address == 0x0FE8) {
+				_latches[0] = false; updateBanks();
+			} else if (address >= 0x1FD8 && address < 0x1FE0) {
+				_latches[1] = true; updateBanks();
+			} else if (address >= 0x1FE8 && address < 0x1FF0) {
+				_latches[1] = false; updateBanks();
+			}
+
+			return value;
+		}
+
+	private:
+		void updateBanks() {
+			if (_latches[0]) {
+				setBankCHR(0x0, 0x4, _selectedBanks[0x0] << 2);
+			} else {
+				setBankCHR(0x0, 0x4, _selectedBanks[0x1] << 2);
+			}
+
+			if (_latches[1]) {
+				setBankCHR(0x4, 0x4, _selectedBanks[0x2] << 2);
+			} else {
+				setBankCHR(0x4, 0x4, _selectedBanks[0x3] << 2);
+			}
+		}
+
+	private:
+		bool _latches[0x2];
+
+		uint8_t _selectedBanks[0x4];
+
+	public:
+		template<DumpOperation operation, class T> void dump(T& buffer) {
+			Mapper::dump<operation>(buffer);
+
+			cynes::dump<operation>(buffer, _latches);
+			cynes::dump<operation>(buffer, _selectedBanks);
+		}
+	};
+
+	using MMC2 = MMC<0x08>;
+	using MMC4 = MMC<0x10>;
+
+	class GxROM : public Mapper {
+	public:
+		GxROM(NES& nes, NESMetadata metadata, MirroringMode mode);
+		~GxROM();
+
+	public:
+		virtual void writeCPU(uint16_t address, uint8_t value);
 	};
 }
 

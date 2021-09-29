@@ -7,6 +7,8 @@ from cynes.emulator cimport *
 
 import numpy as np
 
+from collections.abc import Iterable
+
 
 cdef class NESHeadless:
     """
@@ -19,9 +21,7 @@ cdef class NESHeadless:
     Attributes
     ----------
     controller: int
-        The controller state represented over a single byte.
-    should_close: bool
-        Set to True when the emulator should be closed.
+        The controllers state represented over two bytes.
 
     Methods
     -------
@@ -37,7 +37,7 @@ cdef class NESHeadless:
         Returns whether or not the emulator should be closed.
     """
 
-    def __init__(self, rom):
+    def __init__(self, rom: str):
         """
         Initializes the NES emulator.
 
@@ -49,7 +49,7 @@ cdef class NESHeadless:
         Notes
         -----
         The emulator initialisation can fail if the ROM file cannot be found or 
-        if the Mapper used by the game is currently not supported.
+        if the Mapper used by the game is currently unsupported.
         """
 
         try:
@@ -66,11 +66,11 @@ cdef class NESHeadless:
 
     def __setitem__(self, u16 address, u8 value) -> None:
         """
-        Writes a value in the emulator memory at the specified address. Note 
-        that this write is "silent", meaning that it has no impact on the 
-        emulation and does not tick the internal emulator components. Only the 
-        RAM at addresses between 0x0000 - 0x1FFF and 0x6000 - 0x7FFF (Mapper 
-        RAM) can be accessed.
+        Writes a value in the emulator memory at the specified address. Note
+        that writing to certains addresses may desynchronise the components of
+        the console, leading to undefined behavior. Only the RAM at addresses 
+        between 0x0000 - 0x1FFF and 0x6000 - 0x7FFF (Mapper RAM) can be accessed
+        safely.
 
         Arguments
         ---------
@@ -85,10 +85,10 @@ cdef class NESHeadless:
     def __getitem__(self, u16 address) -> u8:
         """
         Reads a value in the emulator memory at the specified address. Note that 
-        this read is "silent", meaning that it has no impact on the emulation 
-        and does not tick the internal emulator components. Only the RAM at 
-        addresses between 0x0000 - 0x1FFF and 0x6000 - 0x7FFF (Mapper RAM) can 
-        be accessed.
+        reading to certains addresses may desynchronise the components of the 
+        console, leading to undefined behavior. Only the RAM at addresses 
+        between 0x0000 - 0x1FFF and 0x6000 - 0x7FFF (Mapper RAM) can be accessed
+        safely.
 
         Arguments
         ---------
@@ -106,22 +106,17 @@ cdef class NESHeadless:
     def reset(self) -> None:
         """
         Sends a reset signal to the emulator. Note that reseting the NES is 
-        different from re-created a new emulator as the RAM content is not 
+        different from re-creating a new emulator as the RAM content is not 
         erased.
-
-        Arguments
-        ---------
-        index: int
-            The index of the emulator.
         """
+
+        should_close = False
 
         self.__emulator.reset()
 
     def step(self, u32 frames = 1) -> np.ndarray:
         """
-        Runs the emulator for the specified amount of frame. To save 
-        computational time, the current frame buffer content is instantly 
-        returned, and then the next frames are computed in a separated thread.
+        Runs the emulator for the specified amount of frame. 
 
         Arguments
         ---------
@@ -134,10 +129,8 @@ cdef class NESHeadless:
             The numpy array containing the frame buffer (shape 240x256x3)
         """
 
-        self.__emulator.setControllerState(self.controller)
-
         self._should_close |= self.__emulator.step(
-            &self.__frame_buffer[0, 0, 0], frames
+            &self.__frame_buffer[0, 0, 0], self.controller, frames
         )
         
         return np.asarray(self.__frame_buffer)
@@ -182,11 +175,8 @@ cdef class NESHeadless:
 
     def should_close(self) -> bool:
         """
-        Returns whether or not the emulator should be closed. When the CPU of 
-        the emulator is frozen. When the CPU hits a JAM instruction (illegal 
-        opcode), it is frozen until the emulator is reset. This should never 
-        happen, but memory corruptions can cause them, so be careful when 
-        accessing the NES memory.
+        Returns whether or not the emulator should be closed or reset. When this 
+        function returns True, then any call to class method will do nothing.
 
         Return
         ------

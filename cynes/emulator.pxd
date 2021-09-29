@@ -18,8 +18,7 @@ cdef extern from "../src/emulator.h" namespace "cynes":
 
         void reset()
 
-        void setControllerState(u8)
-        bool step(u8*, u32)
+        bool step(u8*, u16, u32)
 
         void writeCPU(u16, u8)
         u8 readCPU(u16)
@@ -37,6 +36,7 @@ cdef class NESHeadless:
 
     cdef u32 __state_size
 
-    cdef public u8 controller
+    cdef public u16 controller
     
     cdef public bool _should_close
+

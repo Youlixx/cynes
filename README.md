@@ -33,7 +33,7 @@ while not nes.should_close():
     # It also returns the content of the frame buffer as a numpy array
     frame = nes.step()
 ```
-Multiple emulators can be created at once. As they are executed in different threads, they should not block each other when calling the `step` method.
+Multiple emulators can be created at once by instantiating several NES objects.
 
 ### Windowed / Headless modes
 A cynes NES emulator can either be run in windowed or headless mode.
@@ -71,7 +71,14 @@ nes.controller = NES_INPUT_DOWN | NES_INPUT_UP
 # Run the emulator with the specified controller state for 5 frames
 nes.step(frames=5)
 ```
-Note that the state of the controller is maintain even after the `step` method is called. This means that it has to be reset to 0 release butons. 
+Note that the state of the controller is maintain even after the `step` method is called. This means that it has to be reset to 0 to release the buttons. 
+
+Two controllers can be used at the same time. The state of the second controller can be modified by updating the 8 most significant bits of the same variable.
+
+```python
+# P1 will press left and P2 will press the right button
+nes.controller = NES_INPUT_LEFT | NES_INPUT_RIGHT << 8
+```
 
 ### Key handlers
 Key handlers are a simple way of associating custom actions to shortcuts. This feature is only present with the windowed mode. The key events (and their associated handlers) are fired when calling the `step` method.
@@ -104,7 +111,7 @@ nes.load(save_state)
 Memory modification should never be performed directly on a save state, as it is prone to memory corruption. Theses two methods can be quite slow, therefore, they should be called sparsely.
 
 ### Memory access
-The memory of the emulator can be read from and written to "silently", meaning that it does tick its internal component while doing so.
+The memory of the emulator can be read from and written to using the following syntax :
 ```python
 # The memory content can be accessed as if the emulator was an array
 player_state = nes[0x000E]
@@ -112,7 +119,7 @@ player_state = nes[0x000E]
 # And can be written in a similar fashion
 nes[0x075A] = 0x8
 ```
-Note that only the CPU RAM `$0000 - $1FFFF` and the mapper RAM `$6000 - $7FFF` should be accessed. Trying to read a value from other addresses may alter the behavior of the PPU / APU / Mapper of the emulator.
+Note that only the CPU RAM `$0000 - $1FFFF` and the mapper RAM `$6000 - $7FFF` should be accessed. Trying to read / write a value to other addresses may desynchronize the components of the emulator, resulting in a undefined behavior.
 
 ### Closing
 An emulator is automatically closed when the object is released by Python. In windowed mode, the `close` method can be use to close the window without having to wait for Python to release the object.

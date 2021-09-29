@@ -33,12 +33,12 @@ class NES(NESHeadless):
     Attributes
     ----------
     controller: int
-        The controller state represented over a single byte.
-    should_close: bool
-        Set to True when the window is closed (or when ESC is pressed).
+        The controllers state represented over two bytes.
 
     Methods
     -------
+    reset()
+        Sends a reset signal to the emulator.
     register(key_code, handler)
         Registers a new key handler
     step(frames)
@@ -47,8 +47,10 @@ class NES(NESHeadless):
         Returns a dump of the current console state.
     load(buffer)
         Loads back a save state.
+    should_close()
+        Returns whether or not the emulator should be closed.
     close()
-        Closes the emulator.
+        Closes the emulator and the window.
     """
 
     def __init__(self, rom: str, default_handlers: bool = True, scale: int = 3):
@@ -154,9 +156,7 @@ class NES(NESHeadless):
 
     def step(self, frames: int = 1) -> np.ndarray:
         """
-        Runs the emulator for the specified amount of frame. To save 
-        computational time, the current frame buffer content is instantly 
-        returned, and then the next frames are computed in a separated thread.
+        Runs the emulator for the specified amount of frame.
 
         Arguments
         ---------
@@ -216,9 +216,10 @@ class NES(NESHeadless):
         sdl2.SDL_DestroyWindow(self.__window)
 
         self.__closed = True
+        self._should_close = True
 
     def __del__(self):
         self.close()
 
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"

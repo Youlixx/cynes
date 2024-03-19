@@ -1,15 +1,15 @@
 # cynes - C/C++ NES emulator with Python bindings
 # Copyright (C) 2021  Combey Theo <https://www.gnu.org/licenses/>
 
-from cynes.emulator import NESHeadless
+import warnings
 
 import numpy as np
 
-import warnings
+from cynes.emulator import NESHeadless
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    
+
     import sdl2
 
 
@@ -27,7 +27,7 @@ class NES(NESHeadless):
     """
     The windowed emulator class.
 
-    A NES implements the basic attributes and methods to interact with the C API 
+    A NES implements the basic attributes and methods to interact with the C API
     to run a NES emulator in windowed mode.
 
     Attributes
@@ -68,7 +68,7 @@ class NES(NESHeadless):
 
         Notes
         -----
-        The emulator initialisation can fail if the ROM file cannot be found or 
+        The emulator initialisation can fail if the ROM file cannot be found or
         if the Mapper used by the game is currently not supported.
         """
 
@@ -79,11 +79,11 @@ class NES(NESHeadless):
         self.__closed = False
 
         self.__window = sdl2.SDL_CreateWindow(
-            bytes(rom, "ascii"), 
-            sdl2.SDL_WINDOWPOS_UNDEFINED, 
-            sdl2.SDL_WINDOWPOS_UNDEFINED, 
-            scale * 256, 
-            scale * 240, 
+            bytes(rom, "ascii"),
+            sdl2.SDL_WINDOWPOS_UNDEFINED,
+            sdl2.SDL_WINDOWPOS_UNDEFINED,
+            scale * 256,
+            scale * 240,
             sdl2.SDL_WINDOW_SHOWN
         )
 
@@ -94,9 +94,9 @@ class NES(NESHeadless):
         )
 
         self.__texture = sdl2.SDL_CreateTexture(
-            self.__renderer, 
-            sdl2.SDL_PIXELFORMAT_RGB24, 
-            sdl2.SDL_TEXTUREACCESS_STREAMING, 
+            self.__renderer,
+            sdl2.SDL_PIXELFORMAT_RGB24,
+            sdl2.SDL_TEXTUREACCESS_STREAMING,
             256, 240
         )
 
@@ -114,7 +114,7 @@ class NES(NESHeadless):
 
     def register(self, key_code: int, handler) -> None:
         """
-        Registers a new key handler. The handler function will be called when 
+        Registers a new key handler. The handler function will be called when
         the specified key is pressed down.
 
         Arguments
@@ -186,13 +186,13 @@ class NES(NESHeadless):
             while sdl2.SDL_PollEvent(event):
                 if event.type == sdl2.SDL_QUIT:
                     self._should_close = True
-        
+
         frame_buffer = super().step(frames=frames)
 
         sdl2.SDL_UpdateTexture(
             self.__texture, None, frame_buffer.ctypes._as_parameter_, 768
         )
-        
+
         sdl2.SDL_RenderCopy(self.__renderer, self.__texture, None, None)
         sdl2.SDL_RenderPresent(self.__renderer)
 
@@ -202,15 +202,15 @@ class NES(NESHeadless):
 
     def close(self) -> None:
         """
-        This function closes the window and should be called when the emulator 
-        is not used anymore. It is automatically called when the object is 
-        deleted, so if you use the emulator until the end of the program, you 
+        This function closes the window and should be called when the emulator
+        is not used anymore. It is automatically called when the object is
+        deleted, so if you use the emulator until the end of the program, you
         do not need to call it.
         """
 
         if self.__closed:
             return
-        
+
         sdl2.SDL_DestroyRenderer(self.__renderer)
         sdl2.SDL_DestroyTexture(self.__texture)
         sdl2.SDL_DestroyWindow(self.__window)
@@ -222,4 +222,4 @@ class NES(NESHeadless):
         self.close()
 
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"

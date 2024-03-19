@@ -1,9 +1,7 @@
+import numpy
+from Cython.Build import cythonize
 from setuptools import setup
 from setuptools.extension import Extension
-from Cython.Build import cythonize
-
-import numpy
-
 
 with open("README.md", "r") as file:
     long_description = file.read()
@@ -19,7 +17,7 @@ ext_module_wrapper = Extension(
 
 setup (
     name = "cynes",
-    version="0.0.3",
+    version="0.0.4",
     author="Theo Combey",
     author_email="combey.theo@hotmail.com",
     description="C/C++ NES emulator with Python bindings",
@@ -29,12 +27,12 @@ setup (
     license="GPL-3.0",
     url="https://github.com/Youlixx/cynes",
     setup_requires=[
-        "cython", 
+        "cython",
         "numpy"
     ],
     install_requires=[
-        "numpy", 
-        "pysdl2-dll", 
+        "numpy",
+        "pysdl2-dll",
         "pysdl2"
     ],
     ext_modules = cythonize(ext_module_wrapper, language_level=3),
@@ -55,7 +53,9 @@ setup (
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10"
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12"
     ],
     python_requires=">=3.6",
 )

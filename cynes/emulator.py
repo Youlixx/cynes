@@ -42,7 +42,7 @@ class NESHeadless:
 
         Notes
         -----
-        The emulator initialisation can fail if the ROM file cannot be found or 
+        The emulator initialisation can fail if the ROM file cannot be found or
         if the Mapper used by the game is currently unsupported.
         """
 
@@ -52,7 +52,7 @@ class NESHeadless:
         """
         Writes a value in the emulator memory at the specified address. Note
         that writing to certains addresses may desynchronise the components of
-        the console, leading to undefined behavior. Only the RAM at addresses 
+        the console, leading to undefined behavior. Only the RAM at addresses
         between 0x0000 - 0x1FFF and 0x6000 - 0x7FFF (Mapper RAM) can be accessed
         safely.
 
@@ -68,9 +68,9 @@ class NESHeadless:
 
     def __getitem__(self, address: int) -> int:
         """
-        Reads a value in the emulator memory at the specified address. Note that 
-        reading to certains addresses may desynchronise the components of the 
-        console, leading to undefined behavior. Only the RAM at addresses 
+        Reads a value in the emulator memory at the specified address. Note that
+        reading to certains addresses may desynchronise the components of the
+        console, leading to undefined behavior. Only the RAM at addresses
         between 0x0000 - 0x1FFF and 0x6000 - 0x7FFF (Mapper RAM) can be accessed
         safely.
 
@@ -86,11 +86,11 @@ class NESHeadless:
         """
 
         ...
-    
+
     def reset(self) -> None:
         """
-        Sends a reset signal to the emulator. Note that reseting the NES is 
-        different from re-creating a new emulator as the RAM content is not 
+        Sends a reset signal to the emulator. Note that reseting the NES is
+        different from re-creating a new emulator as the RAM content is not
         erased.
         """
 
@@ -98,7 +98,7 @@ class NESHeadless:
 
     def step(self, frames: int = 1) -> np.ndarray:
         """
-        Runs the emulator for the specified amount of frame. 
+        Runs the emulator for the specified amount of frame.
 
         Arguments
         ---------
@@ -110,16 +110,16 @@ class NESHeadless:
         frame_buffer: np.ndarray
             The numpy array containing the frame buffer (shape 240x256x3)
         """
-        
+
         ...
 
     def save(self) -> np.ndarray:
         """
-        Dumps the current emulator state into a save state. The size of the dump 
-        is variable and depend on the mapper used by the loaded game. The save 
-        state basically acts as a checkpoint that can be restored at any time 
-        without corrupting the NES memory. Note that this operation can be quite 
-        constly as it necessites a lot of IO operations, so it should be used 
+        Dumps the current emulator state into a save state. The size of the dump
+        is variable and depend on the mapper used by the loaded game. The save
+        state basically acts as a checkpoint that can be restored at any time
+        without corrupting the NES memory. Note that this operation can be quite
+        constly as it necessites a lot of IO operations, so it should be used
         sparsely.
 
         Return
@@ -129,12 +129,12 @@ class NESHeadless:
         """
 
         ...
-        
+
     def load(self, buffer: np.ndarray) -> None:
         """
-        Restores the emulator state from a save state. The save state basically 
-        acts as a checkpoint that can be restored at any time without corrupting 
-        the NES memory. Note that this operation can be quite constly as it 
+        Restores the emulator state from a save state. The save state basically
+        acts as a checkpoint that can be restored at any time without corrupting
+        the NES memory. Note that this operation can be quite constly as it
         necessites a lot of IO operations, so it should be used sparsely.
 
         Arguments
@@ -147,7 +147,7 @@ class NESHeadless:
 
     def should_close(self) -> bool:
         """
-        Returns whether or not the emulator should be closed or reset. When this 
+        Returns whether or not the emulator should be closed or reset. When this
         function returns True, then any call to class method will do nothing.
 
         Return

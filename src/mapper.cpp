@@ -3,11 +3,11 @@
 
 
 cynes::Mapper::Mapper(
-    NES& nes, 
-    NESMetadata metadata, 
-    MirroringMode mode, 
-    uint8_t sizeWRAM, 
-    uint8_t sizeVRAM, 
+    NES& nes,
+    NESMetadata metadata,
+    MirroringMode mode,
+    uint8_t sizeWRAM,
+    uint8_t sizeVRAM,
     uint8_t sizeERAM
 ) : _nes(nes)
   , SIZE_PRG(metadata.sizePRG)
@@ -21,7 +21,7 @@ cynes::Mapper::Mapper(
   , _memoryVRAM()
   , _memoryERAM()
   , _banksCPU()
-  , _banksPPU() 
+  , _banksPPU()
 {
     if (SIZE_WRAM) {
         _memoryWRAM = new uint8_t[uint64_t(SIZE_WRAM) << 10];

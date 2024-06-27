@@ -12,15 +12,15 @@ enum class DumpOperation {
 template<DumpOperation operation, class T>
 void dump(uint8_t*& buffer, T& value) {
     switch (operation) {
-        case DumpOperation::DUMP: 
+        case DumpOperation::DUMP:
             memcpy(buffer, &value, sizeof(T));
             break;
-        case DumpOperation::LOAD: 
+        case DumpOperation::LOAD:
             memcpy(&value, buffer, sizeof(T));
             break;
     }
 
-    buffer += sizeof(T); 
+    buffer += sizeof(T);
 }
 
 template<DumpOperation operation, class T>
@@ -33,10 +33,10 @@ void dump(unsigned int& bufferSize, T& value) {
 template<DumpOperation operation, class T>
 void dump(uint8_t*& buffer, T* values, unsigned int size) {
     switch (operation) {
-        case DumpOperation::DUMP: 
-            memcpy(buffer, values, sizeof(T) * size); 
+        case DumpOperation::DUMP:
+            memcpy(buffer, values, sizeof(T) * size);
             break;
-        case DumpOperation::LOAD: 
+        case DumpOperation::LOAD:
             memcpy(values, buffer, sizeof(T) * size);
             break;
     }

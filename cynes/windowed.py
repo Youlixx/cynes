@@ -3,7 +3,7 @@
 
 """Module containing a simple NES wrapper using SDL2 for the rendering."""
 
-from typing import Callable
+from typing import Any, Callable, Optional, Type
 
 import numpy as np
 import sdl2
@@ -145,6 +145,42 @@ class WindowedNES(NES):
             self.register_handler(sdl2.SDL_SCANCODE_LEFT, self.__input_left)
             self.register_handler(sdl2.SDL_SCANCODE_RIGHT, self.__input_right)
 
+    def __enter__(self) -> "WindowedNES":
+        """Enter the runtime context related to the emulator.
+
+        Returns
+        -------
+        emulator: WindowedNES
+            Current NES emulator.
+        """
+        return self
+
+    def __exit__(
+        self,
+        error: Optional[Type[BaseException]],
+        value: Optional[BaseException],
+        traceback: Optional[Any]
+    ) -> bool:
+        """Close the window when exiting the runtime context related to the emulator.
+
+        Parameters
+        ----------
+        error: Type[BaseException], optional
+            If an error occured, the type of the exception.
+        value: BaseException, optional
+            If an error occured, the exception itself.
+        traceback: Any, optional
+            If an error occured, the current traceback.
+
+        Returns
+        -------
+        should_suppress_error: bool
+            True if the exception should be suppressed, False otherwise.
+        """
+        self.close()
+
+        return True
+
     def __input_a(self) -> None:
         self.controller |= NES_INPUT_A
 
@@ -184,7 +220,7 @@ class WindowedNES(NES):
         """
         self._handlers[key_code] = handler
 
-    def step(self, frames: int = 1) -> NDArray[np.uint8] | None:
+    def step(self, frames: int = 1) -> Optional[NDArray[np.uint8]]:
         """Run the emulator for the specified amount of frame.
 
         Parameters
@@ -194,7 +230,7 @@ class WindowedNES(NES):
 
         Returns
         -------
-        frame_buffer: NDArray[np.uint8] | None
+        frame_buffer: NDArray[np.uint8], optional
             The numpy array containing the frame buffer (shape 240x256x3).
         """
         if self.should_close:

@@ -127,12 +127,13 @@ class WindowedNES(NES):
         """
         super().__init__(rom)
 
+        self._should_close = False
+        self._handlers = {sdl2.SDL_SCANCODE_ESCAPE: self.__input_escape}
+
         self._context = SDLContext(
             window_name=rom,
             scaling_factor=scaling_factor
         )
-
-        self.__handlers = {sdl2.SDL_SCANCODE_ESCAPE: self.__input_escape}
 
         if default_handlers:
             self.register_handler(sdl2.SDL_SCANCODE_X, self.__input_a)
@@ -169,7 +170,7 @@ class WindowedNES(NES):
         self.controller |= NES_INPUT_RIGHT
 
     def __input_escape(self) -> None:
-        self._should_close = True
+        self.close()
 
     def register_handler(self, key_code: int, handler: Callable[[], None]) -> None:
         """Register a new key handler.
@@ -181,7 +182,7 @@ class WindowedNES(NES):
         handler: Callable[[], None]
             A function that takes not argmuent, called when the key is pressed.
         """
-        self.__handlers[key_code] = handler
+        self._handlers[key_code] = handler
 
     def step(self, frames: int = 1) -> NDArray[np.uint8] | None:
         """Run the emulator for the specified amount of frame.
@@ -206,16 +207,15 @@ class WindowedNES(NES):
         previous_state = self.controller
 
         if self._context.has_focus:
-            for handler in self.__handlers:
+            for handler in self._handlers:
                 if self._context.keyboard_state[handler]:
-                    self.__handlers[handler]()
+                    self._handlers[handler]()
 
             event = sdl2.SDL_Event()
 
             while sdl2.SDL_PollEvent(event):
                 if event.type == sdl2.SDL_QUIT:
-                    self._should_close = True
-                    self._context.hide_window()
+                    self.close()
                     return
 
         frame_buffer = super().step(frames=frames)
@@ -224,6 +224,11 @@ class WindowedNES(NES):
         self.controller = previous_state
 
         return frame_buffer
+
+    def close(self) -> None:
+        """Close the window."""
+        self._should_close = True
+        self._context.hide_window()
 
     @property
     def should_close(self) -> bool:

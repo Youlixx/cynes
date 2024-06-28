@@ -1,4 +1,0 @@
-include cynes/emulator.pxd
-include cynes/emulator.pyx
-include src/*
-include LICENSE

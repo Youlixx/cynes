@@ -58,10 +58,6 @@ bool cynes::wrapper::Wrapper::hasCrashed() const {
 PYBIND11_MODULE(emulator, mod) {
     mod.doc() = "C/C++ NES emulator with Python bindings";
 
-#ifdef PYTHON_MODULE_VERSION
-    mod.attr("__version__") = PYTHON_MODULE_VERSION;
-#endif
-
     pybind11::class_<cynes::wrapper::Wrapper>(mod, "NESHeadless")
         .def(pybind11::init<const char*>(), pybind11::arg("rom"))
         .def_property_readonly("has_crashed", &cynes::wrapper::Wrapper::hasCrashed)

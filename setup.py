@@ -61,8 +61,6 @@ class CMakeBuild(build_ext):
         if "CMAKE_ARGS" in os.environ:
             cmake_args += [item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
 
-        cmake_args += [f"-DPYTHON_MODULE_VERSION={self.distribution.get_version()}"]
-
         if self.compiler.compiler_type == "msvc":
             single_config = any(x in cmake_generator for x in {"NMake", "Ninja"})
             contains_arch = any(x in cmake_generator for x in {"ARM", "Win64"})
@@ -102,7 +100,7 @@ class CMakeBuild(build_ext):
             ["cmake", "--build", ".", *build_args], cwd=build_temp, check=True
         )
 
-setup (
+setup(
     name = "cynes",
     version="0.0.4",
     author="Theo Combey",

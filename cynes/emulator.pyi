@@ -87,13 +87,13 @@ class NES:
 
         Parameters
         ----------
-        frames: int (optional)
-            Indicates the number of frames for which the emulator is ran.
+        frames: int, default: 1
+            Indicates the number of frames for which the emulator will be run.
 
         Returns
         -------
         frame_buffer: NDArray[np.uint8]
-            The numpy array containing the frame buffer (shape 240x256x3)
+            The numpy array containing the frame buffer (shape 240x256x3).
         """
         ...
 

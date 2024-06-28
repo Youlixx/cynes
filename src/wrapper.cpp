@@ -55,7 +55,7 @@ bool cynes::wrapper::Wrapper::hasCrashed() const {
 }
 
 
-PYBIND11_MODULE(cynes, mod) {
+PYBIND11_MODULE(emulator, mod) {
     mod.doc() = "C/C++ NES emulator with Python bindings";
 
 #ifdef PYTHON_MODULE_VERSION

@@ -5,13 +5,15 @@ project(cynes C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_library(cynes_core OBJECT
+add_library(cynes_core STATIC
     src/apu.cpp
     src/cpu.cpp
     src/ppu.cpp
     src/nes.cpp
     src/mapper.cpp
 )
+
+set_property(TARGET cynes_core PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(cynes_core PRIVATE
     src/
@@ -34,14 +36,14 @@ endif()
 
 add_definitions(-DPYTHON_MODULE_VERSION="${PYTHON_MODULE_VERSION}")
 
-pybind11_add_module(cynes
+pybind11_add_module(emulator
     src/wrapper.cpp
 )
 
-target_include_directories(cynes PRIVATE
+target_include_directories(emulator PRIVATE
     src/
 )
 
-target_link_libraries(cynes PRIVATE
+target_link_libraries(emulator PRIVATE
     cynes_core
 )

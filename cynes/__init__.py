@@ -32,7 +32,7 @@ NES_INPUT_SELECT = 0x20
 NES_INPUT_B = 0x40
 NES_INPUT_A = 0x80
 
-__version__ = "0.0.5"
+__version__ = "0.1.0"
 
 __all__ = [
     "NES",

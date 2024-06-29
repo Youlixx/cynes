@@ -1,0 +1,6 @@
+build/
+.cache/
+.ruff_cache/
+__pycache__/
+*.egg-info/
+*.so

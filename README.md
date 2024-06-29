@@ -14,7 +14,7 @@ cynes can be installed using pip :
 pip install cynes
 ```
 
-It can also be built from source using [cython](https://github.com/cython/cython).
+It can also be built from source using (requires `cmake`) :
 ```
 python setup.py build
 ```
@@ -22,31 +22,37 @@ python setup.py build
 ## How to use
 A cynes NES emulator can be created by instanticiating a new NES object. The following code is the minimal code to run a ROM file.
 ```python
-from cynes import NES
+from cynes.windowed import WindowedNES
 
 # We initialize a new emulator by specifying the ROM file used
-nes = NES("smb.nes")
-
-# While the emulator should not be close, we can continue the emulation
-while not nes.should_close():
-    # The step method run the emulation for a single frame
-    # It also returns the content of the frame buffer as a numpy array
-    frame = nes.step()
+with WindowedNES("rom.nes") as nes:
+    # While the emulator should not be closed, we can continue the emulation
+    while not nes.should_close:
+        # The step method run the emulation for a single frame
+        # It also returns the content of the frame buffer as a numpy array
+        frame = nes.step()
 ```
 Multiple emulators can be created at once by instantiating several NES objects.
 
 ### Windowed / Headless modes
-A cynes NES emulator can either be run in windowed or headless mode.
+The default NES class run in "headless" mode, meaning that no rendering is performed. A simple wrapper around the base emulator providing a basic renderer and input handling using SDL2 is present in the `windowed` submodule.
 ```python
-from cynes import NESHeadless, NES
+from cynes import NES
+from cynes.windowed import WindowedNES
 
 # We can create a NES emulator without a rendering window
-nes_headless = NESHeadless("smb.nes")
+nes_headless = NES("rom.nes")
+
+while not nes_headless.has_crashed:
+    frame = nes_headless.step()
 
 # And with the rendering window
-nes = NES("smb.nes")
+nes_windowed = WindowedNES("rom.nes")
+
+while not nes_windowed.should_close:
+    frame = nes_windowed.step()
 ```
-While the rendering overhead is quite small, running in headless mode can improve the performances when the window is not needed. The content of the frame buffer can still be accessed in the same way as previously, using the `step` method.
+While the rendering overhead is quite small, running in headless mode can improve the performances when the window is not needed. The content of the frame buffer can always be accessed using the `step` method.
 
 ### Controller
 The state of the controller can be directly modified using the following syntax :
@@ -60,8 +66,8 @@ nes.controller = NES_INPUT_RIGHT
 nes.controller = NES_INPUT_RIGHT | NES_INPUT_A
 
 # Chaining multiple button presses at once
-nes.controller = NES_INPUT_START 
-nes.controller |= NES_INPUT_B 
+nes.controller = NES_INPUT_START
+nes.controller |= NES_INPUT_B
 nes.controller |= NES_INPUT_SELECT
 
 # Undefined behavior
@@ -71,7 +77,7 @@ nes.controller = NES_INPUT_DOWN | NES_INPUT_UP
 # Run the emulator with the specified controller state for 5 frames
 nes.step(frames=5)
 ```
-Note that the state of the controller is maintain even after the `step` method is called. This means that it has to be reset to 0 to release the buttons. 
+Note that the state of the controller is maintained even after the `step` method is called. This means that it has to be reset to 0 to release the buttons.
 
 Two controllers can be used at the same time. The state of the second controller can be modified by updating the 8 most significant bits of the same variable.
 
@@ -84,7 +90,7 @@ nes.controller = NES_INPUT_LEFT | NES_INPUT_RIGHT << 8
 Key handlers are a simple way of associating custom actions to shortcuts. This feature is only present with the windowed mode. The key events (and their associated handlers) are fired when calling the `step` method.
 ```python
 # Disable the default window controls
-nes = NES("smb.nes", default_handlers=False)
+nes = WindowedNES("rom.nes", default_handlers=False)
 
 # Custom key handlers can be defined using the register method
 import sdl2
@@ -122,10 +128,10 @@ nes[0x075A] = 0x8
 Note that only the CPU RAM `$0000 - $1FFFF` and the mapper RAM `$6000 - $7FFF` should be accessed. Trying to read / write a value to other addresses may desynchronize the components of the emulator, resulting in a undefined behavior.
 
 ### Closing
-An emulator is automatically closed when the object is released by Python. In windowed mode, the `close` method can be use to close the window without having to wait for Python to release the object.
+An emulator is automatically closed when the object is released by Python. In windowed mode, the `close` method can be used to close the window without having to wait for Python to release the object. As presented previously, the WindowedNES can also be used as a context manager, which will call `close` automatcially when exiting the context.
 It can also be closed manualy using the `close` method.
 ```python
-# In windowed mode, this can be use to close the window
+# In windowed mode, this can be used to close the window
 nes.close()
 
 # Deleting the emulator in windowed mode also closes the window
@@ -133,9 +139,9 @@ del nes
 
 # The method should_close indicates whether or not the emulator function should be called
 nes.close()
-nes.should_close() # True
+nes.should_close # True
 ```
-When the emulator is closed, but the object is not deleted yet, the `should_close` method will return True, indicating that calling any NES function will not work properly. This method can also return True in two other cases :
+When the emulator is closed, but the object is not deleted yet, the `should_close` property will be set to True, indicating that calling any NES function will not work properly. This method can also return True in two other cases :
  - When the CPU of the emulator is frozen. When the CPU hits a JAM instruction (illegal opcode), it is frozen until the emulator is reset. This should never happen, but memory corruptions can cause them, so be careful when accessing the NES memory.
  - In windowed mode, when the window is closed or when the ESC key is pressed.
 
@@ -144,7 +150,7 @@ This project is licensed under GPL-3.0
 
 ```plain
 cynes - C/C++ NES emulator with Python bindings
-Copyright (C) 2021  Combey Theo
+Copyright (C) 2021 - 2024 Combey Theo
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

@@ -111,7 +111,6 @@ setup(
     license_files =("LICENSE"),
     license="GPL-3.0",
     url="https://github.com/Youlixx/cynes",
-    setup_requires=["numpy"],
     install_requires=["numpy"],
     ext_modules=[CMakeExtension("cynes.emulator")],
     cmdclass={"build_ext": CMakeBuild},

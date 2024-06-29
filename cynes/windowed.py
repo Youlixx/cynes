@@ -99,11 +99,7 @@ class SDLContext:
 
 
 class WindowedNES(NES):
-    """The windowed emulator class.
-
-    A NES implements the basic attributes and methods to interact with the C API
-    to run a NES emulator in windowed mode.
-    """
+    """The windowed emulator class."""
 
     def __init__(
         self,

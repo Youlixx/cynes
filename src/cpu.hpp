@@ -92,8 +92,8 @@ private:
     void (CPU::* _instructions[256]) (void);
 
 public:
-    template<DumpOperation operation, class T>
-    void dump(T& buffer) {
+    template<DumpOperation operation, typename T>
+    constexpr void dump(T& buffer) {
         cynes::dump<operation>(buffer, _frozen);
         cynes::dump<operation>(buffer, _registerA);
         cynes::dump<operation>(buffer, _registerX);

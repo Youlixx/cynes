@@ -321,7 +321,7 @@ uint8_t cynes::NES::pollController(uint8_t player) {
     return (_openBus & 0xE0) | value;
 }
 
-template<cynes::DumpOperation operation, class T>
+template<cynes::DumpOperation operation, typename T>
 void cynes::NES::dump(T& buffer) {
     _cpu.dump<operation>(buffer);
     _ppu.dump<operation>(buffer);

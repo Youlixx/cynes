@@ -91,7 +91,8 @@ private:
     };
 
 public:
-    template<DumpOperation operation, class T> void dump(T& buffer) {
+    template<DumpOperation operation, typename T> 
+    constexpr void dump(T& buffer) {
         cynes::dump<operation>(buffer, _latchCycle);
         cynes::dump<operation>(buffer, _delayDMA);
         cynes::dump<operation>(buffer, _addressDMA);

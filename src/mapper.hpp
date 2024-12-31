@@ -44,7 +44,8 @@ protected:
 
         bool access = false;
 
-        template<DumpOperation operation, class T> void dump(T& buffer) {
+        template<DumpOperation operation, typename T> 
+        constexpr void dump(T& buffer) {
             cynes::dump<operation>(buffer, memory);
             cynes::dump<operation>(buffer, access);
         }
@@ -99,7 +100,8 @@ protected:
     void mirrorBankPPU(uint8_t page, uint8_t size, uint8_t mirror);
 
 public:
-    template<DumpOperation operation, class T> void dump(T& buffer) {
+    template<DumpOperation operation, typename T> 
+    constexpr void dump(T& buffer) {
         for (uint8_t k = 0x00; k < 0x40; k++) {
             _banksCPU[k].dump<operation>(buffer);
         }
@@ -152,7 +154,8 @@ private:
     uint8_t _counter;
 
 public:
-    template<DumpOperation operation, class T> void dump(T& buffer) {
+    template<DumpOperation operation, typename T> 
+    constexpr void dump(T& buffer) {
         Mapper::dump<operation>(buffer);
 
         cynes::dump<operation>(buffer, _tick);
@@ -213,7 +216,8 @@ private:
     bool _shouldReloadIRQ;
 
 public:
-    template<DumpOperation operation, class T> void dump(T& buffer) {
+    template<DumpOperation operation, typename T> 
+    constexpr void dump(T& buffer) {
         Mapper::dump<operation>(buffer);
 
         cynes::dump<operation>(buffer, _tick);
@@ -315,7 +319,8 @@ private:
     uint8_t _selectedBanks[0x4];
 
 public:
-    template<DumpOperation operation, class T> void dump(T& buffer) {
+    template<DumpOperation operation, typename T> 
+    constexpr void dump(T& buffer) {
         Mapper::dump<operation>(buffer);
 
         cynes::dump<operation>(buffer, _latches);

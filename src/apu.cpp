@@ -281,10 +281,10 @@ void cynes::APU::loadDeltaChannelByte(bool reading) {
     for (uint8_t i = 0; i < delay; i++) {
         tick(false, true);
 
-        _nes.getPPU().tick();
-        _nes.getPPU().tick();
-        _nes.getPPU().tick();
-        _nes.getCPU().poll();
+        _nes.ppu.tick();
+        _nes.ppu.tick();
+        _nes.ppu.tick();
+        _nes.cpu.poll();
     }
 
     _deltaChannelSampleBufferEmpty = false;
@@ -346,11 +346,11 @@ void cynes::APU::performPendingDMA() {
 void cynes::APU::setFrameIRQ(bool irq) {
     _sendFrameIRQ = irq;
 
-    _nes.getCPU().setFrameIRQ(irq);
+    _nes.cpu.setFrameIRQ(irq);
 }
 
 void cynes::APU::setDeltaIRQ(bool irq) {
     _sendDeltaChannelIRQ = irq;
 
-    _nes.getCPU().setDeltaIRQ(irq);
+    _nes.cpu.setDeltaIRQ(irq);
 }

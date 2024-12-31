@@ -20,19 +20,6 @@ public:
     NES(const char* path);
     ~NES();
 
-// TODO accessor are allowed...
-public:
-    CPU& getCPU();
-    const CPU& getCPU() const;
-
-    PPU& getPPU();
-    const PPU& getPPU() const;
-
-    APU& getAPU();
-    const APU& getAPU() const;
-
-    Mapper* getMapper();
-
 public:
     /// Reset the emulator (same effect as pressing the reset button).
     void reset();
@@ -118,12 +105,12 @@ public:
     /// Load a previous emulator state from the buffer.
     void load(uint8_t* buffer);
 
-private:
-    CPU _cpu;
-    PPU _ppu;
-    APU _apu;
+public:
+    CPU cpu;
+    PPU ppu;
+    APU apu;
 
-    Mapper* _mapper;
+    Mapper* mapper;
 
 private:
     uint8_t _memoryCPU[0x800];

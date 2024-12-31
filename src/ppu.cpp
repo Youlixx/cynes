@@ -201,7 +201,7 @@ void cynes::PPU::tick() {
             if (_pixelX == 1) {
                 _statusVerticalBlank = false;
 
-                _nes.getCPU().setNMI(false);
+                _nes.cpu.setNMI(false);
             }
 
             if (_pixelX < 257 || (_pixelX >= 321 && _pixelX < 337)) {
@@ -236,7 +236,7 @@ void cynes::PPU::tick() {
                 _statusVerticalBlank = true;
 
                 if (_controlInterruptOnVertivalBlank) {
-                    _nes.getCPU().setNMI(true);
+                    _nes.cpu.setNMI(true);
                 }
             }
 
@@ -277,7 +277,7 @@ void cynes::PPU::tick() {
         _delayDataRead--;
     }
 
-    _nes.getMapper()->tick();
+    _nes.mapper->tick();
 }
 
 void cynes::PPU::write(uint8_t address, uint8_t value) {
@@ -297,9 +297,9 @@ void cynes::PPU::write(uint8_t address, uint8_t value) {
         _controlInterruptOnVertivalBlank = value & 0x80;
 
         if (!_controlInterruptOnVertivalBlank) {
-            _nes.getCPU().setNMI(false);
+            _nes.cpu.setNMI(false);
         } else if (_statusVerticalBlank) {
-            _nes.getCPU().setNMI(true);
+            _nes.cpu.setNMI(true);
         }
 
         break;
@@ -412,7 +412,7 @@ uint8_t cynes::PPU::read(uint8_t address) {
         _registerDecay |= _statusVerticalBlank << 7;
 
         _statusVerticalBlank = false;
-        _nes.getCPU().setNMI(false);
+        _nes.cpu.setNMI(false);
 
         if (_pixelY == 241 && _pixelX == 0) {
             _preventVerticalBlank = true;

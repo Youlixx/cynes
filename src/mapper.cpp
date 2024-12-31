@@ -463,7 +463,7 @@ void cynes::MMC3::writeCPU(uint16_t address, uint8_t value) {
             _enableIRQ = true;
         } else {
             _enableIRQ = false;
-            _nes.getCPU().setMapperIRQ(false);
+            _nes.cpu.setMapperIRQ(false);
         }
     }
 }
@@ -490,7 +490,7 @@ void cynes::MMC3::updateState(bool state) {
             }
 
             if (_counter == 0 && _enableIRQ) {
-                _nes.getCPU().setMapperIRQ(true);
+                _nes.cpu.setMapperIRQ(true);
             }
 
             _shouldReloadIRQ = false;

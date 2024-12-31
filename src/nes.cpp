@@ -93,14 +93,14 @@ cynes::Mapper* loadMapper(cynes::NES& nes, const char* path) {
 
 
 cynes::NES::NES(const char* path)
-: _cpu{*this}
-, _ppu{*this}
-, _apu{*this}
-, _mapper{loadMapper(static_cast<NES&>(*this), path)}
+: cpu{*this}
+, ppu{*this}
+, apu{*this}
+, mapper{loadMapper(static_cast<NES&>(*this), path)}
 {
-    _cpu.power();
-    _ppu.power();
-    _apu.power();
+    cpu.power();
+    ppu.power();
+    apu.power();
 
     uint8_t paletteRamBootValues[0x20] = {
         0x09, 0x01, 0x00, 0x01, 0x00, 0x02, 0x02, 0x0D, 0x08, 0x10, 0x08, 0x24, 0x00, 0x00, 0x04, 0x2C,
@@ -121,41 +121,13 @@ cynes::NES::NES(const char* path)
 }
 
 cynes::NES::~NES() {
-    delete _mapper;
-}
-
-cynes::CPU& cynes::NES::getCPU() {
-    return _cpu;
-}
-
-const cynes::CPU& cynes::NES::getCPU() const {
-    return _cpu;
-}
-
-cynes::PPU& cynes::NES::getPPU() {
-    return _ppu;
-}
-
-const cynes::PPU& cynes::NES::getPPU() const {
-    return _ppu;
-}
-
-cynes::APU& cynes::NES::getAPU() {
-    return _apu;
-}
-
-const cynes::APU& cynes::NES::getAPU() const {
-    return _apu;
-}
-
-cynes::Mapper* cynes::NES::getMapper() {
-    return _mapper;
+    delete mapper;
 }
 
 void cynes::NES::reset() {
-    _cpu.reset();
-    _ppu.reset();
-    _apu.reset();
+    cpu.reset();
+    ppu.reset();
+    apu.reset();
 
     for (int i = 0; i < 8; i++) {
         dummyRead();
@@ -163,43 +135,43 @@ void cynes::NES::reset() {
 }
 
 void cynes::NES::dummyRead() {
-    _apu.tick(true);
-    _ppu.tick();
-    _ppu.tick();
-    _ppu.tick();
-    _cpu.poll();
+    apu.tick(true);
+    ppu.tick();
+    ppu.tick();
+    ppu.tick();
+    cpu.poll();
 }
 
 void cynes::NES::write(uint16_t address, uint8_t value) {
-    _apu.tick(false);
-    _ppu.tick();
-    _ppu.tick();
+    apu.tick(false);
+    ppu.tick();
+    ppu.tick();
 
     writeCPU(address, value);
 
-    _ppu.tick();
-    _cpu.poll();
+    ppu.tick();
+    cpu.poll();
 }
 
 void cynes::NES::writeCPU(uint16_t address, uint8_t value) {
     if (address < 0x2000) {
         _memoryCPU[address & 0x7FF] = value;
     } else if (address < 0x4000) {
-        _ppu.write(address & 0x7, value);
+        ppu.write(address & 0x7, value);
     } else if (address == 0x4016) {
         loadControllerShifter(~value & 0x01);
     } else if (address < 0x4018) {
-        _apu.write(address & 0xFF, value);
+        apu.write(address & 0xFF, value);
     }
 
-    _mapper->writeCPU(address, value);
+    mapper->writeCPU(address, value);
 }
 
 void cynes::NES::writePPU(uint16_t address, uint8_t value) {
     address &= 0x3FFF;
 
     if (address < 0x3F00) {
-        _mapper->writePPU(address, value);
+        mapper->writePPU(address, value);
     } else {
         address &= 0x1F;
 
@@ -222,14 +194,14 @@ void cynes::NES::writeOAM(uint8_t address, uint8_t value) {
 }
 
 uint8_t cynes::NES::read(uint16_t address) {
-    _apu.tick(true);
-    _ppu.tick();
-    _ppu.tick();
+    apu.tick(true);
+    ppu.tick();
+    ppu.tick();
 
     _openBus = readCPU(address);
 
-    _ppu.tick();
-    _cpu.poll();
+    ppu.tick();
+    cpu.poll();
 
     return _openBus;
 }
@@ -238,15 +210,15 @@ uint8_t cynes::NES::readCPU(uint16_t address) {
     if (address < 0x2000) {
         return _memoryCPU[address & 0x7FF];
     } else if (address < 0x4000) {
-        return _ppu.read(address & 0x7);
+        return ppu.read(address & 0x7);
     } else if (address == 0x4016) {
         return pollController(0x0);
     } else if (address == 0x4017) {
         return pollController(0x1);
     } else if (address < 0x4018) {
-        return _apu.read(address & 0xFF);
+        return apu.read(address & 0xFF);
     } else {
-        return _mapper->readCPU(address);
+        return mapper->readCPU(address);
     }
 }
 
@@ -254,7 +226,7 @@ uint8_t cynes::NES::readPPU(uint16_t address) {
     address &= 0x3FFF;
 
     if (address < 0x3F00) {
-        return _mapper->readPPU(address);
+        return mapper->readPPU(address);
     } else {
         address &= 0x1F;
 
@@ -285,17 +257,17 @@ bool cynes::NES::step(uint8_t* buffer, uint16_t controllers, unsigned int frames
     _controllerStates[0x1] = controllers >> 8;
 
     for (unsigned int k = 0; k < frames; k++) {
-        while (!_ppu.isFrameReady()) {
-            _cpu.tick();
+        while (!ppu.isFrameReady()) {
+            cpu.tick();
 
-            if (_cpu.isFrozen()) {
+            if (cpu.isFrozen()) {
                 return true;
             }
         }
     }
 
     // TODO should return the framebuffer ptr to avoid the memcpy
-    memcpy(buffer, _ppu.getFrameBuffer(), 0x2D000);
+    memcpy(buffer, ppu.getFrameBuffer(), 0x2D000);
 
     return false;
 }
@@ -332,11 +304,11 @@ uint8_t cynes::NES::pollController(uint8_t player) {
 
 template<cynes::DumpOperation operation, typename T>
 void cynes::NES::dump(T& buffer) {
-    _cpu.dump<operation>(buffer);
-    _ppu.dump<operation>(buffer);
-    _apu.dump<operation>(buffer);
+    cpu.dump<operation>(buffer);
+    ppu.dump<operation>(buffer);
+    apu.dump<operation>(buffer);
 
-    _mapper->dump<operation>(buffer);
+    mapper->dump<operation>(buffer);
 
     cynes::dump<operation>(buffer, _memoryCPU);
     cynes::dump<operation>(buffer, _memoryOAM);

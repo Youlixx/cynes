@@ -4,73 +4,26 @@
 #include <cstring>
 
 
-cynes::CPU::CPU(NES& nes) : _nes(nes), _addressingModes(), _instructions() {
-    _frozen = false;
-
-    _targetAddress = 0x0000;
-    _programCounter = 0x0000;
-
-    _registerA = 0x00;
-    _registerX = 0x00;
-    _registerY = 0x00;
-    _registerM = 0x00;
-    _stackPointer = 0x00;
-
-    _status = 0x00;
-
-    _delayIRQ = false;
-    _shouldIRQ = false;
-    _lineMapperIRQ = false;
-    _lineFrameIRQ = false;
-    _lineDeltaIRQ = false;
-
-    _edgeDetectorNMI = false;
-    _delayNMI = false;
-    _shouldNMI = false;
-    _lineNMI = false;
-
-    // TODO could be moved in the header?
-    void (CPU:: * instructions[256]) (void) = {
-        &CPU::BRK,&CPU::ORA,&CPU::JAM,&CPU::SLO,&CPU::NOP,&CPU::ORA,&CPU::ASL,&CPU::SLO,&CPU::PHP,&CPU::ORA,&CPU::AAL,&CPU::ANC,&CPU::NOP,&CPU::ORA,&CPU::ASL,&CPU::SLO,
-        &CPU::BPL,&CPU::ORA,&CPU::JAM,&CPU::SLO,&CPU::NOP,&CPU::ORA,&CPU::ASL,&CPU::SLO,&CPU::CLC,&CPU::ORA,&CPU::NOP,&CPU::SLO,&CPU::NOP,&CPU::ORA,&CPU::ASL,&CPU::SLO,
-        &CPU::JSR,&CPU::AND,&CPU::JAM,&CPU::RLA,&CPU::BIT,&CPU::AND,&CPU::ROL,&CPU::RLA,&CPU::PLP,&CPU::AND,&CPU::RAL,&CPU::ANC,&CPU::BIT,&CPU::AND,&CPU::ROL,&CPU::RLA,
-        &CPU::BMI,&CPU::AND,&CPU::JAM,&CPU::RLA,&CPU::NOP,&CPU::AND,&CPU::ROL,&CPU::RLA,&CPU::SEC,&CPU::AND,&CPU::NOP,&CPU::RLA,&CPU::NOP,&CPU::AND,&CPU::ROL,&CPU::RLA,
-        &CPU::RTI,&CPU::EOR,&CPU::JAM,&CPU::SRE,&CPU::NOP,&CPU::EOR,&CPU::LSR,&CPU::SRE,&CPU::PHA,&CPU::EOR,&CPU::LAR,&CPU::ALR,&CPU::JMP,&CPU::EOR,&CPU::LSR,&CPU::SRE,
-        &CPU::BVC,&CPU::EOR,&CPU::JAM,&CPU::SRE,&CPU::NOP,&CPU::EOR,&CPU::LSR,&CPU::SRE,&CPU::CLI,&CPU::EOR,&CPU::NOP,&CPU::SRE,&CPU::NOP,&CPU::EOR,&CPU::LSR,&CPU::SRE,
-        &CPU::RTS,&CPU::ADC,&CPU::JAM,&CPU::RRA,&CPU::NOP,&CPU::ADC,&CPU::ROR,&CPU::RRA,&CPU::PLA,&CPU::ADC,&CPU::RAR,&CPU::ARR,&CPU::JMP,&CPU::ADC,&CPU::ROR,&CPU::RRA,
-        &CPU::BVS,&CPU::ADC,&CPU::JAM,&CPU::RRA,&CPU::NOP,&CPU::ADC,&CPU::ROR,&CPU::RRA,&CPU::SEI,&CPU::ADC,&CPU::NOP,&CPU::RRA,&CPU::NOP,&CPU::ADC,&CPU::ROR,&CPU::RRA,
-        &CPU::NOP,&CPU::STA,&CPU::NOP,&CPU::SAX,&CPU::STY,&CPU::STA,&CPU::STX,&CPU::SAX,&CPU::DEY,&CPU::NOP,&CPU::TXA,&CPU::ANE,&CPU::STY,&CPU::STA,&CPU::STX,&CPU::SAX,
-        &CPU::BCC,&CPU::STA,&CPU::JAM,&CPU::SHA,&CPU::STY,&CPU::STA,&CPU::STX,&CPU::SAX,&CPU::TYA,&CPU::STA,&CPU::TXS,&CPU::TAS,&CPU::SHY,&CPU::STA,&CPU::SHX,&CPU::SHA,
-        &CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,&CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,&CPU::TAY,&CPU::LDA,&CPU::TAX,&CPU::LXA,&CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,
-        &CPU::BCS,&CPU::LDA,&CPU::JAM,&CPU::LAX,&CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,&CPU::CLV,&CPU::LDA,&CPU::TSX,&CPU::LAS,&CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,
-        &CPU::CPY,&CPU::CMP,&CPU::NOP,&CPU::DCP,&CPU::CPY,&CPU::CMP,&CPU::DEC,&CPU::DCP,&CPU::INY,&CPU::CMP,&CPU::DEX,&CPU::SBX,&CPU::CPY,&CPU::CMP,&CPU::DEC,&CPU::DCP,
-        &CPU::BNE,&CPU::CMP,&CPU::JAM,&CPU::DCP,&CPU::NOP,&CPU::CMP,&CPU::DEC,&CPU::DCP,&CPU::CLD,&CPU::CMP,&CPU::NOP,&CPU::DCP,&CPU::NOP,&CPU::CMP,&CPU::DEC,&CPU::DCP,
-        &CPU::CPX,&CPU::SBC,&CPU::NOP,&CPU::ISC,&CPU::CPX,&CPU::SBC,&CPU::INC,&CPU::ISC,&CPU::INX,&CPU::SBC,&CPU::NOP,&CPU::USB,&CPU::CPX,&CPU::SBC,&CPU::INC,&CPU::ISC,
-        &CPU::BEQ,&CPU::SBC,&CPU::JAM,&CPU::ISC,&CPU::NOP,&CPU::SBC,&CPU::INC,&CPU::ISC,&CPU::SED,&CPU::SBC,&CPU::NOP,&CPU::ISC,&CPU::NOP,&CPU::SBC,&CPU::INC,&CPU::ISC
-    };
-
-    void (CPU:: * addressingModes[256]) (void) = {
-        &CPU::IMP,&CPU::IXR,&CPU::ACC,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::ACC,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
-        &CPU::ABW,&CPU::IXR,&CPU::ACC,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::ACC,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
-        &CPU::IMP,&CPU::IXR,&CPU::ACC,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::ACC,&CPU::IMM,&CPU::ABW,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
-        &CPU::IMP,&CPU::IXR,&CPU::ACC,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::ACC,&CPU::IMM,&CPU::IND,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
-        &CPU::IMM,&CPU::IXW,&CPU::IMM,&CPU::IXW,&CPU::ZPW,&CPU::ZPW,&CPU::ZPW,&CPU::ZPW,&CPU::IMP,&CPU::IMM,&CPU::IMP,&CPU::IMM,&CPU::ABW,&CPU::ABW,&CPU::ABW,&CPU::ABW,
-        &CPU::REL,&CPU::IYW,&CPU::ACC,&CPU::IYW,&CPU::ZXW,&CPU::ZXW,&CPU::ZYW,&CPU::ZYW,&CPU::IMP,&CPU::AYW,&CPU::IMP,&CPU::AYW,&CPU::AXW,&CPU::AXW,&CPU::AYW,&CPU::AYW,
-        &CPU::IMM,&CPU::IXR,&CPU::IMM,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::IMP,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYR,&CPU::ZXR,&CPU::ZXR,&CPU::ZYR,&CPU::ZYR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYR,&CPU::AXR,&CPU::AXR,&CPU::AYR,&CPU::AYR,
-        &CPU::IMM,&CPU::IXR,&CPU::IMM,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::IMP,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
-        &CPU::IMM,&CPU::IXR,&CPU::IMM,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::IMP,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM
-    };
-
-    memcpy(_instructions, instructions, sizeof(instructions));
-    memcpy(_addressingModes, addressingModes, sizeof(addressingModes));
-}
+cynes::CPU::CPU(NES& nes)
+: _nes{nes}
+, _frozen{false}
+, _registerA{0x00}
+, _registerX{0x00}
+, _registerY{0x00}
+, _registerM{0x00}
+, _stackPointer{0x00}
+, _programCounter{0x0000}
+, _delayIRQ{false}
+, _shouldIRQ{false}
+, _lineMapperIRQ{false}
+, _lineFrameIRQ{false}
+, _lineDeltaIRQ{false}
+, _lineNMI{false}
+, _edgeDetectorNMI{false}
+, _delayNMI{false}
+, _shouldNMI{false}
+, _status{0x00}
+, _targetAddress{0x0000} {}
 
 cynes::CPU::~CPU() { }
 

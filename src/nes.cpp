@@ -8,9 +8,95 @@
 #include <stdexcept>
 
 
-cynes::NES::NES(const char* path) : _cpu{*this}, _ppu{*this}, _apu{*this} {
-    loadMapper(path);
+// TODO use smart pointer
+cynes::Mapper* loadMapper(cynes::NES& nes, const char* path) {
+    FILE* stream = fopen(path, "rb");
 
+    if (!stream) {
+        throw std::runtime_error("The file cannot be read.");
+    }
+
+    uint32_t header = getc(stream) << 24 | getc(stream) << 16 | getc(stream) << 8 | getc(stream);
+
+    if (header != 0x4E45531A) {
+        throw std::runtime_error("The specified file is not a NES ROM.");
+    }
+
+    uint8_t programBanks = getc(stream);
+    uint8_t characterBanks = getc(stream);
+
+    uint8_t flag6 = getc(stream);
+    uint8_t flag7 = getc(stream);
+
+    for (int k = 0; k < 0x8; k++) {
+        (void) getc(stream);
+    }
+
+    cynes::NESMetadata metadata;
+
+    metadata.sizePRG = programBanks << 4;
+    metadata.sizeCHR = characterBanks << 3;
+
+    if (flag6 & 0x04) {
+        metadata.trainer = new uint8_t[0x200];
+
+        for (int k = 0x00; k < 0x200; k++) {
+            metadata.trainer[k] = getc(stream);
+        }
+    }
+
+    if (metadata.sizePRG > 0) {
+        metadata.memoryPRG = new uint8_t[uint64_t(metadata.sizePRG) << 10]{ 0 };
+
+        for (int k = 0x00; k < metadata.sizePRG << 10; k++) {
+            metadata.memoryPRG[k] = getc(stream);
+        }
+    }
+
+    if (metadata.sizeCHR > 0) {
+        metadata.memoryCHR = new uint8_t[uint64_t(metadata.sizeCHR) << 10]{ 0 };
+
+        for (int k = 0x00; k < metadata.sizeCHR << 10; k++) {
+            metadata.memoryCHR[k] = getc(stream);
+        }
+    }
+
+    if (metadata.sizeCHR == 0) {
+        metadata.sizeCHR = 8;
+
+        metadata.memoryCHR = new uint8_t[0x2000]{ 0 };
+    }
+
+    fclose(stream);
+
+    uint8_t mapperId = (flag7 & 0xF0) | flag6 >> 4;
+
+    cynes::MirroringMode mode = (flag6 & 0x01) == 1 
+        ? cynes::MirroringMode::VERTICAL 
+        : cynes::MirroringMode::HORIZONTAL;
+
+    switch (mapperId) {
+    case   0: return new cynes::NROM (nes, metadata, mode);
+    case   1: return new cynes::MMC1 (nes, metadata, mode);
+    case   2: return new cynes::UxROM(nes, metadata, mode);
+    case   3: return new cynes::CNROM(nes, metadata, mode);
+    case   4: return new cynes::MMC3 (nes, metadata, mode);
+    case   7: return new cynes::AxROM(nes, metadata);
+    case   9: return new cynes::MMC2 (nes, metadata, mode);
+    case  10: return new cynes::MMC4 (nes, metadata, mode);
+    case  66: return new cynes::GxROM(nes, metadata, mode);
+    case  71: return new cynes::UxROM(nes, metadata, mode);
+    default: throw std::runtime_error("The ROM Mapper is not supported.");
+    }
+}
+
+
+cynes::NES::NES(const char* path) 
+: _cpu{*this}
+, _ppu{*this}
+, _apu{*this}
+, _mapper{loadMapper(static_cast<NES&>(*this), path)} 
+{
     _cpu.power();
     _ppu.power();
     _apu.power();
@@ -191,85 +277,6 @@ uint8_t cynes::NES::readOAM(uint8_t address) const {
 
 uint8_t cynes::NES::getOpenBus() const {
     return _openBus;
-}
-
-void cynes::NES::loadMapper(const char* path) {
-    FILE* stream = fopen(path, "rb");
-
-    if (!stream) {
-        throw std::runtime_error("The file cannot be read.");
-    }
-
-    uint32_t header = getc(stream) << 24 | getc(stream) << 16 | getc(stream) << 8 | getc(stream);
-
-    if (header != 0x4E45531A) {
-        throw std::runtime_error("The specified file is not a NES ROM.");
-    }
-
-    uint8_t programBanks = getc(stream);
-    uint8_t characterBanks = getc(stream);
-
-    uint8_t flag6 = getc(stream);
-    uint8_t flag7 = getc(stream);
-
-    for (int k = 0; k < 0x8; k++) {
-        (void)getc(stream);
-    }
-
-    NESMetadata metadata;
-
-    metadata.sizePRG = programBanks << 4;
-    metadata.sizeCHR = characterBanks << 3;
-
-    if (flag6 & 0x04) {
-        metadata.trainer = new uint8_t[0x200];
-
-        for (int k = 0x00; k < 0x200; k++) {
-            metadata.trainer[k] = getc(stream);
-        }
-    }
-
-    if (metadata.sizePRG > 0) {
-        metadata.memoryPRG = new uint8_t[uint64_t(metadata.sizePRG) << 10]{ 0 };
-
-        for (int k = 0x00; k < metadata.sizePRG << 10; k++) {
-            metadata.memoryPRG[k] = getc(stream);
-        }
-    }
-
-    if (metadata.sizeCHR > 0) {
-        metadata.memoryCHR = new uint8_t[uint64_t(metadata.sizeCHR) << 10]{ 0 };
-
-        for (int k = 0x00; k < metadata.sizeCHR << 10; k++) {
-            metadata.memoryCHR[k] = getc(stream);
-        }
-    }
-
-    if (metadata.sizeCHR == 0) {
-        metadata.sizeCHR = 8;
-
-        metadata.memoryCHR = new uint8_t[0x2000]{ 0 };
-    }
-
-    fclose(stream);
-
-    uint8_t mapperId = (flag7 & 0xF0) | flag6 >> 4;
-
-    MirroringMode mode = (flag6 & 0x01) == 1 ? MirroringMode::VERTICAL : MirroringMode::HORIZONTAL;
-
-    switch (mapperId) {
-    case   0: _mapper = new NROM (*this, metadata, mode); return;
-    case   1: _mapper = new MMC1 (*this, metadata, mode); return;
-    case   2: _mapper = new UxROM(*this, metadata, mode); return;
-    case   3: _mapper = new CNROM(*this, metadata, mode); return;
-    case   4: _mapper = new MMC3 (*this, metadata, mode); return;
-    case   7: _mapper = new AxROM(*this, metadata); return;
-    case   9: _mapper = new MMC2 (*this, metadata, mode); return;
-    case  10: _mapper = new MMC4 (*this, metadata, mode); return;
-    case  66: _mapper = new GxROM(*this, metadata, mode); return;
-    case  71: _mapper = new UxROM(*this, metadata, mode); return;
-    default: throw std::runtime_error("The ROM Mapper is not supported.");
-    }
 }
 
 bool cynes::NES::step(uint8_t* buffer, uint16_t controllers, unsigned int frames) {

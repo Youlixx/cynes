@@ -6,41 +6,35 @@
 #include <cstring>
 
 
-cynes::APU::APU(NES& nes) : _nes(nes) {
-    _latchCycle = false;
-
-    _delayDMA = 0x00;
-    _addressDMA = 0x00;
-
-    _pendingDMA = false;
-
-    _openBus = 0x00;
-
-    _frameCounterClock = 0x0000;
-    _delayFrameReset = 0x0000;
-
+cynes::APU::APU(NES& nes)
+: _nes{nes}
+, _latchCycle{false}
+, _delayDMA{0x00}
+, _addressDMA{0x00}
+, _pendingDMA{false}
+, _openBus{0x00}
+, _frameCounterClock{0x0000}
+, _delayFrameReset{0x0000}
+, _channelCounters{}
+, _channelEnabled{}
+, _channelHalted{}
+, _stepMode{false}
+, _inhibitFrameIRQ{false}
+, _sendFrameIRQ{false}
+, _deltaChannelRemainingBytes{0x0000}
+, _deltaChannelSampleLength{0x0000}
+, _deltaChannelPeriodCounter{0x0000}
+, _deltaChannelPeriodLoad{0x0000}
+, _deltaChannelBitsInBuffer{0x00}
+, _deltaChannelShouldLoop{false}
+, _deltaChannelEnableIRQ{false}
+, _deltaChannelSampleBufferEmpty{false}
+, _enableDMC{false}
+, _sendDeltaChannelIRQ{false}
+{
     memset(_channelCounters, 0x00, 4);
     memset(_channelEnabled, false, 4);
     memset(_channelHalted, false, 4);
-
-    _stepMode = false;
-
-    _inhibitFrameIRQ = false;
-    _sendFrameIRQ = false;
-
-    _deltaChannelRemainingBytes = 0x0000;
-    _deltaChannelSampleLength = 0x0000;
-    _deltaChannelPeriodCounter = 0x0000;
-    _deltaChannelPeriodLoad = 0x0000;
-
-    _deltaChannelBitsInBuffer = 0x00;
-
-    _deltaChannelShouldLoop = false;
-    _deltaChannelEnableIRQ = false;
-    _deltaChannelSampleBufferEmpty = false;
-
-    _enableDMC = false;
-    _sendDeltaChannelIRQ = false;
 }
 
 cynes::APU::~APU() { }

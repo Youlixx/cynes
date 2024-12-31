@@ -10,19 +10,19 @@ cynes::Mapper::Mapper(
     uint8_t sizeWRAM,
     uint8_t sizeVRAM,
     uint8_t sizeERAM
-) : _nes(nes)
-  , SIZE_PRG(metadata.sizePRG)
-  , SIZE_CHR(metadata.sizeCHR)
-  , SIZE_WRAM(sizeWRAM)
-  , SIZE_VRAM(sizeVRAM)
-  , SIZE_ERAM(sizeERAM)
-  , _memoryPRG(metadata.memoryPRG)
-  , _memoryCHR(metadata.memoryCHR)
-  , _memoryWRAM()
-  , _memoryVRAM()
-  , _memoryERAM()
-  , _banksCPU()
-  , _banksPPU()
+) : _nes{nes}
+  , SIZE_PRG{metadata.sizePRG}
+  , SIZE_CHR{metadata.sizeCHR}
+  , SIZE_WRAM{sizeWRAM}
+  , SIZE_VRAM{sizeVRAM}
+  , SIZE_ERAM{sizeERAM}
+  , _memoryPRG{metadata.memoryPRG}
+  , _memoryCHR{metadata.memoryCHR}
+  , _memoryWRAM{}
+  , _memoryVRAM{}
+  , _memoryERAM{}
+  , _banksCPU{}
+  , _banksPPU{}
 {
     if (SIZE_WRAM) {
         _memoryWRAM = new uint8_t[uint64_t(SIZE_WRAM) << 10];
@@ -230,14 +230,17 @@ cynes::NROM::NROM(NES& nes, NESMetadata metadata, MirroringMode mode) :
 cynes::NROM::~NROM() { }
 
 
-cynes::MMC1::MMC1(NES& nes, NESMetadata metadata, MirroringMode mode) :
-    Mapper(nes, metadata, mode), _registers() {
-    _tick = 0x00;
-    _counter = 0x00;
-    _register = 0x00;
-
+cynes::MMC1::MMC1(
+    NES& nes,
+    NESMetadata metadata,
+    MirroringMode mode
+) : Mapper(nes, metadata, mode)
+  , _tick{0x00}
+  , _registers{}
+  , _register{0x00}
+  , _counter{0x00}
+{
     memset(_registers, 0x00, 0x4);
-
     _registers[0x0] = 0xC;
 
     updateBanks();
@@ -363,28 +366,27 @@ void cynes::CNROM::writeCPU(uint16_t address, uint8_t value) {
 }
 
 
-cynes::MMC3::MMC3(NES& nes, NESMetadata metadata, MirroringMode mode) :
-    Mapper(nes, metadata, mode) {
+cynes::MMC3::MMC3(
+    NES& nes,
+    NESMetadata metadata,
+    MirroringMode mode
+) : Mapper(nes, metadata, mode)
+  , _tick{0x0000}
+  , _registers{}
+  , _counter{0x0000}
+  , _counterReload{0x0000}
+  , _registerTarget{0x00}
+  , _modePRG{false}
+  , _modeCHR{false}
+  , _enableIRQ{false}
+  , _shouldReloadIRQ{false}
+{
     setBankCHR(0x0, 0x8, 0x0);
-
     setBankPRG(0x20, 0x10, 0x0);
     setBankPRG(0x30, 0x10, SIZE_PRG - 0x10);
-
     setBankWRAM(0x18, 0x8, 0x0, true);
 
     memset(_registers, 0x0000, 0x20);
-
-    _tick = 0x0000;
-    _counter = 0x0000;
-    _counterReload = 0x0000;
-
-    _registerTarget = 0x00;
-
-    _modePRG = false;
-    _modeCHR = false;
-
-    _enableIRQ = false;
-    _shouldReloadIRQ = false;
 }
 
 cynes::MMC3::~MMC3() { }
@@ -503,10 +505,8 @@ void cynes::MMC3::updateState(bool state) {
 }
 
 
-cynes::AxROM::AxROM(NES& nes, NESMetadata metadata) :
-    Mapper(nes, metadata, MirroringMode::ONE_SCREEN_LOW, 0x8, 0x10) {
+cynes::AxROM::AxROM(NES& nes, NESMetadata metadata) : Mapper(nes, metadata, MirroringMode::ONE_SCREEN_LOW, 0x8, 0x10) {
     setBankVRAM(0x0, 0x8, 0x2, true);
-
     setBankPRG(0x20, 0x20, 0x0);
 }
 
@@ -527,8 +527,7 @@ void cynes::AxROM::writeCPU(uint16_t address, uint8_t value) {
 }
 
 
-cynes::GxROM::GxROM(NES& nes, NESMetadata metadata, MirroringMode mode) :
-    Mapper(nes, metadata, mode, 0x0) {
+cynes::GxROM::GxROM(NES& nes, NESMetadata metadata, MirroringMode mode) : Mapper(nes, metadata, mode, 0x0) {
     setBankPRG(0x20, 0x20, 0x0);
     setBankCHR(0x00, 0x08, 0x0);
 }

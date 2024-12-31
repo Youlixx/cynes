@@ -5,70 +5,62 @@
 
 #include <cstring>
 
-cynes::PPU::PPU(NES& nes) : _nes(nes) {
-    _pixelX = 0x0000;
-    _pixelY = 0x0000;
-
-    _renderingEnabled = false;
-    _renderingEnabledDelayed = false;
-    _preventVerticalBlank = false;
-
-    _controlIncrementMode = false;
-    _controlForegroundTable = false;
-    _controlBackgroundTable = false;
-    _controlForegroundLarge = false;
-    _controlInterruptOnVertivalBlank = false;
-
-    _maskGreyscaleMode = false;
-    _maskRenderBackgroundLeft = false;
-    _maskRenderForegroundLeft = false;
-    _maskRenderBackground = false;
-    _maskRenderForeground = false;
-
-    _maskColorEmphasize = 0x00;
-
-    _statusSpriteOverflow = false;
-    _statusSpriteZeroHit = false;
-    _statusVerticalBlank = false;
-
+cynes::PPU::PPU(NES& nes) 
+: _nes{nes} 
+, _pixelX{0x0000}
+, _pixelY{0x0000}
+, _renderingEnabled{false}
+, _renderingEnabledDelayed{false}
+, _preventVerticalBlank{false}
+, _controlIncrementMode{false}
+, _controlForegroundTable{false}
+, _controlBackgroundTable{false}
+, _controlForegroundLarge{false}
+, _controlInterruptOnVertivalBlank{false}
+, _maskGreyscaleMode{false}
+, _maskRenderBackgroundLeft{false}
+, _maskRenderForegroundLeft{false}
+, _maskRenderBackground{false}
+, _maskRenderForeground{false}
+, _maskColorEmphasize{0x00}
+, _statusSpriteOverflow{false}
+, _statusSpriteZeroHit{false}
+, _statusVerticalBlank{false}
+, _clockDecays{}
+, _registerDecay{0x00}
+, _latchCycle{false}
+, _latchAddress{false}
+, _registerT{0x0000}
+, _registerV{0x0000}
+, _delayedRegisterV{0x0000}
+, _scrollX{0x00}
+, _delayDataRead{0x00}
+, _delayDataWrite{0x00}
+, _bufferData{0x00}
+, _backgroundData{}
+, _backgroundShifter{}
+, _foregroundData{}
+, _foregroundShifter{}
+, _foregroundAttributes{}
+, _foregroundPositions{}
+, _foregroundDataPointer{0x00}
+, _foregroundSpriteCount{0x00}
+, _foregroundSpriteCountNext{0x00}
+, _foregroundSpritePointer{0x00}
+, _foregroundReadDelay{0x00}
+, _foregroundSpriteAddress{0x0000}
+, _foregroundSpriteZeroLine{false}
+, _foregroundSpriteZeroShould{false}
+, _foregroundSpriteZeroHit{false}
+, _foregroundEvaluationStep{SpriteEvaluationStep::LOAD_SECONDARY_OAM}
+{
     memset(_clockDecays, 0x00, 0x3);
-
-    _registerDecay = 0x00;
-
-    _latchCycle = false;
-    _latchAddress = false;
-
-    _registerT = 0x0000;
-    _registerV = 0x0000;
-    _delayedRegisterV = 0x0000;
-
-    _scrollX = 0x00;
-
-    _delayDataRead = 0x00;
-    _delayDataWrite = 0x00;
-    _bufferData = 0x00;
-
     memset(_backgroundData, 0x00, 0x4);
     memset(_backgroundShifter, 0x0000, 0x8);
-
     memset(_foregroundData, 0x00, 0x20);
     memset(_foregroundShifter, 0x00, 0x10);
     memset(_foregroundAttributes, 0x00, 0x8);
     memset(_foregroundPositions, 0x00, 0x8);
-
-    _foregroundDataPointer = 0x00;
-    _foregroundSpriteCount = 0x00;
-    _foregroundSpriteCountNext = 0x00;
-    _foregroundSpritePointer = 0x00;
-    _foregroundReadDelay = 0x00;
-
-    _foregroundSpriteAddress = 0x0000;
-
-    _foregroundSpriteZeroLine = false;
-    _foregroundSpriteZeroShould = false;
-    _foregroundSpriteZeroHit = false;
-
-    _foregroundEvaluationStep = SpriteEvaluationStep::LOAD_SECONDARY_OAM;
 }
 
 cynes::PPU::~PPU() {}

@@ -71,8 +71,6 @@ private:
     uint8_t _controllerShifters[0x2];
 
 private:
-    void loadMapper(const char* rom);
-
     void loadControllerShifter(bool polling);
 
     uint8_t pollController(uint8_t player);

@@ -5,8 +5,8 @@
 
 #include <cstring>
 
-cynes::PPU::PPU(NES& nes) 
-: _nes{nes} 
+cynes::PPU::PPU(NES& nes)
+: _nes{nes}
 , _pixelX{0x0000}
 , _pixelY{0x0000}
 , _renderingEnabled{false}
@@ -62,8 +62,6 @@ cynes::PPU::PPU(NES& nes)
     memset(_foregroundAttributes, 0x00, 0x8);
     memset(_foregroundPositions, 0x00, 0x8);
 }
-
-cynes::PPU::~PPU() {}
 
 void cynes::PPU::power() {
     _pixelY = 0xFF00;
@@ -282,12 +280,12 @@ void cynes::PPU::tick() {
     _nes.getMapper()->tick();
 }
 
-void cynes::PPU::write(uint8_t addr, uint8_t value) {
+void cynes::PPU::write(uint8_t address, uint8_t value) {
     memset(_clockDecays, DECAY_PERIOD, 3);
 
     _registerDecay = value;
 
-    switch (addr) {
+    switch (static_cast<Register>(address)) {
     case Register::PPU_CTRL: {
         _registerT &= 0xF3FF;
         _registerT |= (value & 0x03) << 10;
@@ -401,8 +399,8 @@ void cynes::PPU::write(uint8_t addr, uint8_t value) {
     }
 }
 
-uint8_t cynes::PPU::read(uint8_t addr) {
-    switch (addr) {
+uint8_t cynes::PPU::read(uint8_t address) {
+    switch (static_cast<Register>(address)) {
     case Register::PPU_STATUS: {
         memset(_clockDecays, DECAY_PERIOD, 2);
 

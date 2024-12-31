@@ -6,21 +6,41 @@
 #include "utils.hpp"
 
 namespace cynes {
+// Forward declaration.
 class NES;
 
+/// Audio Processing Unit (see https://www.nesdev.org/wiki/APU).
+/// This implementation does not produce any sound, it is only emulated for
+/// timing and interrupt purposes.
 class APU {
 public:
+    /// Initialize the APU.
     APU(NES& nes);
-    ~APU();
+    ~APU() = default;
 
 public:
+    /// Set the APU in its power-up state.
     void power();
+
+    /// Set the APU in its reset state.
     void reset();
 
+    /// Tick the APU.
+    /// @param reading Should be true if the APU is ticked on a reading cycle.
+    /// @param preventLoad False by default, should be set to true only when
+    /// called from `APU::loadDeltaChannelByte` to avoid recursion.
     void tick(bool reading, bool preventLoad = false);
 
+    /// Write to the APU memory.
+    /// @param address Memory address within the APU memory address space.
+    /// @param value Value to write.
     void write(uint8_t address, uint8_t value);
 
+    /// Read from the APU memory.
+    /// @note This function has other side effects than simply reading from
+    /// memory, it should not be used as a memory watch function.
+    /// @param address Memory address within the APU memory address space.
+    /// @return The value stored at the given address.
     uint8_t read(uint8_t address);
 
 private:
@@ -85,13 +105,24 @@ private:
     };
 
 private:
-    enum Register : uint8_t {
-        PULSE_1_0 = 0x00, PULSE_1_3 = 0x03, PULSE_2_0 = 0x04, PULSE_2_3 = 0x07, TRIANGLE_0 = 0x08, TRIANGLE_3 = 0x0B, NOISE_0 = 0x0C, NOISE_3 = 0x0F,
-        DELTA_0 = 0x10, DELTA_3 = 0x13, OAM_DMA = 0x14, CTRL_STATUS = 0x15, FRAME_COUNTER = 0x17
+    enum class Register : uint8_t {
+        PULSE_1_0 = 0x00,
+        PULSE_1_3 = 0x03,
+        PULSE_2_0 = 0x04,
+        PULSE_2_3 = 0x07,
+        TRIANGLE_0 = 0x08,
+        TRIANGLE_3 = 0x0B,
+        NOISE_0 = 0x0C,
+        NOISE_3 = 0x0F,
+        DELTA_0 = 0x10,
+        DELTA_3 = 0x13,
+        OAM_DMA = 0x14,
+        CTRL_STATUS = 0x15,
+        FRAME_COUNTER = 0x17
     };
 
 public:
-    template<DumpOperation operation, typename T> 
+    template<DumpOperation operation, typename T>
     constexpr void dump(T& buffer) {
         cynes::dump<operation>(buffer, _latchCycle);
         cynes::dump<operation>(buffer, _delayDMA);

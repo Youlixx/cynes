@@ -6,25 +6,46 @@
 #include "utils.hpp"
 
 namespace cynes {
+// Forward declaration.
 class NES;
 
+/// NES 6502 CPU implementation (see https://www.nesdev.org/wiki/CPU).
 class CPU {
 public:
+    /// Initialize the CPU.
     CPU(NES& nes);
-    ~CPU();
+    ~CPU() = default;
 
 public:
+    /// Set the CPU in its power-up state.
     void power();
+
+    /// Set the CPU in its reset state.
     void reset();
 
+    /// Tick the CPU.
     void tick();
+
+    /// Poll the CPU for the non-maskable interrupt.
     void poll();
 
+    /// Set the non-maskable interrupt flag value.
+    /// @param nmi Non-maskable interrupt value.
     void setNMI(bool nmi);
+
+    /// Set the state of the mapper interrupt.
+    /// @param irq Interrupt state.
     void setMapperIRQ(bool irq);
+
+    /// Set the state of the frame interrupt.
+    /// @param irq Interrupt state.
     void setFrameIRQ(bool irq);
+
+    /// Set the state of the delta interrupt.
+    /// @param irq Interrupt state.
     void setDeltaIRQ(bool irq);
 
+    /// Check whether or not the CPU has hit an invalid opcode.
     bool isFrozen() const;
 
 private:

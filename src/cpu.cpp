@@ -25,8 +25,6 @@ cynes::CPU::CPU(NES& nes)
 , _status{0x00}
 , _targetAddress{0x0000} {}
 
-cynes::CPU::~CPU() { }
-
 void cynes::CPU::power() {
     _frozen = false;
 

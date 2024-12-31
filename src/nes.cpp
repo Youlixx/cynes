@@ -9,6 +9,7 @@
 
 
 // TODO use smart pointer
+// TODO use fstream
 cynes::Mapper* loadMapper(cynes::NES& nes, const char* path) {
     FILE* stream = fopen(path, "rb");
 
@@ -71,8 +72,8 @@ cynes::Mapper* loadMapper(cynes::NES& nes, const char* path) {
 
     uint8_t mapperId = (flag7 & 0xF0) | flag6 >> 4;
 
-    cynes::MirroringMode mode = (flag6 & 0x01) == 1 
-        ? cynes::MirroringMode::VERTICAL 
+    cynes::MirroringMode mode = (flag6 & 0x01) == 1
+        ? cynes::MirroringMode::VERTICAL
         : cynes::MirroringMode::HORIZONTAL;
 
     switch (mapperId) {
@@ -91,11 +92,11 @@ cynes::Mapper* loadMapper(cynes::NES& nes, const char* path) {
 }
 
 
-cynes::NES::NES(const char* path) 
+cynes::NES::NES(const char* path)
 : _cpu{*this}
 , _ppu{*this}
 , _apu{*this}
-, _mapper{loadMapper(static_cast<NES&>(*this), path)} 
+, _mapper{loadMapper(static_cast<NES&>(*this), path)}
 {
     _cpu.power();
     _ppu.power();
@@ -293,6 +294,7 @@ bool cynes::NES::step(uint8_t* buffer, uint16_t controllers, unsigned int frames
         }
     }
 
+    // TODO should return the framebuffer ptr to avoid the memcpy
     memcpy(buffer, _ppu.getFrameBuffer(), 0x2D000);
 
     return false;

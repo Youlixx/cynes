@@ -6,25 +6,46 @@
 #include "utils.hpp"
 
 namespace cynes {
+// Forward declaration.
 class NES;
 
+/// Picture Processing Unit (see https://www.nesdev.org/wiki/PPU).
 class PPU {
 public:
+    /// Initialize the PPU.
     PPU(NES& nes);
-    ~PPU();
+    ~PPU() = default;
 
 public:
+    /// Set the PPU in its power-up state.
     void power();
+
+    /// Set the PPU in its reset state.
     void reset();
 
+    /// Tick the PPU.
     void tick();
 
-    void write(uint8_t addr, uint8_t value);
+    /// Write to the PPU memory.
+    /// @note This function has other side effects than simply writing to the
+    /// memory, it should not be used as a memory set function.
+    /// @param address Memory address within the PPU memory address space.
+    /// @param value Value to write.
+    void write(uint8_t address, uint8_t value);
 
-    uint8_t read(uint8_t addr);
+    /// Read from the APU memory.
+    /// @note This function has other side effects than simply reading from
+    /// memory, it should not be used as a memory watch function.
+    /// @param address Memory address within the PPU memory address space.
+    /// @return The value stored at the given address.
+    uint8_t read(uint8_t address);
 
+    /// Get a pointer to the internal frame buffer.
     uint8_t* getFrameBuffer();
 
+    /// Check whether or not the frame is ready.
+    /// @note Calling this function will reset the flag.
+    /// @return True if the frame is ready, false otherwise.
     bool isFrameReady();
 
 private:
@@ -34,6 +55,7 @@ private:
     uint16_t _pixelX;
     uint16_t _pixelY;
 
+    // TODO heap allocation?
     uint8_t _frameBuffer[0x2D000];
 
     bool _frameReady;
@@ -128,9 +150,15 @@ private:
     uint8_t blend();
 
 private:
-    enum Register : uint8_t {
-        PPU_CTRL = 0x00, PPU_MASK = 0x01, PPU_STATUS = 0x02, OAM_ADDR = 0x03,
-        OAM_DATA = 0x04, PPU_SCROLL = 0x05, PPU_ADDR = 0x06, PPU_DATA = 0x07
+    enum class Register : uint8_t {
+        PPU_CTRL = 0x00,
+        PPU_MASK = 0x01,
+        PPU_STATUS = 0x02,
+        OAM_ADDR = 0x03,
+        OAM_DATA = 0x04,
+        PPU_SCROLL = 0x05,
+        PPU_ADDR = 0x06,
+        PPU_DATA = 0x07
     };
 
 private:
@@ -234,7 +262,7 @@ private:
     };
 
 public:
-    template<DumpOperation operation, typename T> 
+    template<DumpOperation operation, typename T>
     constexpr void dump(T& buffer) {
         cynes::dump<operation>(buffer, _pixelX);
         cynes::dump<operation>(buffer, _pixelY);

@@ -37,8 +37,6 @@ cynes::APU::APU(NES& nes)
     memset(_channelHalted, false, 4);
 }
 
-cynes::APU::~APU() { }
-
 void cynes::APU::power() {
     _latchCycle = false;
 
@@ -155,17 +153,37 @@ void cynes::APU::tick(bool reading, bool preventLoad) {
 void cynes::APU::write(uint8_t address, uint8_t value) {
     _openBus = value;
 
-    switch (address) {
-    case Register::PULSE_1_0: _channelHalted[0x0] = value & 0x20; break;
-    case Register::PULSE_1_3: if (_channelEnabled[0x0]) _channelCounters[0x0] = LENGTH_COUNTER_TABLE[value >> 3]; break;
-    case Register::PULSE_2_0: _channelHalted[0x1] = value & 0x20; break;
-    case Register::PULSE_2_3: if (_channelEnabled[0x1]) _channelCounters[0x1] = LENGTH_COUNTER_TABLE[value >> 3]; break;
-    case Register::TRIANGLE_0: _channelHalted[0x2] = value & 0x80; break;
-    case Register::TRIANGLE_3: if (_channelEnabled[0x2]) _channelCounters[0x2] = LENGTH_COUNTER_TABLE[value >> 3]; break;
-    case Register::NOISE_0: _channelHalted[0x3] = value & 0x20; break;
-    case Register::NOISE_3: if (_channelEnabled[0x3]) _channelCounters[0x3] = LENGTH_COUNTER_TABLE[value >> 3]; break;
-    case Register::OAM_DMA: performDMA(value); break;
-    case Register::DELTA_3: _deltaChannelSampleLength = (value << 4) + 1; break;
+    switch (static_cast<Register>(address)) {
+    case Register::PULSE_1_0:
+        _channelHalted[0x0] = value & 0x20;
+        break;
+    case Register::PULSE_1_3:
+        if (_channelEnabled[0x0]) _channelCounters[0x0] = LENGTH_COUNTER_TABLE[value >> 3];
+        break;
+    case Register::PULSE_2_0:
+        _channelHalted[0x1] = value & 0x20;
+        break;
+    case Register::PULSE_2_3:
+        if (_channelEnabled[0x1]) _channelCounters[0x1] = LENGTH_COUNTER_TABLE[value >> 3];
+        break;
+    case Register::TRIANGLE_0:
+        _channelHalted[0x2] = value & 0x80;
+        break;
+    case Register::TRIANGLE_3:
+        if (_channelEnabled[0x2]) _channelCounters[0x2] = LENGTH_COUNTER_TABLE[value >> 3];
+        break;
+    case Register::NOISE_0:
+        _channelHalted[0x3] = value & 0x20;
+        break;
+    case Register::NOISE_3:
+        if (_channelEnabled[0x3]) _channelCounters[0x3] = LENGTH_COUNTER_TABLE[value >> 3];
+        break;
+    case Register::OAM_DMA:
+        performDMA(value);
+        break;
+    case Register::DELTA_3:
+        _deltaChannelSampleLength = (value << 4) + 1;
+        break;
 
     case Register::DELTA_0: {
         _deltaChannelEnableIRQ = value & 0x80;
@@ -226,7 +244,7 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
 }
 
 uint8_t cynes::APU::read(uint8_t address) {
-    if (address == Register::CTRL_STATUS) {
+    if (static_cast<Register>(address) == Register::CTRL_STATUS) {
         _openBus = _sendDeltaChannelIRQ << 7;
         _openBus |= _sendFrameIRQ << 6;
         _openBus |= (_deltaChannelRemainingBytes > 0) << 4;

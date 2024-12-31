@@ -4,9 +4,10 @@
 #include <cstdint>
 
 #include "utils.hpp"
-#include "nes.hpp"
 
 namespace cynes {
+class NES;
+
 class CPU {
 public:
     CPU(NES& nes);

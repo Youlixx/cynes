@@ -5,9 +5,10 @@
 #include <cstring>
 
 #include "utils.hpp"
-#include "nes.hpp"
 
 namespace cynes {
+class NES;
+
 enum class MirroringMode : uint8_t {
     NONE, ONE_SCREEN_LOW, ONE_SCREEN_HIGH, HORIZONTAL, VERTICAL
 };

@@ -3,24 +3,28 @@
 
 #include <cstdint>
 
+#include "apu.hpp"
+#include "cpu.hpp"
+#include "ppu.hpp"
+#include "mapper.hpp"
+
 #include "utils.hpp"
 
 namespace cynes {
-class CPU;
-class PPU;
-class APU;
-
-class Mapper;
-
 class NES {
 public:
     NES(const char* path);
     ~NES();
 
 public:
-    CPU* getCPU();
-    PPU* getPPU();
-    APU* getAPU();
+    CPU& getCPU();
+    const CPU& getCPU() const;
+
+    PPU& getPPU();
+    const PPU& getPPU() const;
+
+    APU& getAPU();
+    const APU& getAPU() const;
 
     Mapper* getMapper();
 
@@ -49,9 +53,9 @@ public:
     void load(uint8_t* buffer);
 
 private:
-    CPU* _cpu;
-    PPU* _ppu;
-    APU* _apu;
+    CPU _cpu;
+    PPU _ppu;
+    APU _apu;
 
     Mapper* _mapper;
 

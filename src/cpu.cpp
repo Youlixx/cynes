@@ -1,4 +1,5 @@
 #include "cpu.hpp"
+#include "nes.hpp"
 
 #include <cstring>
 

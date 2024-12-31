@@ -2,6 +2,7 @@
 #define __CYNES_EMULATOR__
 
 #include <cstdint>
+#include <memory>
 
 #include "apu.hpp"
 #include "cpu.hpp"
@@ -18,7 +19,7 @@ public:
     /// Initialize the NES.
     /// @param path Path to the ROM.
     NES(const char* path);
-    ~NES();
+    ~NES() = default;
 
 public:
     /// Reset the emulator (same effect as pressing the reset button).
@@ -110,7 +111,10 @@ public:
     PPU ppu;
     APU apu;
 
-    Mapper* mapper;
+    Mapper& getMapper();
+
+private:
+    std::unique_ptr<Mapper> _mapper;
 
 private:
     uint8_t _memoryCPU[0x800];

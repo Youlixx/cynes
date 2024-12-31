@@ -5,12 +5,12 @@
 #include "ppu.hpp"
 #include "mapper.hpp"
 
+#include <memory>
 #include <stdexcept>
 
 
-// TODO use smart pointer
 // TODO use fstream
-cynes::Mapper* loadMapper(cynes::NES& nes, const char* path) {
+std::unique_ptr<cynes::Mapper> loadMapper(cynes::NES& nes, const char* path) {
     FILE* stream = fopen(path, "rb");
 
     if (!stream) {
@@ -77,16 +77,16 @@ cynes::Mapper* loadMapper(cynes::NES& nes, const char* path) {
         : cynes::MirroringMode::HORIZONTAL;
 
     switch (mapperId) {
-    case   0: return new cynes::NROM (nes, metadata, mode);
-    case   1: return new cynes::MMC1 (nes, metadata, mode);
-    case   2: return new cynes::UxROM(nes, metadata, mode);
-    case   3: return new cynes::CNROM(nes, metadata, mode);
-    case   4: return new cynes::MMC3 (nes, metadata, mode);
-    case   7: return new cynes::AxROM(nes, metadata);
-    case   9: return new cynes::MMC2 (nes, metadata, mode);
-    case  10: return new cynes::MMC4 (nes, metadata, mode);
-    case  66: return new cynes::GxROM(nes, metadata, mode);
-    case  71: return new cynes::UxROM(nes, metadata, mode);
+    case   0: return std::make_unique<cynes::NROM> (nes, metadata, mode);
+    case   1: return std::make_unique<cynes::MMC1> (nes, metadata, mode);
+    case   2: return std::make_unique<cynes::UxROM>(nes, metadata, mode);
+    case   3: return std::make_unique<cynes::CNROM>(nes, metadata, mode);
+    case   4: return std::make_unique<cynes::MMC3> (nes, metadata, mode);
+    case   7: return std::make_unique<cynes::AxROM>(nes, metadata);
+    case   9: return std::make_unique<cynes::MMC2> (nes, metadata, mode);
+    case  10: return std::make_unique<cynes::MMC4> (nes, metadata, mode);
+    case  66: return std::make_unique<cynes::GxROM>(nes, metadata, mode);
+    case  71: return std::make_unique<cynes::UxROM>(nes, metadata, mode);
     default: throw std::runtime_error("The ROM Mapper is not supported.");
     }
 }
@@ -96,7 +96,7 @@ cynes::NES::NES(const char* path)
 : cpu{*this}
 , ppu{*this}
 , apu{*this}
-, mapper{loadMapper(static_cast<NES&>(*this), path)}
+, _mapper{loadMapper(static_cast<NES&>(*this), path)}
 {
     cpu.power();
     ppu.power();
@@ -118,10 +118,6 @@ cynes::NES::NES(const char* path)
     for (int i = 0; i < 8; i++) {
         dummyRead();
     }
-}
-
-cynes::NES::~NES() {
-    delete mapper;
 }
 
 void cynes::NES::reset() {
@@ -164,14 +160,14 @@ void cynes::NES::writeCPU(uint16_t address, uint8_t value) {
         apu.write(address & 0xFF, value);
     }
 
-    mapper->writeCPU(address, value);
+    _mapper->writeCPU(address, value);
 }
 
 void cynes::NES::writePPU(uint16_t address, uint8_t value) {
     address &= 0x3FFF;
 
     if (address < 0x3F00) {
-        mapper->writePPU(address, value);
+        _mapper->writePPU(address, value);
     } else {
         address &= 0x1F;
 
@@ -218,7 +214,7 @@ uint8_t cynes::NES::readCPU(uint16_t address) {
     } else if (address < 0x4018) {
         return apu.read(address & 0xFF);
     } else {
-        return mapper->readCPU(address);
+        return _mapper->readCPU(address);
     }
 }
 
@@ -226,7 +222,7 @@ uint8_t cynes::NES::readPPU(uint16_t address) {
     address &= 0x3FFF;
 
     if (address < 0x3F00) {
-        return mapper->readPPU(address);
+        return _mapper->readPPU(address);
     } else {
         address &= 0x1F;
 
@@ -288,6 +284,10 @@ void cynes::NES::load(uint8_t* buffer) {
     dump<DumpOperation::LOAD>(buffer);
 }
 
+cynes::Mapper& cynes::NES::getMapper() {
+    return static_cast<Mapper&>(*_mapper.get());
+}
+
 void cynes::NES::loadControllerShifter(bool polling) {
     if (polling) {
         memcpy(_controllerShifters, _controllerStates, 0x2);
@@ -308,7 +308,7 @@ void cynes::NES::dump(T& buffer) {
     ppu.dump<operation>(buffer);
     apu.dump<operation>(buffer);
 
-    mapper->dump<operation>(buffer);
+    _mapper->dump<operation>(buffer);
 
     cynes::dump<operation>(buffer, _memoryCPU);
     cynes::dump<operation>(buffer, _memoryOAM);

@@ -277,7 +277,7 @@ void cynes::PPU::tick() {
         _delayDataRead--;
     }
 
-    _nes.mapper->tick();
+    _nes.getMapper().tick();
 }
 
 void cynes::PPU::write(uint8_t address, uint8_t value) {

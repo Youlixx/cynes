@@ -15,6 +15,10 @@ add_library(cynes_core STATIC
 
 set_property(TARGET cynes_core PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+target_compile_options(cynes_core PRIVATE
+    -Wall -Wextra -Wpedantic -Werror
+)
+
 target_include_directories(cynes_core PRIVATE
     src/
 )

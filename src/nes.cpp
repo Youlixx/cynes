@@ -5,33 +5,31 @@
 #include "ppu.hpp"
 #include "mapper.hpp"
 
+#include <fstream>
 #include <memory>
 #include <stdexcept>
 
 
-// TODO use fstream
 std::unique_ptr<cynes::Mapper> loadMapper(cynes::NES& nes, const char* path) {
-    FILE* stream = fopen(path, "rb");
+    std::ifstream stream{path, std::ios::binary};
 
     if (!stream) {
         throw std::runtime_error("The file cannot be read.");
     }
 
-    uint32_t header = getc(stream) << 24 | getc(stream) << 16 | getc(stream) << 8 | getc(stream);
+    uint32_t header;
+    stream.read(reinterpret_cast<char*>(&header), 4);
 
     if (header != 0x4E45531A) {
         throw std::runtime_error("The specified file is not a NES ROM.");
     }
 
-    uint8_t programBanks = getc(stream);
-    uint8_t characterBanks = getc(stream);
+    uint8_t programBanks = stream.get();
+    uint8_t characterBanks = stream.get();
+    uint8_t flag6 = stream.get();
+    uint8_t flag7 = stream.get();
 
-    uint8_t flag6 = getc(stream);
-    uint8_t flag7 = getc(stream);
-
-    for (int k = 0; k < 0x8; k++) {
-        (void) getc(stream);
-    }
+    stream.seekg(8, std::ios::cur);
 
     cynes::NESMetadata metadata;
 
@@ -40,35 +38,27 @@ std::unique_ptr<cynes::Mapper> loadMapper(cynes::NES& nes, const char* path) {
 
     if (flag6 & 0x04) {
         metadata.trainer = new uint8_t[0x200];
-
-        for (int k = 0x00; k < 0x200; k++) {
-            metadata.trainer[k] = getc(stream);
-        }
+        stream.read(reinterpret_cast<char*>(metadata.trainer), 0x200);
     }
 
     if (metadata.sizePRG > 0) {
-        metadata.memoryPRG = new uint8_t[uint64_t(metadata.sizePRG) << 10]{ 0 };
-
-        for (int k = 0x00; k < metadata.sizePRG << 10; k++) {
-            metadata.memoryPRG[k] = getc(stream);
-        }
+        size_t memoryPRGSize = static_cast<size_t>(metadata.sizePRG) << 10;
+        metadata.memoryPRG = new uint8_t[memoryPRGSize]{ 0 };
+        stream.read(reinterpret_cast<char*>(metadata.memoryPRG), memoryPRGSize);
     }
 
     if (metadata.sizeCHR > 0) {
-        metadata.memoryCHR = new uint8_t[uint64_t(metadata.sizeCHR) << 10]{ 0 };
-
-        for (int k = 0x00; k < metadata.sizeCHR << 10; k++) {
-            metadata.memoryCHR[k] = getc(stream);
-        }
+        size_t memoryCHRSize = static_cast<size_t>(metadata.sizeCHR) << 10;
+        metadata.memoryCHR = new uint8_t[memoryCHRSize]{ 0 };
+        stream.read(reinterpret_cast<char*>(metadata.memoryCHR), memoryCHRSize);
     }
 
     if (metadata.sizeCHR == 0) {
         metadata.sizeCHR = 8;
-
         metadata.memoryCHR = new uint8_t[0x2000]{ 0 };
     }
 
-    fclose(stream);
+    stream.close();
 
     uint8_t mapperId = (flag7 & 0xF0) | flag6 >> 4;
 

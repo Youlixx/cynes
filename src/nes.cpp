@@ -13,14 +13,14 @@
 std::unique_ptr<cynes::Mapper> loadMapper(cynes::NES& nes, const char* path) {
     std::ifstream stream{path, std::ios::binary};
 
-    if (!stream) {
+    if (!stream.is_open()) {
         throw std::runtime_error("The file cannot be read.");
     }
 
     uint32_t header;
     stream.read(reinterpret_cast<char*>(&header), 4);
 
-    if (header != 0x4E45531A) {
+    if (header != 0x1A53454E) {
         throw std::runtime_error("The specified file is not a NES ROM.");
     }
 

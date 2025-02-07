@@ -40,114 +40,112 @@ public:
     /// @return The value stored at the given address.
     uint8_t read(uint8_t address);
 
+    // TODO: should probably be const...
     /// Get a pointer to the internal frame buffer.
-    uint8_t* getFrameBuffer();
+    uint8_t* get_frame_buffer();
 
     /// Check whether or not the frame is ready.
     /// @note Calling this function will reset the flag.
     /// @return True if the frame is ready, false otherwise.
-    bool isFrameReady();
+    bool is_frame_ready();
 
 private:
     NES& _nes;
 
 private:
-    uint16_t _pixelX;
-    uint16_t _pixelY;
+    uint16_t _current_x;
+    uint16_t _current_y;
 
-    // TODO heap allocation?
-    uint8_t _frameBuffer[0x2D000];
+    // TODO: heap allocation?
+    uint8_t _frame_buffer[0x2D000];
 
-    bool _frameReady;
+    bool _frame_ready;
 
-    bool _renderingEnabled;
-    bool _renderingEnabledDelayed;
-    bool _preventVerticalBlank;
-
-private:
-    bool _controlIncrementMode;
-    bool _controlForegroundTable;
-    bool _controlBackgroundTable;
-    bool _controlForegroundLarge;
-    bool _controlInterruptOnVertivalBlank;
+    bool _rendering_enabled;
+    bool _rendering_enabled_delayed;
+    bool _prevent_vertical_blank;
 
 private:
-    bool _maskGreyscaleMode;
-    bool _maskRenderBackgroundLeft;
-    bool _maskRenderForegroundLeft;
-    bool _maskRenderBackground;
-    bool _maskRenderForeground;
-
-    uint8_t _maskColorEmphasize;
+    bool _control_increment_mode;
+    bool _control_foreground_table;
+    bool _control_background_table;
+    bool _control_foreground_large;
+    bool _control_interrupt_on_vertical_blank;
 
 private:
-    bool _statusSpriteOverflow;
-    bool _statusSpriteZeroHit;
-    bool _statusVerticalBlank;
+    bool _mask_grayscale_mode;
+    bool _mask_render_background_left;
+    bool _mask_render_foreground_left;
+    bool _mask_render_background;
+    bool _mask_render_foreground;
+
+    uint8_t _mask_color_emphasize;
+
+private:
+    bool _status_sprite_overflow;
+    bool _status_sprite_zero_hit;
+    bool _status_vertical_blank;
 
 private:
     const uint8_t DECAY_PERIOD = 30;
-
-    uint8_t _clockDecays[3];
-
-    uint8_t _registerDecay;
+    uint8_t _clock_decays[3];
+    uint8_t _register_decay;
 
 private:
-    bool _latchCycle;
-    bool _latchAddress;
+    bool _latch_cycle;
+    bool _latch_address;
 
-    uint16_t _registerT;
-    uint16_t _registerV;
-    uint16_t _delayedRegisterV;
+    uint16_t _register_t;
+    uint16_t _register_v;
+    uint16_t _delayed_register_v;
 
-    uint8_t _scrollX;
+    uint8_t _scroll_x;
+    uint8_t _delay_data_read_counter;
+    uint8_t _delay_data_write_counter;
+    uint8_t _buffer_data;
 
-    uint8_t _delayDataRead;
-    uint8_t _delayDataWrite;
-    uint8_t _bufferData;
+    void increment_scroll_x();
+    void increment_scroll_y();
 
-    void incrementScrollX();
-    void incrementScrollY();
-
-    void resetScrollX();
-    void resetScrollY();
-
-private:
-    uint8_t _backgroundData[0x4];
-    uint16_t _backgroundShifter[0x4];
-
-    void loadBackgroundShifters();
-    void updateBackgroundShifters();
+    void reset_scroll_x();
+    void reset_scroll_y();
 
 private:
-    uint8_t _foregroundData[0x20];
-    uint8_t _foregroundShifter[0x10];
-    uint8_t _foregroundAttributes[0x8];
-    uint8_t _foregroundPositions[0x8];
+    uint8_t _background_data[0x4];
+    uint16_t _background_shifter[0x4];
 
-    uint8_t _foregroundDataPointer;
-    uint8_t _foregroundSpriteCount;
-    uint8_t _foregroundSpriteCountNext;
-    uint8_t _foregroundSpritePointer;
-    uint8_t _foregroundReadDelay;
+    void load_background_shifters();
+    void update_background_shifters();
 
-    uint16_t _foregroundSpriteAddress;
+private:
+    uint8_t _foreground_data[0x20];
+    uint8_t _foreground_shifter[0x10];
+    uint8_t _foreground_attributes[0x8];
+    uint8_t _foreground_positions[0x8];
 
-    bool _foregroundSpriteZeroLine;
-    bool _foregroundSpriteZeroShould;
-    bool _foregroundSpriteZeroHit;
+    uint8_t _foreground_data_pointer;
+    uint8_t _foreground_sprite_count;
+    uint8_t _foreground_sprite_count_next;
+    uint8_t _foreground_sprite_pointer;
+    uint8_t _foreground_read_delay_counter;
+
+    uint16_t _foreground_sprite_address;
+
+    bool _foreground_sprite_zero_line;
+    bool _foreground_sprite_zero_should;
+    bool _foreground_sprite_zero_hit;
 
     enum class SpriteEvaluationStep {
         LOAD_SECONDARY_OAM, INCREMENT_POINTER, IDLE
-    } _foregroundEvaluationStep;
+    } _foreground_evaluation_step;
 
-    void resetForegroundData();
-    void clearForegroundData();
-    void fetchForegroundData();
-    void loadForegroundShifter();
-    void updateForegroundShifter();
+    void reset_foreground_data();
+    void clear_foreground_data();
+    void fetch_foreground_data();
+    void load_foreground_shifter();
+    void update_foreground_shifter();
 
-    uint8_t blend();
+    uint8_t blend_colors();
 
 private:
     enum class Register : uint8_t {
@@ -264,60 +262,60 @@ private:
 public:
     template<DumpOperation operation, typename T>
     constexpr void dump(T& buffer) {
-        cynes::dump<operation>(buffer, _pixelX);
-        cynes::dump<operation>(buffer, _pixelY);
-        cynes::dump<operation>(buffer, _frameReady);
-        cynes::dump<operation>(buffer, _renderingEnabled);
-        cynes::dump<operation>(buffer, _renderingEnabledDelayed);
-        cynes::dump<operation>(buffer, _preventVerticalBlank);
+        cynes::dump<operation>(buffer, _current_x);
+        cynes::dump<operation>(buffer, _current_y);
+        cynes::dump<operation>(buffer, _frame_ready);
+        cynes::dump<operation>(buffer, _rendering_enabled);
+        cynes::dump<operation>(buffer, _rendering_enabled_delayed);
+        cynes::dump<operation>(buffer, _prevent_vertical_blank);
 
-        cynes::dump<operation>(buffer, _controlIncrementMode);
-        cynes::dump<operation>(buffer, _controlForegroundTable);
-        cynes::dump<operation>(buffer, _controlBackgroundTable);
-        cynes::dump<operation>(buffer, _controlForegroundLarge);
-        cynes::dump<operation>(buffer, _controlInterruptOnVertivalBlank);
+        cynes::dump<operation>(buffer, _control_increment_mode);
+        cynes::dump<operation>(buffer, _control_foreground_table);
+        cynes::dump<operation>(buffer, _control_background_table);
+        cynes::dump<operation>(buffer, _control_foreground_large);
+        cynes::dump<operation>(buffer, _control_interrupt_on_vertical_blank);
 
-        cynes::dump<operation>(buffer, _maskGreyscaleMode);
-        cynes::dump<operation>(buffer, _maskRenderBackgroundLeft);
-        cynes::dump<operation>(buffer, _maskRenderForegroundLeft);
-        cynes::dump<operation>(buffer, _maskRenderBackground);
-        cynes::dump<operation>(buffer, _maskRenderForeground);
-        cynes::dump<operation>(buffer, _maskColorEmphasize);
+        cynes::dump<operation>(buffer, _mask_grayscale_mode);
+        cynes::dump<operation>(buffer, _mask_render_background_left);
+        cynes::dump<operation>(buffer, _mask_render_foreground_left);
+        cynes::dump<operation>(buffer, _mask_render_background);
+        cynes::dump<operation>(buffer, _mask_render_foreground);
+        cynes::dump<operation>(buffer, _mask_color_emphasize);
 
-        cynes::dump<operation>(buffer, _statusSpriteOverflow);
-        cynes::dump<operation>(buffer, _statusSpriteZeroHit);
-        cynes::dump<operation>(buffer, _statusVerticalBlank);
+        cynes::dump<operation>(buffer, _status_sprite_overflow);
+        cynes::dump<operation>(buffer, _status_sprite_zero_hit);
+        cynes::dump<operation>(buffer, _status_vertical_blank);
 
-        cynes::dump<operation>(buffer, _clockDecays);
-        cynes::dump<operation>(buffer, _registerDecay);
+        cynes::dump<operation>(buffer, _clock_decays);
+        cynes::dump<operation>(buffer, _register_decay);
 
-        cynes::dump<operation>(buffer, _latchCycle);
-        cynes::dump<operation>(buffer, _latchAddress);
-        cynes::dump<operation>(buffer, _registerT);
-        cynes::dump<operation>(buffer, _registerV);
-        cynes::dump<operation>(buffer, _delayedRegisterV);
-        cynes::dump<operation>(buffer, _scrollX);
-        cynes::dump<operation>(buffer, _delayDataRead);
-        cynes::dump<operation>(buffer, _delayDataWrite);
-        cynes::dump<operation>(buffer, _bufferData);
+        cynes::dump<operation>(buffer, _latch_cycle);
+        cynes::dump<operation>(buffer, _latch_address);
+        cynes::dump<operation>(buffer, _register_t);
+        cynes::dump<operation>(buffer, _register_v);
+        cynes::dump<operation>(buffer, _delayed_register_v);
+        cynes::dump<operation>(buffer, _scroll_x);
+        cynes::dump<operation>(buffer, _delay_data_read_counter);
+        cynes::dump<operation>(buffer, _delay_data_write_counter);
+        cynes::dump<operation>(buffer, _buffer_data);
 
-        cynes::dump<operation>(buffer, _backgroundData);
-        cynes::dump<operation>(buffer, _backgroundShifter);
+        cynes::dump<operation>(buffer, _background_data);
+        cynes::dump<operation>(buffer, _background_shifter);
 
-        cynes::dump<operation>(buffer, _foregroundData);
-        cynes::dump<operation>(buffer, _foregroundShifter);
-        cynes::dump<operation>(buffer, _foregroundAttributes);
-        cynes::dump<operation>(buffer, _foregroundPositions);
-        cynes::dump<operation>(buffer, _foregroundDataPointer);
-        cynes::dump<operation>(buffer, _foregroundSpriteCount);
-        cynes::dump<operation>(buffer, _foregroundSpriteCountNext);
-        cynes::dump<operation>(buffer, _foregroundSpritePointer);
-        cynes::dump<operation>(buffer, _foregroundReadDelay);
-        cynes::dump<operation>(buffer, _foregroundSpriteAddress);
-        cynes::dump<operation>(buffer, _foregroundSpriteZeroLine);
-        cynes::dump<operation>(buffer, _foregroundSpriteZeroShould);
-        cynes::dump<operation>(buffer, _foregroundSpriteZeroHit);
-        cynes::dump<operation>(buffer, _foregroundEvaluationStep);
+        cynes::dump<operation>(buffer, _foreground_data);
+        cynes::dump<operation>(buffer, _foreground_shifter);
+        cynes::dump<operation>(buffer, _foreground_attributes);
+        cynes::dump<operation>(buffer, _foreground_positions);
+        cynes::dump<operation>(buffer, _foreground_data_pointer);
+        cynes::dump<operation>(buffer, _foreground_sprite_count);
+        cynes::dump<operation>(buffer, _foreground_sprite_count_next);
+        cynes::dump<operation>(buffer, _foreground_sprite_pointer);
+        cynes::dump<operation>(buffer, _foreground_read_delay_counter);
+        cynes::dump<operation>(buffer, _foreground_sprite_address);
+        cynes::dump<operation>(buffer, _foreground_sprite_zero_line);
+        cynes::dump<operation>(buffer, _foreground_sprite_zero_should);
+        cynes::dump<operation>(buffer, _foreground_sprite_zero_hit);
+        cynes::dump<operation>(buffer, _foreground_evaluation_step);
     }
 };
 }

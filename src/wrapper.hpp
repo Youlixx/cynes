@@ -20,22 +20,21 @@ public:
 
     void reset();
 
-    pybind11::array_t<uint8_t> step(uint32_t frames);
+    const pybind11::array_t<uint8_t>& step(uint32_t frames);
 
     pybind11::array_t<uint8_t> save();
     void load(pybind11::array_t<uint8_t> dump);
 
-    bool hasCrashed() const;
+    bool has_crashed() const;
 
 public:
     uint16_t controller;
 
 private:
     NES _nes;
+    const size_t _save_state_size;
+
     pybind11::array_t<uint8_t> _frame;
-
-    const size_t _saveStateSize;
-
     bool _crashed;
 };
 }

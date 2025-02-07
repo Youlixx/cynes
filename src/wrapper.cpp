@@ -9,11 +9,19 @@
 
 
 cynes::wrapper::Wrapper::Wrapper(const char* rom)
-: controller{0x00}
-, _nes{rom}
-, _frame{{240, 256, 3}}
-, _saveStateSize{_nes.size()}
-, _crashed{false} {}
+    : controller{0x00}
+    , _nes{rom}
+    , _save_state_size{_nes.size()}
+    , _frame{
+        {240, 256, 3},
+        {256 * 3, 3, 1},
+        _nes.get_frame_buffer(),
+        pybind11::capsule(_nes.get_frame_buffer(), [](void *) {})
+    }
+    , _crashed{false}
+{
+    pybind11::detail::array_proxy(_frame.ptr())->flags &= ~pybind11::detail::npy_api::NPY_ARRAY_WRITEABLE_;
+}
 
 cynes::wrapper::Wrapper::~Wrapper() {}
 
@@ -29,20 +37,14 @@ void cynes::wrapper::Wrapper::reset() {
     _nes.reset();
 }
 
-pybind11::array_t<uint8_t> cynes::wrapper::Wrapper::step(uint32_t frames) {
-    _crashed |= _nes.step(
-        _frame.mutable_data(),
-        controller,
-        frames
-    );
-
+const pybind11::array_t<uint8_t>& cynes::wrapper::Wrapper::step(uint32_t frames) {
+    _crashed |= _nes.step(controller, frames);
     return _frame;
 }
 
 pybind11::array_t<uint8_t> cynes::wrapper::Wrapper::save() {
-    pybind11::array_t<uint8_t> buffer{static_cast<int>(_saveStateSize)};
+    pybind11::array_t<uint8_t> buffer{static_cast<int>(_save_state_size)};
     _nes.save(buffer.mutable_data());
-
     return buffer;
 }
 
@@ -50,17 +52,18 @@ void cynes::wrapper::Wrapper::load(pybind11::array_t<uint8_t> buffer) {
     _nes.load(buffer.mutable_data());
 }
 
-bool cynes::wrapper::Wrapper::hasCrashed() const {
+bool cynes::wrapper::Wrapper::has_crashed() const {
     return _crashed;
 }
 
 
+// TODO docstrings...
 PYBIND11_MODULE(emulator, mod) {
     mod.doc() = "C/C++ NES emulator with Python bindings";
 
     pybind11::class_<cynes::wrapper::Wrapper>(mod, "NES")
         .def(pybind11::init<const char*>(), pybind11::arg("rom"))
-        .def_property_readonly("has_crashed", &cynes::wrapper::Wrapper::hasCrashed)
+        .def_property_readonly("has_crashed", &cynes::wrapper::Wrapper::has_crashed)
         .def_readwrite("controller", &cynes::wrapper::Wrapper::controller)
         .def("__setitem__", &cynes::wrapper::Wrapper::write, pybind11::arg("address"), pybind11::arg("value"))
         .def("__getitem__", &cynes::wrapper::Wrapper::read, pybind11::arg("address"))

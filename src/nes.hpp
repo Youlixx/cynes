@@ -89,15 +89,14 @@ public:
     uint8_t get_open_bus() const;
 
     /// Step the emulation by the given amount of frame.
-    /// @param buffer Output frame buffer.
     /// @param controllers Controllers states (first 8-bits for controller 1,
     /// the remaining 8-bits fro controller 2).
     /// @param frames Number of frame of the step.
     /// @return True if the CPU is frozen, false otherwise.
-    bool step(uint8_t* buffer, uint16_t controllers, unsigned int frames);
+    bool step(uint16_t controllers, unsigned int frames);
 
     /// Get the size of the save state.
-    /// @return The size of the save stateu buffer.
+    /// @return The size of the save state buffer.
     unsigned int size();
 
     /// Save the state of the emulator to the buffer.
@@ -105,6 +104,11 @@ public:
 
     /// Load a previous emulator state from the buffer.
     void load(uint8_t* buffer);
+
+    /// Get a pointer to the internal frame buffer.
+    inline const uint8_t* get_frame_buffer() const {
+        return ppu.get_frame_buffer();
+    }
 
 public:
     CPU cpu;

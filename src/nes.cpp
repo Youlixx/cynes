@@ -239,7 +239,7 @@ uint8_t cynes::NES::get_open_bus() const {
     return _open_bus;
 }
 
-bool cynes::NES::step(uint8_t* buffer, uint16_t controllers, unsigned int frames) {
+bool cynes::NES::step(uint16_t controllers, unsigned int frames) {
     _controller_status[0x0] = controllers & 0xFF;
     _controller_status[0x1] = controllers >> 8;
 
@@ -252,9 +252,6 @@ bool cynes::NES::step(uint8_t* buffer, uint16_t controllers, unsigned int frames
             }
         }
     }
-
-    // TODO should return the framebuffer ptr to avoid the memcpy
-    memcpy(buffer, ppu.get_frame_buffer(), 0x2D000);
 
     return false;
 }

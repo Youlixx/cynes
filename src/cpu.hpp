@@ -30,23 +30,23 @@ public:
     void poll();
 
     /// Set the non-maskable interrupt flag value.
-    /// @param nmi Non-maskable interrupt value.
-    void setNMI(bool nmi);
+    /// @param interrupt Non-maskable interrupt value.
+    void set_non_maskable_interrupt(bool interrupt);
 
     /// Set the state of the mapper interrupt.
-    /// @param irq Interrupt state.
-    void setMapperIRQ(bool irq);
+    /// @param interrupt Interrupt state.
+    void set_mapper_interrupt(bool interrupt);
 
     /// Set the state of the frame interrupt.
-    /// @param irq Interrupt state.
-    void setFrameIRQ(bool irq);
+    /// @param interrupt Interrupt state.
+    void set_frame_interrupt(bool interrupt);
 
     /// Set the state of the delta interrupt.
-    /// @param irq Interrupt state.
-    void setDeltaIRQ(bool irq);
+    /// @param interrupt Interrupt state.
+    void set_delta_interrupt(bool interrupt);
 
     /// Check whether or not the CPU has hit an invalid opcode.
-    bool isFrozen() const;
+    bool is_frozen() const;
 
 private:
     NES& _nes;
@@ -54,120 +54,243 @@ private:
 private:
     bool _frozen;
 
-    uint8_t _registerA;
-    uint8_t _registerX;
-    uint8_t _registerY;
-    uint8_t _registerM;
-    uint8_t _stackPointer;
+    uint8_t _register_a;
+    uint8_t _register_x;
+    uint8_t _register_y;
+    uint8_t _register_m;
+    uint8_t _stack_pointer;
 
-    uint16_t _programCounter;
+    uint16_t _program_counter;
 
-    uint8_t fetch();
+    uint8_t fetch_next();
 
 private:
-    bool _delayIRQ;
-    bool _shouldIRQ;
+    bool _delay_interrupt;
+    bool _should_issue_interrupt;
 
-    bool _lineMapperIRQ;
-    bool _lineFrameIRQ;
-    bool _lineDeltaIRQ;
+    bool _line_mapper_interrupt;
+    bool _line_frame_interrupt;
+    bool _line_delta_interrupt;
 
-    bool _lineNMI;
-    bool _edgeDetectorNMI;
+    bool _line_non_maskable_interrupt;
+    bool _edge_detector_non_maskable_interrupt;
 
-    bool _delayNMI;
-    bool _shouldNMI;
+    bool _delay_non_maskable_interrupt;
+    bool _should_issue_non_maskable_interrupt;
 
 private:
     uint8_t _status;
 
-    void setStatus(uint8_t flag, bool value);
-    bool getStatus(uint8_t flag) const;
+    void set_status(uint8_t flag, bool value);
+    bool get_status(uint8_t flag) const;
 
     enum Flag : uint8_t {
         C = 0x01, Z = 0x02, I = 0x04, D = 0x08, B = 0x10, U = 0x20, V = 0x40, N = 0x80
     };
 
 private:
-    uint16_t _targetAddress;
+    uint16_t _target_address;
 
-    void ABR(); void ABW(); void ACC(); void AXM(); void AXR(); void AXW(); void AYM(); void AYR();
-    void AYW(); void IMM(); void IMP(); void IND(); void IXR(); void IXW(); void IYM(); void IYR();
-    void IYW(); void REL(); void ZPR(); void ZPW(); void ZXR(); void ZXW(); void ZYR(); void ZYW();
+    void addr_abr();
+    void addr_abw();
+    void addr_acc();
+    void addr_axm();
+    void addr_axr();
+    void addr_axw();
+    void addr_aym();
+    void addr_ayr();
+    void addr_ayw();
+    void addr_imm();
+    void addr_imp();
+    void addr_ind();
+    void addr_ixr();
+    void addr_ixw();
+    void addr_iym();
+    void addr_iyr();
+    void addr_iyw();
+    void addr_rel();
+    void addr_zpr();
+    void addr_zpw();
+    void addr_zxr();
+    void addr_zxw();
+    void addr_zyr();
+    void addr_zyw();
 
-    void (CPU::* _addressingModes[256]) (void) = {
-        &CPU::IMP,&CPU::IXR,&CPU::ACC,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::ACC,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
-        &CPU::ABW,&CPU::IXR,&CPU::ACC,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::ACC,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
-        &CPU::IMP,&CPU::IXR,&CPU::ACC,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::ACC,&CPU::IMM,&CPU::ABW,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
-        &CPU::IMP,&CPU::IXR,&CPU::ACC,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::ACC,&CPU::IMM,&CPU::IND,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
-        &CPU::IMM,&CPU::IXW,&CPU::IMM,&CPU::IXW,&CPU::ZPW,&CPU::ZPW,&CPU::ZPW,&CPU::ZPW,&CPU::IMP,&CPU::IMM,&CPU::IMP,&CPU::IMM,&CPU::ABW,&CPU::ABW,&CPU::ABW,&CPU::ABW,
-        &CPU::REL,&CPU::IYW,&CPU::ACC,&CPU::IYW,&CPU::ZXW,&CPU::ZXW,&CPU::ZYW,&CPU::ZYW,&CPU::IMP,&CPU::AYW,&CPU::IMP,&CPU::AYW,&CPU::AXW,&CPU::AXW,&CPU::AYW,&CPU::AYW,
-        &CPU::IMM,&CPU::IXR,&CPU::IMM,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::IMP,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYR,&CPU::ZXR,&CPU::ZXR,&CPU::ZYR,&CPU::ZYR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYR,&CPU::AXR,&CPU::AXR,&CPU::AYR,&CPU::AYR,
-        &CPU::IMM,&CPU::IXR,&CPU::IMM,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::IMP,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM,
-        &CPU::IMM,&CPU::IXR,&CPU::IMM,&CPU::IXR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::ZPR,&CPU::IMP,&CPU::IMM,&CPU::IMP,&CPU::IMM,&CPU::ABR,&CPU::ABR,&CPU::ABR,&CPU::ABR,
-        &CPU::REL,&CPU::IYR,&CPU::ACC,&CPU::IYM,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::ZXR,&CPU::IMP,&CPU::AYR,&CPU::IMP,&CPU::AYM,&CPU::AXR,&CPU::AXR,&CPU::AXM,&CPU::AXM
+    void (CPU::* _addressing_modes[256]) (void) = {
+        &CPU::addr_imp,&CPU::addr_ixr,&CPU::addr_acc,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
+        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_acc,&CPU::addr_imm,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
+        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iym,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,
+        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_aym,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_axm,&CPU::addr_axm,
+        &CPU::addr_abw,&CPU::addr_ixr,&CPU::addr_acc,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
+        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_acc,&CPU::addr_imm,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
+        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iym,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,
+        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_aym,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_axm,&CPU::addr_axm,
+        &CPU::addr_imp,&CPU::addr_ixr,&CPU::addr_acc,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
+        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_acc,&CPU::addr_imm,&CPU::addr_abw,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
+        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iym,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,
+        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_aym,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_axm,&CPU::addr_axm,
+        &CPU::addr_imp,&CPU::addr_ixr,&CPU::addr_acc,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
+        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_acc,&CPU::addr_imm,&CPU::addr_ind,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
+        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iym,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,
+        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_aym,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_axm,&CPU::addr_axm,
+        &CPU::addr_imm,&CPU::addr_ixw,&CPU::addr_imm,&CPU::addr_ixw,&CPU::addr_zpw,&CPU::addr_zpw,&CPU::addr_zpw,&CPU::addr_zpw,
+        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_imp,&CPU::addr_imm,&CPU::addr_abw,&CPU::addr_abw,&CPU::addr_abw,&CPU::addr_abw,
+        &CPU::addr_rel,&CPU::addr_iyw,&CPU::addr_acc,&CPU::addr_iyw,&CPU::addr_zxw,&CPU::addr_zxw,&CPU::addr_zyw,&CPU::addr_zyw,
+        &CPU::addr_imp,&CPU::addr_ayw,&CPU::addr_imp,&CPU::addr_ayw,&CPU::addr_axw,&CPU::addr_axw,&CPU::addr_ayw,&CPU::addr_ayw,
+        &CPU::addr_imm,&CPU::addr_ixr,&CPU::addr_imm,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
+        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_imp,&CPU::addr_imm,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
+        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iyr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zyr,&CPU::addr_zyr,
+        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_ayr,&CPU::addr_ayr,
+        &CPU::addr_imm,&CPU::addr_ixr,&CPU::addr_imm,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
+        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_imp,&CPU::addr_imm,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
+        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iym,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,
+        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_aym,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_axm,&CPU::addr_axm,
+        &CPU::addr_imm,&CPU::addr_ixr,&CPU::addr_imm,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
+        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_imp,&CPU::addr_imm,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
+        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iym,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,
+        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_aym,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_axm,&CPU::addr_axm
     };
 
 private:
-    void AAL(); void ADC(); void ALR(); void ANC(); void AND(); void ANE(); void ARR(); void ASL();
-    void BCC(); void BCS(); void BEQ(); void BIT(); void BMI(); void BNE(); void BPL(); void BRK();
-    void BVC(); void BVS(); void CLC(); void CLD(); void CLI(); void CLV(); void CMP(); void CPX();
-    void CPY(); void DCP(); void DEC(); void DEX(); void DEY(); void EOR(); void INC(); void INX();
-    void INY(); void ISC(); void JAM(); void JMP(); void JSR(); void LAR(); void LAS(); void LAX();
-    void LDA(); void LDX(); void LDY(); void LSR(); void LXA(); void NOP(); void ORA(); void PHA();
-    void PHP(); void PLA(); void PLP(); void RAL(); void RAR(); void RLA(); void ROL(); void ROR();
-    void RRA(); void RTI(); void RTS(); void SAX(); void SBC(); void SBX(); void SEC(); void SED();
-    void SEI(); void SHA(); void SHX(); void SHY(); void SLO(); void SRE(); void STA(); void STX();
-    void STY(); void TAS(); void TAX(); void TAY(); void TSX(); void TXA(); void TXS(); void TYA();
-    void USB();
+    void op_aal();
+    void op_adc();
+    void op_alr();
+    void op_anc();
+    void op_and();
+    void op_ane();
+    void op_arr();
+    void op_asl();
+    void op_bcc();
+    void op_bcs();
+    void op_beq();
+    void op_bit();
+    void op_bmi();
+    void op_bne();
+    void op_bpl();
+    void op_brk();
+    void op_bvc();
+    void op_bvs();
+    void op_clc();
+    void op_cld();
+    void op_cli();
+    void op_clv();
+    void op_cmp();
+    void op_cpx();
+    void op_cpy();
+    void op_dcp();
+    void op_dec();
+    void op_dex();
+    void op_dey();
+    void op_eor();
+    void op_inc();
+    void op_inx();
+    void op_iny();
+    void op_isc();
+    void op_jam();
+    void op_jmp();
+    void op_jsr();
+    void op_lar();
+    void op_las();
+    void op_lax();
+    void op_lda();
+    void op_ldx();
+    void op_ldy();
+    void op_lsr();
+    void op_lxa();
+    void op_nop();
+    void op_ora();
+    void op_pha();
+    void op_php();
+    void op_pla();
+    void op_plp();
+    void op_ral();
+    void op_rar();
+    void op_rla();
+    void op_rol();
+    void op_ror();
+    void op_rra();
+    void op_rti();
+    void op_rts();
+    void op_sax();
+    void op_sbc();
+    void op_sbx();
+    void op_sec();
+    void op_sed();
+    void op_sei();
+    void op_sha();
+    void op_shx();
+    void op_shy();
+    void op_slo();
+    void op_sre();
+    void op_sta();
+    void op_stx();
+    void op_sty();
+    void op_tas();
+    void op_tax();
+    void op_tay();
+    void op_tsx();
+    void op_txa();
+    void op_txs();
+    void op_tya();
+    void op_usb();
 
     void (CPU::* _instructions[256]) (void) = {
-        &CPU::BRK,&CPU::ORA,&CPU::JAM,&CPU::SLO,&CPU::NOP,&CPU::ORA,&CPU::ASL,&CPU::SLO,&CPU::PHP,&CPU::ORA,&CPU::AAL,&CPU::ANC,&CPU::NOP,&CPU::ORA,&CPU::ASL,&CPU::SLO,
-        &CPU::BPL,&CPU::ORA,&CPU::JAM,&CPU::SLO,&CPU::NOP,&CPU::ORA,&CPU::ASL,&CPU::SLO,&CPU::CLC,&CPU::ORA,&CPU::NOP,&CPU::SLO,&CPU::NOP,&CPU::ORA,&CPU::ASL,&CPU::SLO,
-        &CPU::JSR,&CPU::AND,&CPU::JAM,&CPU::RLA,&CPU::BIT,&CPU::AND,&CPU::ROL,&CPU::RLA,&CPU::PLP,&CPU::AND,&CPU::RAL,&CPU::ANC,&CPU::BIT,&CPU::AND,&CPU::ROL,&CPU::RLA,
-        &CPU::BMI,&CPU::AND,&CPU::JAM,&CPU::RLA,&CPU::NOP,&CPU::AND,&CPU::ROL,&CPU::RLA,&CPU::SEC,&CPU::AND,&CPU::NOP,&CPU::RLA,&CPU::NOP,&CPU::AND,&CPU::ROL,&CPU::RLA,
-        &CPU::RTI,&CPU::EOR,&CPU::JAM,&CPU::SRE,&CPU::NOP,&CPU::EOR,&CPU::LSR,&CPU::SRE,&CPU::PHA,&CPU::EOR,&CPU::LAR,&CPU::ALR,&CPU::JMP,&CPU::EOR,&CPU::LSR,&CPU::SRE,
-        &CPU::BVC,&CPU::EOR,&CPU::JAM,&CPU::SRE,&CPU::NOP,&CPU::EOR,&CPU::LSR,&CPU::SRE,&CPU::CLI,&CPU::EOR,&CPU::NOP,&CPU::SRE,&CPU::NOP,&CPU::EOR,&CPU::LSR,&CPU::SRE,
-        &CPU::RTS,&CPU::ADC,&CPU::JAM,&CPU::RRA,&CPU::NOP,&CPU::ADC,&CPU::ROR,&CPU::RRA,&CPU::PLA,&CPU::ADC,&CPU::RAR,&CPU::ARR,&CPU::JMP,&CPU::ADC,&CPU::ROR,&CPU::RRA,
-        &CPU::BVS,&CPU::ADC,&CPU::JAM,&CPU::RRA,&CPU::NOP,&CPU::ADC,&CPU::ROR,&CPU::RRA,&CPU::SEI,&CPU::ADC,&CPU::NOP,&CPU::RRA,&CPU::NOP,&CPU::ADC,&CPU::ROR,&CPU::RRA,
-        &CPU::NOP,&CPU::STA,&CPU::NOP,&CPU::SAX,&CPU::STY,&CPU::STA,&CPU::STX,&CPU::SAX,&CPU::DEY,&CPU::NOP,&CPU::TXA,&CPU::ANE,&CPU::STY,&CPU::STA,&CPU::STX,&CPU::SAX,
-        &CPU::BCC,&CPU::STA,&CPU::JAM,&CPU::SHA,&CPU::STY,&CPU::STA,&CPU::STX,&CPU::SAX,&CPU::TYA,&CPU::STA,&CPU::TXS,&CPU::TAS,&CPU::SHY,&CPU::STA,&CPU::SHX,&CPU::SHA,
-        &CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,&CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,&CPU::TAY,&CPU::LDA,&CPU::TAX,&CPU::LXA,&CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,
-        &CPU::BCS,&CPU::LDA,&CPU::JAM,&CPU::LAX,&CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,&CPU::CLV,&CPU::LDA,&CPU::TSX,&CPU::LAS,&CPU::LDY,&CPU::LDA,&CPU::LDX,&CPU::LAX,
-        &CPU::CPY,&CPU::CMP,&CPU::NOP,&CPU::DCP,&CPU::CPY,&CPU::CMP,&CPU::DEC,&CPU::DCP,&CPU::INY,&CPU::CMP,&CPU::DEX,&CPU::SBX,&CPU::CPY,&CPU::CMP,&CPU::DEC,&CPU::DCP,
-        &CPU::BNE,&CPU::CMP,&CPU::JAM,&CPU::DCP,&CPU::NOP,&CPU::CMP,&CPU::DEC,&CPU::DCP,&CPU::CLD,&CPU::CMP,&CPU::NOP,&CPU::DCP,&CPU::NOP,&CPU::CMP,&CPU::DEC,&CPU::DCP,
-        &CPU::CPX,&CPU::SBC,&CPU::NOP,&CPU::ISC,&CPU::CPX,&CPU::SBC,&CPU::INC,&CPU::ISC,&CPU::INX,&CPU::SBC,&CPU::NOP,&CPU::USB,&CPU::CPX,&CPU::SBC,&CPU::INC,&CPU::ISC,
-        &CPU::BEQ,&CPU::SBC,&CPU::JAM,&CPU::ISC,&CPU::NOP,&CPU::SBC,&CPU::INC,&CPU::ISC,&CPU::SED,&CPU::SBC,&CPU::NOP,&CPU::ISC,&CPU::NOP,&CPU::SBC,&CPU::INC,&CPU::ISC
+        &CPU::op_brk,&CPU::op_ora,&CPU::op_jam,&CPU::op_slo,&CPU::op_nop,&CPU::op_ora,&CPU::op_asl,&CPU::op_slo,
+        &CPU::op_php,&CPU::op_ora,&CPU::op_aal,&CPU::op_anc,&CPU::op_nop,&CPU::op_ora,&CPU::op_asl,&CPU::op_slo,
+        &CPU::op_bpl,&CPU::op_ora,&CPU::op_jam,&CPU::op_slo,&CPU::op_nop,&CPU::op_ora,&CPU::op_asl,&CPU::op_slo,
+        &CPU::op_clc,&CPU::op_ora,&CPU::op_nop,&CPU::op_slo,&CPU::op_nop,&CPU::op_ora,&CPU::op_asl,&CPU::op_slo,
+        &CPU::op_jsr,&CPU::op_and,&CPU::op_jam,&CPU::op_rla,&CPU::op_bit,&CPU::op_and,&CPU::op_rol,&CPU::op_rla,
+        &CPU::op_plp,&CPU::op_and,&CPU::op_ral,&CPU::op_anc,&CPU::op_bit,&CPU::op_and,&CPU::op_rol,&CPU::op_rla,
+        &CPU::op_bmi,&CPU::op_and,&CPU::op_jam,&CPU::op_rla,&CPU::op_nop,&CPU::op_and,&CPU::op_rol,&CPU::op_rla,
+        &CPU::op_sec,&CPU::op_and,&CPU::op_nop,&CPU::op_rla,&CPU::op_nop,&CPU::op_and,&CPU::op_rol,&CPU::op_rla,
+        &CPU::op_rti,&CPU::op_eor,&CPU::op_jam,&CPU::op_sre,&CPU::op_nop,&CPU::op_eor,&CPU::op_lsr,&CPU::op_sre,
+        &CPU::op_pha,&CPU::op_eor,&CPU::op_lar,&CPU::op_alr,&CPU::op_jmp,&CPU::op_eor,&CPU::op_lsr,&CPU::op_sre,
+        &CPU::op_bvc,&CPU::op_eor,&CPU::op_jam,&CPU::op_sre,&CPU::op_nop,&CPU::op_eor,&CPU::op_lsr,&CPU::op_sre,
+        &CPU::op_cli,&CPU::op_eor,&CPU::op_nop,&CPU::op_sre,&CPU::op_nop,&CPU::op_eor,&CPU::op_lsr,&CPU::op_sre,
+        &CPU::op_rts,&CPU::op_adc,&CPU::op_jam,&CPU::op_rra,&CPU::op_nop,&CPU::op_adc,&CPU::op_ror,&CPU::op_rra,
+        &CPU::op_pla,&CPU::op_adc,&CPU::op_rar,&CPU::op_arr,&CPU::op_jmp,&CPU::op_adc,&CPU::op_ror,&CPU::op_rra,
+        &CPU::op_bvs,&CPU::op_adc,&CPU::op_jam,&CPU::op_rra,&CPU::op_nop,&CPU::op_adc,&CPU::op_ror,&CPU::op_rra,
+        &CPU::op_sei,&CPU::op_adc,&CPU::op_nop,&CPU::op_rra,&CPU::op_nop,&CPU::op_adc,&CPU::op_ror,&CPU::op_rra,
+        &CPU::op_nop,&CPU::op_sta,&CPU::op_nop,&CPU::op_sax,&CPU::op_sty,&CPU::op_sta,&CPU::op_stx,&CPU::op_sax,
+        &CPU::op_dey,&CPU::op_nop,&CPU::op_txa,&CPU::op_ane,&CPU::op_sty,&CPU::op_sta,&CPU::op_stx,&CPU::op_sax,
+        &CPU::op_bcc,&CPU::op_sta,&CPU::op_jam,&CPU::op_sha,&CPU::op_sty,&CPU::op_sta,&CPU::op_stx,&CPU::op_sax,
+        &CPU::op_tya,&CPU::op_sta,&CPU::op_txs,&CPU::op_tas,&CPU::op_shy,&CPU::op_sta,&CPU::op_shx,&CPU::op_sha,
+        &CPU::op_ldy,&CPU::op_lda,&CPU::op_ldx,&CPU::op_lax,&CPU::op_ldy,&CPU::op_lda,&CPU::op_ldx,&CPU::op_lax,
+        &CPU::op_tay,&CPU::op_lda,&CPU::op_tax,&CPU::op_lxa,&CPU::op_ldy,&CPU::op_lda,&CPU::op_ldx,&CPU::op_lax,
+        &CPU::op_bcs,&CPU::op_lda,&CPU::op_jam,&CPU::op_lax,&CPU::op_ldy,&CPU::op_lda,&CPU::op_ldx,&CPU::op_lax,
+        &CPU::op_clv,&CPU::op_lda,&CPU::op_tsx,&CPU::op_las,&CPU::op_ldy,&CPU::op_lda,&CPU::op_ldx,&CPU::op_lax,
+        &CPU::op_cpy,&CPU::op_cmp,&CPU::op_nop,&CPU::op_dcp,&CPU::op_cpy,&CPU::op_cmp,&CPU::op_dec,&CPU::op_dcp,
+        &CPU::op_iny,&CPU::op_cmp,&CPU::op_dex,&CPU::op_sbx,&CPU::op_cpy,&CPU::op_cmp,&CPU::op_dec,&CPU::op_dcp,
+        &CPU::op_bne,&CPU::op_cmp,&CPU::op_jam,&CPU::op_dcp,&CPU::op_nop,&CPU::op_cmp,&CPU::op_dec,&CPU::op_dcp,
+        &CPU::op_cld,&CPU::op_cmp,&CPU::op_nop,&CPU::op_dcp,&CPU::op_nop,&CPU::op_cmp,&CPU::op_dec,&CPU::op_dcp,
+        &CPU::op_cpx,&CPU::op_sbc,&CPU::op_nop,&CPU::op_isc,&CPU::op_cpx,&CPU::op_sbc,&CPU::op_inc,&CPU::op_isc,
+        &CPU::op_inx,&CPU::op_sbc,&CPU::op_nop,&CPU::op_usb,&CPU::op_cpx,&CPU::op_sbc,&CPU::op_inc,&CPU::op_isc,
+        &CPU::op_beq,&CPU::op_sbc,&CPU::op_jam,&CPU::op_isc,&CPU::op_nop,&CPU::op_sbc,&CPU::op_inc,&CPU::op_isc,
+        &CPU::op_sed,&CPU::op_sbc,&CPU::op_nop,&CPU::op_isc,&CPU::op_nop,&CPU::op_sbc,&CPU::op_inc,&CPU::op_isc
     };
 
 public:
     template<DumpOperation operation, typename T>
     constexpr void dump(T& buffer) {
         cynes::dump<operation>(buffer, _frozen);
-        cynes::dump<operation>(buffer, _registerA);
-        cynes::dump<operation>(buffer, _registerX);
-        cynes::dump<operation>(buffer, _registerY);
-        cynes::dump<operation>(buffer, _registerM);
-        cynes::dump<operation>(buffer, _stackPointer);
-        cynes::dump<operation>(buffer, _programCounter);
-        cynes::dump<operation>(buffer, _targetAddress);
+        cynes::dump<operation>(buffer, _register_a);
+        cynes::dump<operation>(buffer, _register_x);
+        cynes::dump<operation>(buffer, _register_y);
+        cynes::dump<operation>(buffer, _register_m);
+        cynes::dump<operation>(buffer, _stack_pointer);
+        cynes::dump<operation>(buffer, _program_counter);
+        cynes::dump<operation>(buffer, _target_address);
         cynes::dump<operation>(buffer, _status);
 
-        cynes::dump<operation>(buffer, _delayIRQ);
-        cynes::dump<operation>(buffer, _shouldIRQ);
-        cynes::dump<operation>(buffer, _lineMapperIRQ);
-        cynes::dump<operation>(buffer, _lineFrameIRQ);
-        cynes::dump<operation>(buffer, _lineDeltaIRQ);
-        cynes::dump<operation>(buffer, _lineNMI);
-        cynes::dump<operation>(buffer, _edgeDetectorNMI);
-        cynes::dump<operation>(buffer, _delayNMI);
-        cynes::dump<operation>(buffer, _shouldNMI);
+        cynes::dump<operation>(buffer, _delay_interrupt);
+        cynes::dump<operation>(buffer, _should_issue_interrupt);
+        cynes::dump<operation>(buffer, _line_mapper_interrupt);
+        cynes::dump<operation>(buffer, _line_frame_interrupt);
+        cynes::dump<operation>(buffer, _line_delta_interrupt);
+        cynes::dump<operation>(buffer, _line_non_maskable_interrupt);
+        cynes::dump<operation>(buffer, _edge_detector_non_maskable_interrupt);
+        cynes::dump<operation>(buffer, _delay_non_maskable_interrupt);
+        cynes::dump<operation>(buffer, _should_issue_non_maskable_interrupt);
     }
 };
 }

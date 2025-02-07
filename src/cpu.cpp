@@ -7,59 +7,50 @@
 cynes::CPU::CPU(NES& nes)
 : _nes{nes}
 , _frozen{false}
-, _registerA{0x00}
-, _registerX{0x00}
-, _registerY{0x00}
-, _registerM{0x00}
-, _stackPointer{0x00}
-, _programCounter{0x0000}
-, _delayIRQ{false}
-, _shouldIRQ{false}
-, _lineMapperIRQ{false}
-, _lineFrameIRQ{false}
-, _lineDeltaIRQ{false}
-, _lineNMI{false}
-, _edgeDetectorNMI{false}
-, _delayNMI{false}
-, _shouldNMI{false}
+, _register_a{0x00}
+, _register_x{0x00}
+, _register_y{0x00}
+, _register_m{0x00}
+, _stack_pointer{0x00}
+, _program_counter{0x0000}
+, _delay_interrupt{false}
+, _should_issue_interrupt{false}
+, _line_mapper_interrupt{false}
+, _line_frame_interrupt{false}
+, _line_delta_interrupt{false}
+, _line_non_maskable_interrupt{false}
+, _edge_detector_non_maskable_interrupt{false}
+, _delay_non_maskable_interrupt{false}
+, _should_issue_non_maskable_interrupt{false}
 , _status{0x00}
-, _targetAddress{0x0000} {}
+, _target_address{0x0000} {}
 
 void cynes::CPU::power() {
     _frozen = false;
-
-    _lineNMI = false;
-    _lineMapperIRQ = false;
-    _lineFrameIRQ = false;
-    _lineDeltaIRQ = false;
-
-    _shouldIRQ = false;
-
-    _registerA = 0x00;
-    _registerX = 0x00;
-    _registerY = 0x00;
-    _stackPointer = 0xFD;
-
+    _line_non_maskable_interrupt = false;
+    _line_mapper_interrupt = false;
+    _line_frame_interrupt = false;
+    _line_delta_interrupt = false;
+    _should_issue_interrupt = false;
+    _register_a = 0x00;
+    _register_x = 0x00;
+    _register_y = 0x00;
+    _stack_pointer = 0xFD;
     _status = Flag::I;
-
-    _programCounter = _nes.readCPU(0xFFFC);
-    _programCounter |= _nes.readCPU(0xFFFD) << 8;
+    _program_counter = _nes.read_cpu(0xFFFC);
+    _program_counter |= _nes.read_cpu(0xFFFD) << 8;
 }
 
 void cynes::CPU::reset() {
     _frozen = false;
-
-    _lineNMI = false;
-    _lineMapperIRQ = false;
-    _lineFrameIRQ = false;
-    _lineDeltaIRQ = false;
-
-    _stackPointer -= 3;
-
+    _line_non_maskable_interrupt = false;
+    _line_mapper_interrupt = false;
+    _line_frame_interrupt = false;
+    _line_delta_interrupt = false;
+    _stack_pointer -= 3;
     _status |= Flag::I;
-
-    _programCounter = _nes.readCPU(0xFFFC);
-    _programCounter |= _nes.readCPU(0xFFFD) << 8;
+    _program_counter = _nes.read_cpu(0xFFFC);
+    _program_counter |= _nes.read_cpu(0xFFFD) << 8;
 }
 
 void cynes::CPU::tick() {
@@ -67,69 +58,69 @@ void cynes::CPU::tick() {
         return;
     }
 
-    uint8_t instruction = fetch();
+    uint8_t instruction = fetch_next();
 
-    (this->*_addressingModes[instruction])();
+    (this->*_addressing_modes[instruction])();
     (this->*_instructions[instruction])();
 
-    if (_delayNMI || _delayIRQ) {
-        _nes.read(_programCounter);
-        _nes.read(_programCounter);
+    if (_delay_non_maskable_interrupt || _delay_interrupt) {
+        _nes.read(_program_counter);
+        _nes.read(_program_counter);
 
-        _nes.write(0x100 | _stackPointer--, _programCounter >> 8);
-        _nes.write(0x100 | _stackPointer--, _programCounter & 0x00FF);
+        _nes.write(0x100 | _stack_pointer--, _program_counter >> 8);
+        _nes.write(0x100 | _stack_pointer--, _program_counter & 0x00FF);
 
-        uint16_t address = _shouldNMI ? 0xFFFA : 0xFFFE;
+        uint16_t address = _should_issue_non_maskable_interrupt ? 0xFFFA : 0xFFFE;
 
-        _shouldNMI = false;
+        _should_issue_non_maskable_interrupt = false;
 
-        _nes.write(0x100 | _stackPointer--, _status | Flag::U);
+        _nes.write(0x100 | _stack_pointer--, _status | Flag::U);
 
-        setStatus(Flag::I, true);
+        set_status(Flag::I, true);
 
-        _programCounter = _nes.read(address);
-        _programCounter |= _nes.read(address + 1) << 8;
+        _program_counter = _nes.read(address);
+        _program_counter |= _nes.read(address + 1) << 8;
     }
 }
 
 void cynes::CPU::poll() {
-    _delayNMI = _shouldNMI;
+    _delay_non_maskable_interrupt = _should_issue_non_maskable_interrupt;
 
-    if (!_edgeDetectorNMI && _lineNMI) {
-        _shouldNMI = true;
+    if (!_edge_detector_non_maskable_interrupt && _line_non_maskable_interrupt) {
+        _should_issue_non_maskable_interrupt = true;
     }
 
-    _edgeDetectorNMI = _lineNMI;
-    _delayIRQ = _shouldIRQ;
+    _edge_detector_non_maskable_interrupt = _line_non_maskable_interrupt;
+    _delay_interrupt = _should_issue_interrupt;
 
-    _shouldIRQ = (_lineMapperIRQ || _lineFrameIRQ || _lineDeltaIRQ) && !getStatus(Flag::I);
+    _should_issue_interrupt = (_line_mapper_interrupt || _line_frame_interrupt || _line_delta_interrupt) && !get_status(Flag::I);
 }
 
-void cynes::CPU::setNMI(bool nmi) {
-    _lineNMI = nmi;
+void cynes::CPU::set_non_maskable_interrupt(bool interrupt) {
+    _line_non_maskable_interrupt = interrupt;
 }
 
-void cynes::CPU::setMapperIRQ(bool irq) {
-    _lineMapperIRQ = irq;
+void cynes::CPU::set_mapper_interrupt(bool interrupt) {
+    _line_mapper_interrupt = interrupt;
 }
 
-void cynes::CPU::setFrameIRQ(bool irq) {
-    _lineFrameIRQ = irq;
+void cynes::CPU::set_frame_interrupt(bool interrupt) {
+    _line_frame_interrupt = interrupt;
 }
 
-void cynes::CPU::setDeltaIRQ(bool irq) {
-    _lineDeltaIRQ = irq;
+void cynes::CPU::set_delta_interrupt(bool interrupt) {
+    _line_delta_interrupt = interrupt;
 }
 
-bool cynes::CPU::isFrozen() const {
+bool cynes::CPU::is_frozen() const {
     return _frozen;
 }
 
-uint8_t cynes::CPU::fetch() {
-    return _nes.read(_programCounter++);
+uint8_t cynes::CPU::fetch_next() {
+    return _nes.read(_program_counter++);
 }
 
-void cynes::CPU::setStatus(uint8_t flag, bool value) {
+void cynes::CPU::set_status(uint8_t flag, bool value) {
     if (value) {
         _status |= flag;
     } else {
@@ -137,993 +128,956 @@ void cynes::CPU::setStatus(uint8_t flag, bool value) {
     }
 }
 
-bool cynes::CPU::getStatus(uint8_t flag) const {
+bool cynes::CPU::get_status(uint8_t flag) const {
     return _status & flag;
 }
 
-void cynes::CPU::ABR() {
-    ABW();
-
-    _registerM = _nes.read(_targetAddress);
+void cynes::CPU::addr_abr() {
+    addr_abw();
+    _register_m = _nes.read(_target_address);
 }
 
-void cynes::CPU::ABW() {
-    _targetAddress = fetch();
-    _targetAddress |= fetch() << 8;
+void cynes::CPU::addr_abw() {
+    _target_address = fetch_next();
+    _target_address |= fetch_next() << 8;
 }
 
-void cynes::CPU::ACC() {
-    _registerM = _nes.read(_programCounter);
+void cynes::CPU::addr_acc() {
+    _register_m = _nes.read(_program_counter);
 }
 
-void cynes::CPU::AXM() {
-    AXW();
-
-    _registerM = _nes.read(_targetAddress);
+void cynes::CPU::addr_axm() {
+    addr_axw();
+    _register_m = _nes.read(_target_address);
 }
 
-void cynes::CPU::AXR() {
-    _targetAddress = fetch();
+void cynes::CPU::addr_axr() {
+    _target_address = fetch_next();
 
-    uint16_t translated = _targetAddress + _registerX;
+    uint16_t translated = _target_address + _register_x;
+    bool invalid_address = (_target_address & 0xFF00) != (translated & 0xFF00);
 
-    bool invalidAddress = (_targetAddress & 0xFF00) != (translated & 0xFF00);
+    _target_address = translated & 0x00FF;
+    _target_address |= fetch_next() << 8;
+    _register_m = _nes.read(_target_address);
 
-    _targetAddress = translated & 0x00FF;
-    _targetAddress |= fetch() << 8;
-
-    _registerM = _nes.read(_targetAddress);
-
-    if (invalidAddress) {
-        _targetAddress += 0x100;
-
-        _registerM = _nes.read(_targetAddress);
+    if (invalid_address) {
+        _target_address += 0x100;
+        _register_m = _nes.read(_target_address);
     }
 }
 
-void cynes::CPU::AXW() {
-    _targetAddress = fetch();
+void cynes::CPU::addr_axw() {
+    _target_address = fetch_next();
 
-    uint16_t translated = _targetAddress + _registerX;
+    uint16_t translated = _target_address + _register_x;
+    bool invalid_address = (_target_address & 0xFF00) != (translated & 0xFF00);
 
-    bool invalidAddress = (_targetAddress & 0xFF00) != (translated & 0xFF00);
+    _target_address = translated & 0x00FF;
+    _target_address |= fetch_next() << 8;
+    _register_m = _nes.read(_target_address);
 
-    _targetAddress = translated & 0x00FF;
-    _targetAddress |= fetch() << 8;
-
-    _registerM = _nes.read(_targetAddress);
-
-    if (invalidAddress) {
-        _targetAddress += 0x100;
+    if (invalid_address) {
+        _target_address += 0x100;
     }
 }
 
-void cynes::CPU::AYM() {
-    AYW();
-
-    _registerM = _nes.read(_targetAddress);
+void cynes::CPU::addr_aym() {
+    addr_ayw();
+    _register_m = _nes.read(_target_address);
 }
 
-void cynes::CPU::AYR() {
-    _targetAddress = fetch();
+void cynes::CPU::addr_ayr() {
+    _target_address = fetch_next();
 
-    uint16_t translated = _targetAddress + _registerY;
+    uint16_t translated = _target_address + _register_y;
+    bool invalid_address = (_target_address & 0xFF00) != (translated & 0xFF00);
 
-    bool invalidAddress = (_targetAddress & 0xFF00) != (translated & 0xFF00);
+    _target_address = translated & 0x00FF;
+    _target_address |= fetch_next() << 8;
+    _register_m = _nes.read(_target_address);
 
-    _targetAddress = translated & 0x00FF;
-    _targetAddress |= fetch() << 8;
-
-    _registerM = _nes.read(_targetAddress);
-
-    if (invalidAddress) {
-        _targetAddress += 0x100;
-
-        _registerM = _nes.read(_targetAddress);
+    if (invalid_address) {
+        _target_address += 0x100;
+        _register_m = _nes.read(_target_address);
     }
 }
 
-void cynes::CPU::AYW() {
-    _targetAddress = fetch();
+void cynes::CPU::addr_ayw() {
+    _target_address = fetch_next();
 
-    uint16_t translated = _targetAddress + _registerY;
+    uint16_t translated = _target_address + _register_y;
+    bool invalid_address = (_target_address & 0xFF00) != (translated & 0xFF00);
 
-    bool invalidAddress = (_targetAddress & 0xFF00) != (translated & 0xFF00);
+    _target_address = translated & 0x00FF;
+    _target_address |= fetch_next() << 8;
+    _register_m = _nes.read(_target_address);
 
-    _targetAddress = translated & 0x00FF;
-    _targetAddress |= fetch() << 8;
-
-    _registerM = _nes.read(_targetAddress);
-
-    if (invalidAddress) {
-        _targetAddress += 0x100;
+    if (invalid_address) {
+        _target_address += 0x100;
     }
 }
 
-void cynes::CPU::IMM() {
-    _registerM = fetch();
+void cynes::CPU::addr_imm() {
+    _register_m = fetch_next();
 }
 
-void cynes::CPU::IMP() {
-    _registerM = _nes.read(_programCounter);
+void cynes::CPU::addr_imp() {
+    _register_m = _nes.read(_program_counter);
 }
 
-void cynes::CPU::IND() {
-    uint16_t pointer = fetch();
+void cynes::CPU::addr_ind() {
+    uint16_t pointer = fetch_next();
 
-    pointer |= fetch() << 8;
+    pointer |= fetch_next() << 8;
 
     if ((pointer & 0x00FF) == 0xFF) {
-        _targetAddress = _nes.read(pointer);
-        _targetAddress |= _nes.read(pointer & 0xFF00) << 8;
+        _target_address = _nes.read(pointer);
+        _target_address |= _nes.read(pointer & 0xFF00) << 8;
     } else {
-        _targetAddress = _nes.read(pointer);
-        _targetAddress |= _nes.read(pointer + 1) << 8;
+        _target_address = _nes.read(pointer);
+        _target_address |= _nes.read(pointer + 1) << 8;
     }
 }
 
-void cynes::CPU::IXR() {
-    IXW();
-
-    _registerM = _nes.read(_targetAddress);
+void cynes::CPU::addr_ixr() {
+    addr_ixw();
+    _register_m = _nes.read(_target_address);
 }
 
-void cynes::CPU::IXW() {
-    uint8_t pointer = fetch();
+void cynes::CPU::addr_ixw() {
+    uint8_t pointer = fetch_next();
 
-    _registerM = _nes.read(pointer);
+    _register_m = _nes.read(pointer);
 
-    pointer += _registerX;
+    pointer += _register_x;
 
-    _targetAddress = _nes.read(pointer);
-    _targetAddress |= _nes.read(++pointer & 0xFF) << 8;
+    _target_address = _nes.read(pointer);
+    _target_address |= _nes.read(++pointer & 0xFF) << 8;
 }
 
-void cynes::CPU::IYM() {
-    IYW();
-
-    _registerM = _nes.read(_targetAddress);
+void cynes::CPU::addr_iym() {
+    addr_iyw();
+    _register_m = _nes.read(_target_address);
 }
 
-void cynes::CPU::IYR() {
-    uint8_t pointer = fetch();
+void cynes::CPU::addr_iyr() {
+    uint8_t pointer = fetch_next();
 
-    _targetAddress = _nes.read(pointer);
+    _target_address = _nes.read(pointer);
 
-    uint16_t translated = _targetAddress + _registerY;
+    uint16_t translated = _target_address + _register_y;
+    bool invalid_address = translated & 0xFF00;
 
-    bool invalidAddress = translated & 0xFF00;
+    _target_address = translated & 0x00FF;
+    _target_address |= _nes.read(++pointer & 0xFF) << 8;
+    _register_m = _nes.read(_target_address);
 
-    _targetAddress = translated & 0x00FF;
-    _targetAddress |= _nes.read(++pointer & 0xFF) << 8;
-
-    _registerM = _nes.read(_targetAddress);
-
-    if (invalidAddress) {
-        _targetAddress += 0x100;
-
-        _registerM = _nes.read(_targetAddress);
+    if (invalid_address) {
+        _target_address += 0x100;
+        _register_m = _nes.read(_target_address);
     }
 }
 
-void cynes::CPU::IYW() {
-    uint8_t pointer = fetch();
+void cynes::CPU::addr_iyw() {
+    uint8_t pointer = fetch_next();
 
-    _targetAddress = _nes.read(pointer);
+    _target_address = _nes.read(pointer);
 
-    uint16_t translated = _targetAddress + _registerY;
+    uint16_t translated = _target_address + _register_y;
+    bool invalid_address = (_target_address & 0xFF00) != (translated & 0xFF00);
 
-    bool invalidAddress = (_targetAddress & 0xFF00) != (translated & 0xFF00);
+    _target_address = translated & 0x00FF;
+    _target_address |= _nes.read(++pointer & 0xFF) << 8;
+    _register_m = _nes.read(_target_address);
 
-    _targetAddress = translated & 0x00FF;
-    _targetAddress |= _nes.read(++pointer & 0xFF) << 8;
-
-    _registerM = _nes.read(_targetAddress);
-
-    if (invalidAddress) {
-        _targetAddress += 0x100;
+    if (invalid_address) {
+        _target_address += 0x100;
     }
 }
 
-void cynes::CPU::REL() {
-    _targetAddress = fetch();
+void cynes::CPU::addr_rel() {
+    _target_address = fetch_next();
 
-    if (_targetAddress & 0x80) {
-        _targetAddress |= 0xFF00;
+    if (_target_address & 0x80) {
+        _target_address |= 0xFF00;
     }
 }
 
-void cynes::CPU::ZPR() {
-    ZPW();
-
-    _registerM = _nes.read(_targetAddress);
+void cynes::CPU::addr_zpr() {
+    addr_zpw();
+    _register_m = _nes.read(_target_address);
 }
 
-void cynes::CPU::ZPW() {
-    _targetAddress = fetch();
+void cynes::CPU::addr_zpw() {
+    _target_address = fetch_next();
 }
 
-void cynes::CPU::ZXR() {
-    ZXW();
-
-    _registerM = _nes.read(_targetAddress);
+void cynes::CPU::addr_zxr() {
+    addr_zxw();
+    _register_m = _nes.read(_target_address);
 }
 
-void cynes::CPU::ZXW() {
-    _targetAddress = fetch();
-
-    _registerM = _nes.read(_targetAddress);
-
-    _targetAddress += _registerX;
-    _targetAddress &= 0x00FF;
+void cynes::CPU::addr_zxw() {
+    _target_address = fetch_next();
+    _register_m = _nes.read(_target_address);
+    _target_address += _register_x;
+    _target_address &= 0x00FF;
 }
 
-void cynes::CPU::ZYR() {
-    ZYW();
-
-    _registerM = _nes.read(_targetAddress);
+void cynes::CPU::addr_zyr() {
+    addr_zyw();
+    _register_m = _nes.read(_target_address);
 }
 
-void cynes::CPU::ZYW() {
-    _targetAddress = fetch();
-
-    _registerM = _nes.read(_targetAddress);
-
-    _targetAddress += _registerY;
-    _targetAddress &= 0x00FF;
+void cynes::CPU::addr_zyw() {
+    _target_address = fetch_next();
+    _register_m = _nes.read(_target_address);
+    _target_address += _register_y;
+    _target_address &= 0x00FF;
 }
 
-void cynes::CPU::AAL() {
-    setStatus(Flag::C, _registerA & 0x80);
+void cynes::CPU::op_aal() {
+    set_status(Flag::C, _register_a & 0x80);
 
-    _registerA <<= 1;
+    _register_a <<= 1;
 
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::ADC() {
-    uint16_t result = _registerA + _registerM + (getStatus(Flag::C) ? 0x01 : 0x00);
+void cynes::CPU::op_adc() {
+    uint16_t result = _register_a + _register_m + (get_status(Flag::C) ? 0x01 : 0x00);
 
-    setStatus(Flag::C, result & 0xFF00);
-    setStatus(Flag::V, ~(_registerA ^ _registerM) & (_registerA ^ result) & 0x80);
+    set_status(Flag::C, result & 0xFF00);
+    set_status(Flag::V, ~(_register_a ^ _register_m) & (_register_a ^ result) & 0x80);
 
-    _registerA = result & 0x00FF;
+    _register_a = result & 0x00FF;
 
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::ALR() {
-    _registerA &= _registerM;
+void cynes::CPU::op_alr() {
+    _register_a &= _register_m;
 
-    setStatus(Flag::C, _registerA & 0x01);
+    set_status(Flag::C, _register_a & 0x01);
 
-    _registerA >>= 1;
+    _register_a >>= 1;
 
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::ANC() {
-    _registerA &= _registerM;
+void cynes::CPU::op_anc() {
+    _register_a &= _register_m;
 
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
-    setStatus(Flag::C, _registerA & 0x80);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
+    set_status(Flag::C, _register_a & 0x80);
 }
 
-void cynes::CPU::AND() {
-    _registerA &= _registerM;
+void cynes::CPU::op_and() {
+    _register_a &= _register_m;
 
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::ANE() {
-    _registerA = (_registerA | 0xEE) & _registerX & _registerM;
+void cynes::CPU::op_ane() {
+    _register_a = (_register_a | 0xEE) & _register_x & _register_m;
 }
 
-void cynes::CPU::ARR() {
-    _registerA &= _registerM;
+void cynes::CPU::op_arr() {
+    _register_a &= _register_m;
+    _register_a = (get_status(Flag::C) ? 0x80 : 0x00) | (_register_a >> 1);
 
-    _registerA = (getStatus(Flag::C) ? 0x80 : 0x00) | (_registerA >> 1);
-
-    setStatus(Flag::C, _registerA & 0x40);
-    setStatus(Flag::V, bool(_registerA & 0x40) ^ bool(_registerA & 0x20));
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::C, _register_a & 0x40);
+    set_status(Flag::V, bool(_register_a & 0x40) ^ bool(_register_a & 0x20));
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::ASL() {
-    _nes.write(_targetAddress, _registerM);
+void cynes::CPU::op_asl() {
+    _nes.write(_target_address, _register_m);
 
-    setStatus(Flag::C, _registerM & 0x80);
+    set_status(Flag::C, _register_m & 0x80);
 
-    _registerM <<= 1;
+    _register_m <<= 1;
 
-    setStatus(Flag::Z, !_registerM);
-    setStatus(Flag::N, _registerM & 0x80);
+    set_status(Flag::Z, !_register_m);
+    set_status(Flag::N, _register_m & 0x80);
 
-    _nes.write(_targetAddress, _registerM);
+    _nes.write(_target_address, _register_m);
 }
 
-void cynes::CPU::BCC() {
-    if (!getStatus(Flag::C)) {
-        if (_shouldIRQ && !_delayIRQ) {
-            _shouldIRQ = false;
+void cynes::CPU::op_bcc() {
+    if (!get_status(Flag::C)) {
+        if (_should_issue_interrupt && !_delay_interrupt) {
+            _should_issue_interrupt = false;
         }
 
-        _nes.read(_programCounter);
+        _nes.read(_program_counter);
 
-        uint16_t translated = _targetAddress + _programCounter;
+        uint16_t translated = _target_address + _program_counter;
 
-        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
-            _nes.read(_programCounter);
+        if ((translated & 0xFF00) != (_program_counter & 0xFF00)) {
+            _nes.read(_program_counter);
         }
 
-        _programCounter = translated;
+        _program_counter = translated;
     }
 }
 
-void cynes::CPU::BCS() {
-    if (getStatus(Flag::C)) {
-        if (_shouldIRQ && !_delayIRQ) {
-            _shouldIRQ = false;
+void cynes::CPU::op_bcs() {
+    if (get_status(Flag::C)) {
+        if (_should_issue_interrupt && !_delay_interrupt) {
+            _should_issue_interrupt = false;
         }
 
-        _nes.read(_programCounter);
+        _nes.read(_program_counter);
 
-        uint16_t translated = _targetAddress + _programCounter;
+        uint16_t translated = _target_address + _program_counter;
 
-        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
-            _nes.read(_programCounter);
+        if ((translated & 0xFF00) != (_program_counter & 0xFF00)) {
+            _nes.read(_program_counter);
         }
 
-        _programCounter = translated;
+        _program_counter = translated;
     }
 }
 
-void cynes::CPU::BEQ() {
-    if (getStatus(Flag::Z)) {
-        if (_shouldIRQ && !_delayIRQ) {
-            _shouldIRQ = false;
+void cynes::CPU::op_beq() {
+    if (get_status(Flag::Z)) {
+        if (_should_issue_interrupt && !_delay_interrupt) {
+            _should_issue_interrupt = false;
         }
 
-        _nes.read(_programCounter);
+        _nes.read(_program_counter);
 
-        uint16_t translated = _targetAddress + _programCounter;
+        uint16_t translated = _target_address + _program_counter;
 
-        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
-            _nes.read(_programCounter);
+        if ((translated & 0xFF00) != (_program_counter & 0xFF00)) {
+            _nes.read(_program_counter);
         }
 
-        _programCounter = translated;
+        _program_counter = translated;
     }
 }
 
-void cynes::CPU::BIT() {
-    setStatus(Flag::Z, !(_registerA & _registerM));
-    setStatus(Flag::V, _registerM & 0x40);
-    setStatus(Flag::N, _registerM & 0x80);
+void cynes::CPU::op_bit() {
+    set_status(Flag::Z, !(_register_a & _register_m));
+    set_status(Flag::V, _register_m & 0x40);
+    set_status(Flag::N, _register_m & 0x80);
 }
 
-void cynes::CPU::BMI() {
-    if (getStatus(Flag::N)) {
-        if (_shouldIRQ && !_delayIRQ) {
-            _shouldIRQ = false;
+void cynes::CPU::op_bmi() {
+    if (get_status(Flag::N)) {
+        if (_should_issue_interrupt && !_delay_interrupt) {
+            _should_issue_interrupt = false;
         }
 
-        _nes.read(_programCounter);
+        _nes.read(_program_counter);
 
-        uint16_t translated = _targetAddress + _programCounter;
+        uint16_t translated = _target_address + _program_counter;
 
-        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
-            _nes.read(_programCounter);
+        if ((translated & 0xFF00) != (_program_counter & 0xFF00)) {
+            _nes.read(_program_counter);
         }
 
-        _programCounter = translated;
+        _program_counter = translated;
     }
 }
 
-void cynes::CPU::BNE() {
-    if (!getStatus(Flag::Z)) {
-        if (_shouldIRQ && !_delayIRQ) {
-            _shouldIRQ = false;
+void cynes::CPU::op_bne() {
+    if (!get_status(Flag::Z)) {
+        if (_should_issue_interrupt && !_delay_interrupt) {
+            _should_issue_interrupt = false;
         }
 
-        _nes.read(_programCounter);
+        _nes.read(_program_counter);
 
-        uint16_t translated = _targetAddress + _programCounter;
+        uint16_t translated = _target_address + _program_counter;
 
-        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
-            _nes.read(_programCounter);
+        if ((translated & 0xFF00) != (_program_counter & 0xFF00)) {
+            _nes.read(_program_counter);
         }
 
-        _programCounter = translated;
+        _program_counter = translated;
     }
 }
 
-void cynes::CPU::BPL() {
-    if (!getStatus(Flag::N)) {
-        if (_shouldIRQ && !_delayIRQ) {
-            _shouldIRQ = false;
+void cynes::CPU::op_bpl() {
+    if (!get_status(Flag::N)) {
+        if (_should_issue_interrupt && !_delay_interrupt) {
+            _should_issue_interrupt = false;
         }
 
-        _nes.read(_programCounter);
+        _nes.read(_program_counter);
 
-        uint16_t translated = _targetAddress + _programCounter;
+        uint16_t translated = _target_address + _program_counter;
 
-        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
-            _nes.read(_programCounter);
+        if ((translated & 0xFF00) != (_program_counter & 0xFF00)) {
+            _nes.read(_program_counter);
         }
 
-        _programCounter = translated;
+        _program_counter = translated;
     }
 }
 
-void cynes::CPU::BRK() {
-    _programCounter++;
+void cynes::CPU::op_brk() {
+    _program_counter++;
 
-    _nes.write(0x100 | _stackPointer--, _programCounter >> 8);
-    _nes.write(0x100 | _stackPointer--, _programCounter & 0x00FF);
+    _nes.write(0x100 | _stack_pointer--, _program_counter >> 8);
+    _nes.write(0x100 | _stack_pointer--, _program_counter & 0x00FF);
 
-    uint16_t address = _shouldNMI ? 0xFFFA : 0xFFFE;
+    uint16_t address = _should_issue_non_maskable_interrupt ? 0xFFFA : 0xFFFE;
 
-    _shouldNMI = false;
+    _should_issue_non_maskable_interrupt = false;
 
-    _nes.write(0x100 | _stackPointer--, _status | Flag::B | Flag::U);
+    _nes.write(0x100 | _stack_pointer--, _status | Flag::B | Flag::U);
 
-    setStatus(Flag::I, true);
+    set_status(Flag::I, true);
 
-    _programCounter = _nes.read(address);
-    _programCounter |= _nes.read(address + 1) << 8;
+    _program_counter = _nes.read(address);
+    _program_counter |= _nes.read(address + 1) << 8;
 
-    _delayNMI = false;
+    _delay_non_maskable_interrupt = false;
 }
 
-void cynes::CPU::BVC() {
-    if (!getStatus(Flag::V)) {
-        if (_shouldIRQ && !_delayIRQ) {
-            _shouldIRQ = false;
+void cynes::CPU::op_bvc() {
+    if (!get_status(Flag::V)) {
+        if (_should_issue_interrupt && !_delay_interrupt) {
+            _should_issue_interrupt = false;
         }
 
-        _nes.read(_programCounter);
+        _nes.read(_program_counter);
 
-        uint16_t translated = _targetAddress + _programCounter;
+        uint16_t translated = _target_address + _program_counter;
 
-        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
-            _nes.read(_programCounter);
+        if ((translated & 0xFF00) != (_program_counter & 0xFF00)) {
+            _nes.read(_program_counter);
         }
 
-        _programCounter = translated;
+        _program_counter = translated;
     }
 }
 
-void cynes::CPU::BVS() {
-    if (getStatus(Flag::V)) {
-        if (_shouldIRQ && !_delayIRQ) {
-            _shouldIRQ = false;
+void cynes::CPU::op_bvs() {
+    if (get_status(Flag::V)) {
+        if (_should_issue_interrupt && !_delay_interrupt) {
+            _should_issue_interrupt = false;
         }
 
-        _nes.read(_programCounter);
+        _nes.read(_program_counter);
 
-        uint16_t translated = _targetAddress + _programCounter;
+        uint16_t translated = _target_address + _program_counter;
 
-        if ((translated & 0xFF00) != (_programCounter & 0xFF00)) {
-            _nes.read(_programCounter);
+        if ((translated & 0xFF00) != (_program_counter & 0xFF00)) {
+            _nes.read(_program_counter);
         }
 
-        _programCounter = translated;
+        _program_counter = translated;
     }
 }
 
-void cynes::CPU::CLC() {
-    setStatus(Flag::C, false);
+void cynes::CPU::op_clc() {
+    set_status(Flag::C, false);
 }
 
-void cynes::CPU::CLD() {
-    setStatus(Flag::D, false);
+void cynes::CPU::op_cld() {
+    set_status(Flag::D, false);
 }
 
-void cynes::CPU::CLI() {
-    setStatus(Flag::I, false);
+void cynes::CPU::op_cli() {
+    set_status(Flag::I, false);
 }
 
-void cynes::CPU::CLV() {
-    setStatus(Flag::V, false);
+void cynes::CPU::op_clv() {
+    set_status(Flag::V, false);
 }
 
-void cynes::CPU::CMP() {
-    setStatus(Flag::C, _registerA >= _registerM);
-    setStatus(Flag::Z, _registerA == _registerM);
-    setStatus(Flag::N, (_registerA - _registerM) & 0x80);
+void cynes::CPU::op_cmp() {
+    set_status(Flag::C, _register_a >= _register_m);
+    set_status(Flag::Z, _register_a == _register_m);
+    set_status(Flag::N, (_register_a - _register_m) & 0x80);
 }
 
-void cynes::CPU::CPX() {
-    setStatus(Flag::C, _registerX >= _registerM);
-    setStatus(Flag::Z, _registerX == _registerM);
-    setStatus(Flag::N, (_registerX - _registerM) & 0x80);
+void cynes::CPU::op_cpx() {
+    set_status(Flag::C, _register_x >= _register_m);
+    set_status(Flag::Z, _register_x == _register_m);
+    set_status(Flag::N, (_register_x - _register_m) & 0x80);
 }
 
-void cynes::CPU::CPY() {
-    setStatus(Flag::C, _registerY >= _registerM);
-    setStatus(Flag::Z, _registerY == _registerM);
-    setStatus(Flag::N, (_registerY - _registerM) & 0x80);
+void cynes::CPU::op_cpy() {
+    set_status(Flag::C, _register_y >= _register_m);
+    set_status(Flag::Z, _register_y == _register_m);
+    set_status(Flag::N, (_register_y - _register_m) & 0x80);
 }
 
-void cynes::CPU::DCP() {
-    _nes.write(_targetAddress, _registerM);
+void cynes::CPU::op_dcp() {
+    _nes.write(_target_address, _register_m);
 
-    _registerM--;
+    _register_m--;
 
-    setStatus(Flag::C, _registerA >= _registerM);
-    setStatus(Flag::Z, _registerA == _registerM);
-    setStatus(Flag::N, (_registerA - _registerM) & 0x80);
+    set_status(Flag::C, _register_a >= _register_m);
+    set_status(Flag::Z, _register_a == _register_m);
+    set_status(Flag::N, (_register_a - _register_m) & 0x80);
 
-    _nes.write(_targetAddress, _registerM);
+    _nes.write(_target_address, _register_m);
 }
 
-void cynes::CPU::DEC() {
-    _nes.write(_targetAddress, _registerM);
+void cynes::CPU::op_dec() {
+    _nes.write(_target_address, _register_m);
 
-    _registerM--;
+    _register_m--;
 
-    setStatus(Flag::Z, !_registerM);
-    setStatus(Flag::N, _registerM & 0x80);
+    set_status(Flag::Z, !_register_m);
+    set_status(Flag::N, _register_m & 0x80);
 
-    _nes.write(_targetAddress, _registerM);
+    _nes.write(_target_address, _register_m);
 }
 
-void cynes::CPU::DEX() {
-    _registerX--;
+void cynes::CPU::op_dex() {
+    _register_x--;
 
-    setStatus(Flag::Z, !_registerX);
-    setStatus(Flag::N, _registerX & 0x80);
+    set_status(Flag::Z, !_register_x);
+    set_status(Flag::N, _register_x & 0x80);
 }
 
-void cynes::CPU::DEY() {
-    _registerY--;
+void cynes::CPU::op_dey() {
+    _register_y--;
 
-    setStatus(Flag::Z, !_registerY);
-    setStatus(Flag::N, _registerY & 0x80);
+    set_status(Flag::Z, !_register_y);
+    set_status(Flag::N, _register_y & 0x80);
 }
 
-void cynes::CPU::EOR() {
-    _registerA ^= _registerM;
+void cynes::CPU::op_eor() {
+    _register_a ^= _register_m;
 
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::INC() {
-    _nes.write(_targetAddress, _registerM);
+void cynes::CPU::op_inc() {
+    _nes.write(_target_address, _register_m);
 
-    _registerM++;
+    _register_m++;
 
-    setStatus(Flag::Z, !_registerM);
-    setStatus(Flag::N, _registerM & 0x80);
+    set_status(Flag::Z, !_register_m);
+    set_status(Flag::N, _register_m & 0x80);
 
-    _nes.write(_targetAddress, _registerM);
+    _nes.write(_target_address, _register_m);
 }
 
-void cynes::CPU::INX() {
-    _registerX++;
+void cynes::CPU::op_inx() {
+    _register_x++;
 
-    setStatus(Flag::Z, !_registerX);
-    setStatus(Flag::N, _registerX & 0x80);
+    set_status(Flag::Z, !_register_x);
+    set_status(Flag::N, _register_x & 0x80);
 }
 
-void cynes::CPU::INY() {
-    _registerY++;
+void cynes::CPU::op_iny() {
+    _register_y++;
 
-    setStatus(Flag::Z, !_registerY);
-    setStatus(Flag::N, _registerY & 0x80);
+    set_status(Flag::Z, !_register_y);
+    set_status(Flag::N, _register_y & 0x80);
 }
 
-void cynes::CPU::ISC() {
-    _nes.write(_targetAddress, _registerM);
+void cynes::CPU::op_isc() {
+    _nes.write(_target_address, _register_m);
 
-    _registerM++;
+    _register_m++;
 
-    uint8_t value = _registerM;
+    uint8_t value = _register_m;
 
-    _registerM ^= 0xFF;
+    _register_m ^= 0xFF;
 
-    uint16_t result = _registerA + _registerM + (getStatus(Flag::C) ? 0x01 : 0x00);
+    uint16_t result = _register_a + _register_m + (get_status(Flag::C) ? 0x01 : 0x00);
 
-    setStatus(Flag::C, result & 0x0100);
-    setStatus(Flag::V, ~(_registerA ^ _registerM) & (_registerA ^ result) & 0x80);
+    set_status(Flag::C, result & 0x0100);
+    set_status(Flag::V, ~(_register_a ^ _register_m) & (_register_a ^ result) & 0x80);
 
-    _registerA = result & 0x00FF;
+    _register_a = result & 0x00FF;
 
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 
-    _nes.write(_targetAddress, value);
+    _nes.write(_target_address, value);
 }
 
-void cynes::CPU::JAM() {
+void cynes::CPU::op_jam() {
     _frozen = true;
 }
 
-void cynes::CPU::JMP() {
-    _programCounter = _targetAddress;
+void cynes::CPU::op_jmp() {
+    _program_counter = _target_address;
 }
 
-void cynes::CPU::JSR() {
-    _nes.read(_programCounter);
+void cynes::CPU::op_jsr() {
+    _nes.read(_program_counter);
 
-    _programCounter--;
+    _program_counter--;
 
-    _nes.write(0x100 | _stackPointer--, _programCounter >> 8);
-    _nes.write(0x100 | _stackPointer--, _programCounter & 0x00FF);
+    _nes.write(0x100 | _stack_pointer--, _program_counter >> 8);
+    _nes.write(0x100 | _stack_pointer--, _program_counter & 0x00FF);
 
-    _programCounter = _targetAddress;
+    _program_counter = _target_address;
 }
 
-void cynes::CPU::LAR() {
-    setStatus(Flag::C, _registerA & 0x01);
+void cynes::CPU::op_lar() {
+    set_status(Flag::C, _register_a & 0x01);
 
-    _registerA >>= 1;
+    _register_a >>= 1;
 
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::LAS() {
-    uint8_t result = _registerM & _stackPointer;
+void cynes::CPU::op_las() {
+    uint8_t result = _register_m & _stack_pointer;
 
-    _registerA = result;
-    _registerX = result;
-    _stackPointer = result;
+    _register_a = result;
+    _register_x = result;
+    _stack_pointer = result;
 }
 
-void cynes::CPU::LAX() {
-    _registerA = _registerM;
-    _registerX = _registerM;
+void cynes::CPU::op_lax() {
+    _register_a = _register_m;
+    _register_x = _register_m;
 
-    setStatus(Flag::Z, !_registerM);
-    setStatus(Flag::N, _registerM & 0x80);
+    set_status(Flag::Z, !_register_m);
+    set_status(Flag::N, _register_m & 0x80);
 }
 
-void cynes::CPU::LDA() {
-    _registerA = _registerM;
+void cynes::CPU::op_lda() {
+    _register_a = _register_m;
 
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::LDX() {
-    _registerX = _registerM;
+void cynes::CPU::op_ldx() {
+    _register_x = _register_m;
 
-    setStatus(Flag::Z, !_registerX);
-    setStatus(Flag::N, _registerX & 0x80);
+    set_status(Flag::Z, !_register_x);
+    set_status(Flag::N, _register_x & 0x80);
 }
 
-void cynes::CPU::LDY() {
-    _registerY = _registerM;
+void cynes::CPU::op_ldy() {
+    _register_y = _register_m;
 
-    setStatus(Flag::Z, !_registerY);
-    setStatus(Flag::N, _registerY & 0x80);
+    set_status(Flag::Z, !_register_y);
+    set_status(Flag::N, _register_y & 0x80);
 }
 
-void cynes::CPU::LSR() {
-    _nes.write(_targetAddress, _registerM);
+void cynes::CPU::op_lsr() {
+    _nes.write(_target_address, _register_m);
 
-    setStatus(Flag::C, _registerM & 0x01);
+    set_status(Flag::C, _register_m & 0x01);
 
-    _registerM >>= 1;
+    _register_m >>= 1;
 
-    setStatus(Flag::Z, !_registerM);
-    setStatus(Flag::N, _registerM & 0x80);
+    set_status(Flag::Z, !_register_m);
+    set_status(Flag::N, _register_m & 0x80);
 
-    _nes.write(_targetAddress, _registerM);
+    _nes.write(_target_address, _register_m);
 }
 
-void cynes::CPU::LXA() {
-    _registerA = _registerM;
-    _registerX = _registerM;
+void cynes::CPU::op_lxa() {
+    _register_a = _register_m;
+    _register_x = _register_m;
 
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::NOP() {
+void cynes::CPU::op_nop() {}
 
+void cynes::CPU::op_ora() {
+    _register_a |= _register_m;
+
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::ORA() {
-    _registerA |= _registerM;
-
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+void cynes::CPU::op_pha() {
+    _nes.write(0x100 | _stack_pointer--, _register_a);
 }
 
-void cynes::CPU::PHA() {
-    _nes.write(0x100 | _stackPointer--, _registerA);
+void cynes::CPU::op_php() {
+    _nes.write(0x100 | _stack_pointer--, _status | Flag::B | Flag::U);
 }
 
-void cynes::CPU::PHP() {
-    _nes.write(0x100 | _stackPointer--, _status | Flag::B | Flag::U);
+void cynes::CPU::op_pla() {
+    _stack_pointer++;
+    _nes.read(_program_counter);
+    _register_a = _nes.read(0x100 | _stack_pointer);
+
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::PLA() {
-    _stackPointer++;
-
-    _nes.read(_programCounter);
-
-    _registerA = _nes.read(0x100 | _stackPointer);
-
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+void cynes::CPU::op_plp() {
+    _stack_pointer++;
+    _nes.read(_program_counter);
+    _status = _nes.read(0x100 | _stack_pointer) & 0xCF;
 }
 
-void cynes::CPU::PLP() {
-    _stackPointer++;
+void cynes::CPU::op_ral() {
+    bool carry = _register_a & 0x80;
 
-    _nes.read(_programCounter);
+    _register_a = (get_status(Flag::C) ? 0x01 : 0x00) | (_register_a << 1);
 
-    _status = _nes.read(0x100 | _stackPointer) & 0xCF;
+    set_status(Flag::C, carry);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::RAL() {
-    bool carry = _registerA & 0x80;
+void cynes::CPU::op_rar() {
+    bool carry = _register_a & 0x01;
 
-    _registerA = (getStatus(Flag::C) ? 0x01 : 0x00) | (_registerA << 1);
+    _register_a = (get_status(Flag::C) ? 0x80 : 0x00) | (_register_a >> 1);
 
-    setStatus(Flag::C, carry);
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::C, carry);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::RAR() {
-    bool carry = _registerA & 0x01;
+void cynes::CPU::op_rla() {
+    _nes.write(_target_address, _register_m);
 
-    _registerA = (getStatus(Flag::C) ? 0x80 : 0x00) | (_registerA >> 1);
+    bool carry = _register_m & 0x80;
 
-    setStatus(Flag::C, carry);
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    _register_m = (get_status(Flag::C) ? 0x01 : 0x00) | (_register_m << 1);
+    _register_a &= _register_m;
+
+    set_status(Flag::C, carry);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
+
+    _nes.write(_target_address, _register_m);
 }
 
-void cynes::CPU::RLA() {
-    _nes.write(_targetAddress, _registerM);
+void cynes::CPU::op_rol() {
+    _nes.write(_target_address, _register_m);
 
-    bool carry = _registerM & 0x80;
+    bool carry = _register_m & 0x80;
 
-    _registerM = (getStatus(Flag::C) ? 0x01 : 0x00) | (_registerM << 1);
-    _registerA &= _registerM;
+    _register_m = (get_status(Flag::C) ? 0x01 : 0x00) | (_register_m << 1);
 
-    setStatus(Flag::C, carry);
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::C, carry);
+    set_status(Flag::Z, !_register_m);
+    set_status(Flag::N, _register_m & 0x80);
 
-    _nes.write(_targetAddress, _registerM);
+    _nes.write(_target_address, _register_m);
 }
 
-void cynes::CPU::ROL() {
-    _nes.write(_targetAddress, _registerM);
+void cynes::CPU::op_ror() {
+    _nes.write(_target_address, _register_m);
 
-    bool carry = _registerM & 0x80;
+    bool carry = _register_m & 0x01;
 
-    _registerM = (getStatus(Flag::C) ? 0x01 : 0x00) | (_registerM << 1);
+    _register_m = (get_status(Flag::C) ? 0x80 : 0x00) | (_register_m >> 1);
 
-    setStatus(Flag::C, carry);
-    setStatus(Flag::Z, !_registerM);
-    setStatus(Flag::N, _registerM & 0x80);
+    set_status(Flag::C, carry);
+    set_status(Flag::Z, !_register_m);
+    set_status(Flag::N, _register_m & 0x80);
 
-    _nes.write(_targetAddress, _registerM);
+    _nes.write(_target_address, _register_m);
 }
 
-void cynes::CPU::ROR() {
-    _nes.write(_targetAddress, _registerM);
+void cynes::CPU::op_rra() {
+    _nes.write(_target_address, _register_m);
 
-    bool carry = _registerM & 0x01;
+    uint8_t carry = _register_m & 0x01;
 
-    _registerM = (getStatus(Flag::C) ? 0x80 : 0x00) | (_registerM >> 1);
+    _register_m = (get_status(Flag::C) ? 0x80 : 0x00) | (_register_m >> 1);
 
-    setStatus(Flag::C, carry);
-    setStatus(Flag::Z, !_registerM);
-    setStatus(Flag::N, _registerM & 0x80);
+    uint16_t result = _register_a + _register_m + carry;
 
-    _nes.write(_targetAddress, _registerM);
+    set_status(Flag::C, result & 0x0100);
+    set_status(Flag::V, ~(_register_a ^ _register_m) & (_register_a ^ result) & 0x80);
+
+    _register_a = result & 0x00FF;
+
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
+
+    _nes.write(_target_address, _register_m);
 }
 
-void cynes::CPU::RRA() {
-    _nes.write(_targetAddress, _registerM);
-
-    uint8_t carry = _registerM & 0x01;
-
-    _registerM = (getStatus(Flag::C) ? 0x80 : 0x00) | (_registerM >> 1);
-
-    uint16_t result = _registerA + _registerM + carry;
-
-    setStatus(Flag::C, result & 0x0100);
-    setStatus(Flag::V, ~(_registerA ^ _registerM) & (_registerA ^ result) & 0x80);
-
-    _registerA = result & 0x00FF;
-
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
-
-    _nes.write(_targetAddress, _registerM);
+void cynes::CPU::op_rti() {
+    _stack_pointer++;
+    _nes.read(_program_counter);
+    _status = _nes.read(0x100 | _stack_pointer) & 0xCF;
+    _program_counter = _nes.read(0x100 | ++_stack_pointer);
+    _program_counter |= _nes.read(0x100 | ++_stack_pointer) << 8;
 }
 
-void cynes::CPU::RTI() {
-    _stackPointer++;
+void cynes::CPU::op_rts() {
+    _stack_pointer++;
 
-    _nes.read(_programCounter);
+    _nes.read(_program_counter);
+    _nes.read(_program_counter);
 
-    _status = _nes.read(0x100 | _stackPointer) & 0xCF;
-    _programCounter = _nes.read(0x100 | ++_stackPointer);
-    _programCounter |= _nes.read(0x100 | ++_stackPointer) << 8;
+    _program_counter = _nes.read(0x100 | _stack_pointer);
+    _program_counter |= _nes.read(0x100 | ++_stack_pointer) << 8;
+    _program_counter++;
 }
 
-void cynes::CPU::RTS() {
-    _stackPointer++;
-
-    _nes.read(_programCounter);
-    _nes.read(_programCounter);
-
-    _programCounter = _nes.read(0x100 | _stackPointer);
-    _programCounter |= _nes.read(0x100 | ++_stackPointer) << 8;
-
-    _programCounter++;
+void cynes::CPU::op_sax() {
+    _nes.write(_target_address, _register_a & _register_x);
 }
 
-void cynes::CPU::SAX() {
-    _nes.write(_targetAddress, _registerA & _registerX);
+void cynes::CPU::op_sbc() {
+    _register_m ^= 0xFF;
+
+    uint16_t result = _register_a + _register_m + (get_status(Flag::C) ? 0x01 : 0x00);
+
+    set_status(Flag::C, result & 0xFF00);
+    set_status(Flag::V, ~(_register_a ^ _register_m) & (_register_a ^ result) & 0x80);
+
+    _register_a = result & 0x00FF;
+
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::SBC() {
-    _registerM ^= 0xFF;
+void cynes::CPU::op_sbx() {
+    _register_x &= _register_a;
 
-    uint16_t result = _registerA + _registerM + (getStatus(Flag::C) ? 0x01 : 0x00);
+    set_status(Flag::C, _register_x >= _register_m);
+    set_status(Flag::Z, _register_x == _register_m);
 
-    setStatus(Flag::C, result & 0xFF00);
-    setStatus(Flag::V, ~(_registerA ^ _registerM) & (_registerA ^ result) & 0x80);
+    _register_x -= _register_m;
 
-    _registerA = result & 0x00FF;
-
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::N, _register_x & 0x80);
 }
 
-void cynes::CPU::SBX() {
-    _registerX &= _registerA;
-
-    setStatus(Flag::C, _registerX >= _registerM);
-    setStatus(Flag::Z, _registerX == _registerM);
-
-    _registerX -= _registerM;
-
-    setStatus(Flag::N, _registerX & 0x80);
+void cynes::CPU::op_sec() {
+    set_status(Flag::C, true);
 }
 
-void cynes::CPU::SEC() {
-    setStatus(Flag::C, true);
+void cynes::CPU::op_sed() {
+    set_status(Flag::D, true);
 }
 
-void cynes::CPU::SED() {
-    setStatus(Flag::D, true);
+void cynes::CPU::op_sei() {
+    set_status(Flag::I, true);
 }
 
-void cynes::CPU::SEI() {
-    setStatus(Flag::I, true);
+void cynes::CPU::op_sha() {
+    _nes.write(_target_address, _register_a & _register_x & (uint8_t(_target_address >> 8) + 1));
 }
 
-void cynes::CPU::SHA() {
-    _nes.write(_targetAddress, _registerA & _registerX & (uint8_t(_targetAddress >> 8) + 1));
+void cynes::CPU::op_shx() {
+    uint8_t address_high = 1 + (_target_address >> 8);
+
+    _nes.write(((_register_x & address_high) << 8) | (_target_address & 0xFF), _register_x & address_high);
 }
 
-void cynes::CPU::SHX() {
-    uint8_t addressHigh = 1 + (_targetAddress >> 8);
+void cynes::CPU::op_shy() {
+    uint8_t address_high = 1 + (_target_address >> 8);
 
-    _nes.write(((_registerX & addressHigh) << 8) | (_targetAddress & 0xFF), _registerX & addressHigh);
+    _nes.write(((_register_y & address_high) << 8) | (_target_address & 0xFF), _register_y & address_high);
 }
 
-void cynes::CPU::SHY() {
-    uint8_t addressHigh = 1 + (_targetAddress >> 8);
+void cynes::CPU::op_slo() {
+    _nes.write(_target_address, _register_m);
 
-    _nes.write(((_registerY & addressHigh) << 8) | (_targetAddress & 0xFF), _registerY & addressHigh);
+    set_status(Flag::C, _register_m & 0x80);
+
+    _register_m <<= 1;
+    _register_a |= _register_m;
+
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
+
+    _nes.write(_target_address, _register_m);
 }
 
-void cynes::CPU::SLO() {
-    _nes.write(_targetAddress, _registerM);
+void cynes::CPU::op_sre() {
+    _nes.write(_target_address, _register_m);
 
-    setStatus(Flag::C, _registerM & 0x80);
+    set_status(Flag::C, _register_m & 0x01);
 
-    _registerM <<= 1;
-    _registerA |= _registerM;
+    _register_m >>= 1;
+    _register_a ^= _register_m;
 
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 
-    _nes.write(_targetAddress, _registerM);
+    _nes.write(_target_address, _register_m);
 }
 
-void cynes::CPU::SRE() {
-    _nes.write(_targetAddress, _registerM);
-
-    setStatus(Flag::C, _registerM & 0x01);
-
-    _registerM >>= 1;
-    _registerA ^= _registerM;
-
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
-
-    _nes.write(_targetAddress, _registerM);
+void cynes::CPU::op_sta() {
+    _nes.write(_target_address, _register_a);
 }
 
-void cynes::CPU::STA() {
-    _nes.write(_targetAddress, _registerA);
+void cynes::CPU::op_stx() {
+    _nes.write(_target_address, _register_x);
 }
 
-void cynes::CPU::STX() {
-    _nes.write(_targetAddress, _registerX);
+void cynes::CPU::op_sty() {
+    _nes.write(_target_address, _register_y);
 }
 
-void cynes::CPU::STY() {
-    _nes.write(_targetAddress, _registerY);
+void cynes::CPU::op_tas() {
+    _stack_pointer = _register_a & _register_x;
+
+    _nes.write(_target_address, _stack_pointer & (uint8_t(_target_address >> 8) + 1));
 }
 
-void cynes::CPU::TAS() {
-    _stackPointer = _registerA & _registerX;
+void cynes::CPU::op_tax() {
+    _register_x = _register_a;
 
-    _nes.write(_targetAddress, _stackPointer & (uint8_t(_targetAddress >> 8) + 1));
+    set_status(Flag::Z, !_register_x);
+    set_status(Flag::N, _register_x & 0x80);
 }
 
-void cynes::CPU::TAX() {
-    _registerX = _registerA;
+void cynes::CPU::op_tay() {
+    _register_y = _register_a;
 
-    setStatus(Flag::Z, !_registerX);
-    setStatus(Flag::N, _registerX & 0x80);
+    set_status(Flag::Z, !_register_y);
+    set_status(Flag::N, _register_y & 0x80);
 }
 
-void cynes::CPU::TAY() {
-    _registerY = _registerA;
+void cynes::CPU::op_tsx() {
+    _register_x = _stack_pointer;
 
-    setStatus(Flag::Z, !_registerY);
-    setStatus(Flag::N, _registerY & 0x80);
+    set_status(Flag::Z, !_register_x);
+    set_status(Flag::N, _register_x & 0x80);
 }
 
-void cynes::CPU::TSX() {
-    _registerX = _stackPointer;
+void cynes::CPU::op_txa() {
+    _register_a = _register_x;
 
-    setStatus(Flag::Z, !_registerX);
-    setStatus(Flag::N, _registerX & 0x80);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::TXA() {
-    _registerA = _registerX;
-
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+void cynes::CPU::op_txs() {
+    _stack_pointer = _register_x;
 }
 
-void cynes::CPU::TXS() {
-    _stackPointer = _registerX;
+void cynes::CPU::op_tya() {
+    _register_a = _register_y;
+
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }
 
-void cynes::CPU::TYA() {
-    _registerA = _registerY;
+void cynes::CPU::op_usb() {
+    _register_m ^= 0xFF;
 
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
-}
+    uint16_t result = _register_a + _register_m + (get_status(Flag::C) ? 0x01 : 0x00);
 
-void cynes::CPU::USB() {
-    _registerM ^= 0xFF;
+    set_status(Flag::C, result & 0x0100);
+    set_status(Flag::V, ~(_register_a ^ _register_m) & (_register_a ^ result) & 0x80);
 
-    uint16_t result = _registerA + _registerM + (getStatus(Flag::C) ? 0x01 : 0x00);
+    _register_a = result & 0x00FF;
 
-    setStatus(Flag::C, result & 0x0100);
-    setStatus(Flag::V, ~(_registerA ^ _registerM) & (_registerA ^ result) & 0x80);
-
-    _registerA = result & 0x00FF;
-
-    setStatus(Flag::Z, !_registerA);
-    setStatus(Flag::N, _registerA & 0x80);
+    set_status(Flag::Z, !_register_a);
+    set_status(Flag::N, _register_a & 0x80);
 }

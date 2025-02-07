@@ -6,53 +6,54 @@
 #include <cstring>
 
 cynes::PPU::PPU(NES& nes)
-: _nes{nes}
-, _current_x{0x0000}
-, _current_y{0x0000}
-, _rendering_enabled{false}
-, _rendering_enabled_delayed{false}
-, _prevent_vertical_blank{false}
-, _control_increment_mode{false}
-, _control_foreground_table{false}
-, _control_background_table{false}
-, _control_foreground_large{false}
-, _control_interrupt_on_vertical_blank{false}
-, _mask_grayscale_mode{false}
-, _mask_render_background_left{false}
-, _mask_render_foreground_left{false}
-, _mask_render_background{false}
-, _mask_render_foreground{false}
-, _mask_color_emphasize{0x00}
-, _status_sprite_overflow{false}
-, _status_sprite_zero_hit{false}
-, _status_vertical_blank{false}
-, _clock_decays{}
-, _register_decay{0x00}
-, _latch_cycle{false}
-, _latch_address{false}
-, _register_t{0x0000}
-, _register_v{0x0000}
-, _delayed_register_v{0x0000}
-, _scroll_x{0x00}
-, _delay_data_read_counter{0x00}
-, _delay_data_write_counter{0x00}
-, _buffer_data{0x00}
-, _background_data{}
-, _background_shifter{}
-, _foreground_data{}
-, _foreground_shifter{}
-, _foreground_attributes{}
-, _foreground_positions{}
-, _foreground_data_pointer{0x00}
-, _foreground_sprite_count{0x00}
-, _foreground_sprite_count_next{0x00}
-, _foreground_sprite_pointer{0x00}
-, _foreground_read_delay_counter{0x00}
-, _foreground_sprite_address{0x0000}
-, _foreground_sprite_zero_line{false}
-, _foreground_sprite_zero_should{false}
-, _foreground_sprite_zero_hit{false}
-, _foreground_evaluation_step{SpriteEvaluationStep::LOAD_SECONDARY_OAM}
+    : _nes{nes}
+    , _frame_buffer{new uint8_t[0x2D000]}
+    , _current_x{0x0000}
+    , _current_y{0x0000}
+    , _rendering_enabled{false}
+    , _rendering_enabled_delayed{false}
+    , _prevent_vertical_blank{false}
+    , _control_increment_mode{false}
+    , _control_foreground_table{false}
+    , _control_background_table{false}
+    , _control_foreground_large{false}
+    , _control_interrupt_on_vertical_blank{false}
+    , _mask_grayscale_mode{false}
+    , _mask_render_background_left{false}
+    , _mask_render_foreground_left{false}
+    , _mask_render_background{false}
+    , _mask_render_foreground{false}
+    , _mask_color_emphasize{0x00}
+    , _status_sprite_overflow{false}
+    , _status_sprite_zero_hit{false}
+    , _status_vertical_blank{false}
+    , _clock_decays{}
+    , _register_decay{0x00}
+    , _latch_cycle{false}
+    , _latch_address{false}
+    , _register_t{0x0000}
+    , _register_v{0x0000}
+    , _delayed_register_v{0x0000}
+    , _scroll_x{0x00}
+    , _delay_data_read_counter{0x00}
+    , _delay_data_write_counter{0x00}
+    , _buffer_data{0x00}
+    , _background_data{}
+    , _background_shifter{}
+    , _foreground_data{}
+    , _foreground_shifter{}
+    , _foreground_attributes{}
+    , _foreground_positions{}
+    , _foreground_data_pointer{0x00}
+    , _foreground_sprite_count{0x00}
+    , _foreground_sprite_count_next{0x00}
+    , _foreground_sprite_pointer{0x00}
+    , _foreground_read_delay_counter{0x00}
+    , _foreground_sprite_address{0x0000}
+    , _foreground_sprite_zero_line{false}
+    , _foreground_sprite_zero_should{false}
+    , _foreground_sprite_zero_hit{false}
+    , _foreground_evaluation_step{SpriteEvaluationStep::LOAD_SECONDARY_OAM}
 {
     std::memset(_clock_decays, 0x00, 0x3);
     std::memset(_background_data, 0x00, 0x4);
@@ -193,7 +194,7 @@ void cynes::PPU::tick() {
             }
 
             if (_current_x > 0 && _current_x < 257 && _current_y < 240) {
-                memcpy(_frame_buffer + ((_current_y << 8) + _current_x - 1) * 3, PALETTE_COLORS[_mask_color_emphasize][_nes.read_ppu(0x3F00 | blend_colors())], 3);
+                memcpy(_frame_buffer.get() + ((_current_y << 8) + _current_x - 1) * 3, PALETTE_COLORS[_mask_color_emphasize][_nes.read_ppu(0x3F00 | blend_colors())], 3);
             }
         } else if (_current_y == 240 && _current_x == 1) {
             _nes.read_ppu(_register_v);
@@ -469,8 +470,8 @@ uint8_t cynes::PPU::read(uint8_t address) {
     return _register_decay;
 }
 
-uint8_t* cynes::PPU::get_frame_buffer() {
-    return _frame_buffer;
+const uint8_t* cynes::PPU::get_frame_buffer() const {
+    return _frame_buffer.get();
 }
 
 bool cynes::PPU::is_frame_ready() {

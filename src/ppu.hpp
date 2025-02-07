@@ -2,6 +2,7 @@
 #define __CYNES_PPU__
 
 #include <cstdint>
+#include <memory>
 
 #include "utils.hpp"
 
@@ -40,9 +41,8 @@ public:
     /// @return The value stored at the given address.
     uint8_t read(uint8_t address);
 
-    // TODO: should probably be const...
     /// Get a pointer to the internal frame buffer.
-    uint8_t* get_frame_buffer();
+    const uint8_t* get_frame_buffer() const;
 
     /// Check whether or not the frame is ready.
     /// @note Calling this function will reset the flag.
@@ -53,11 +53,10 @@ private:
     NES& _nes;
 
 private:
+    std::unique_ptr<uint8_t[]> _frame_buffer;
+
     uint16_t _current_x;
     uint16_t _current_y;
-
-    // TODO: heap allocation?
-    uint8_t _frame_buffer[0x2D000];
 
     bool _frame_ready;
 
@@ -160,6 +159,7 @@ private:
     };
 
 private:
+    // TODO should not be in the object
     const uint8_t PALETTE_COLORS[0x8][0x40][0x3] = {
         0x54, 0x54, 0x54, 0x00, 0x1E, 0x74, 0x08, 0x10, 0x90, 0x30, 0x00, 0x88, 0x44, 0x00, 0x64, 0x5C,
         0x00, 0x30, 0x54, 0x04, 0x00, 0x3C, 0x18, 0x00, 0x20, 0x2A, 0x00, 0x08, 0x3A, 0x00, 0x00, 0x40,

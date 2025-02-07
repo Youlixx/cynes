@@ -48,13 +48,12 @@ protected:
     struct MemoryBank {
     public:
         uint8_t* memory = nullptr;
-
-        bool access = false;
+        bool read_only = true;
 
         template<DumpOperation operation, typename T>
         constexpr void dump(T& buffer) {
             cynes::dump<operation>(buffer, memory);
-            cynes::dump<operation>(buffer, access);
+            cynes::dump<operation>(buffer, read_only);
         }
     };
 
@@ -81,14 +80,14 @@ protected:
     void map_bank_prg(uint8_t page, uint16_t address);
     void map_bank_prg(uint8_t page, uint8_t size, uint16_t address);
 
-    void map_bank_cpu_ram(uint8_t page, uint16_t address, bool access);
-    void map_bank_cpu_ram(uint8_t page, uint8_t size, uint16_t address, bool access);
+    void map_bank_cpu_ram(uint8_t page, uint16_t address, bool read_only);
+    void map_bank_cpu_ram(uint8_t page, uint8_t size, uint16_t address, bool read_only);
 
     void map_bank_chr(uint8_t page, uint16_t address);
     void map_bank_chr(uint8_t page, uint8_t size, uint16_t address);
 
-    void map_bank_vram(uint8_t page, uint16_t address, bool access);
-    void map_bank_vram(uint8_t page, uint8_t size, uint16_t address, bool access);
+    void map_bank_ppu_ram(uint8_t page, uint16_t address, bool read_only);
+    void map_bank_ppu_ram(uint8_t page, uint8_t size, uint16_t address, bool read_only);
 
     void unmap_bank_cpu(uint8_t page);
     void unmap_bank_cpu(uint8_t page, uint8_t size);

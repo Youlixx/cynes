@@ -59,13 +59,13 @@ cynes::Mapper::~Mapper() {
 void cynes::Mapper::tick() { }
 
 void cynes::Mapper::write_cpu(uint16_t address, uint8_t value) {
-    if (_banks_cpu[address >> 10].access) {
+    if (!_banks_cpu[address >> 10].read_only) {
         _banks_cpu[address >> 10].memory[address & 0x3FF] = value;
     }
 }
 
 void cynes::Mapper::write_ppu(uint16_t address, uint8_t value) {
-    if (_banks_ppu[address >> 10].access) {
+    if (!_banks_ppu[address >> 10].read_only) {
         _banks_ppu[address >> 10].memory[address & 0x3FF] = value;
     }
 }
@@ -88,7 +88,7 @@ uint8_t cynes::Mapper::read_ppu(uint16_t address) {
 
 void cynes::Mapper::map_bank_prg(uint8_t page, uint16_t address) {
     _banks_cpu[page].memory = &_memory_prg[address << 10];
-    _banks_cpu[page].access = false;
+    _banks_cpu[page].read_only = true;
 }
 
 void cynes::Mapper::map_bank_prg(uint8_t page, uint8_t size, uint16_t address) {
@@ -97,20 +97,20 @@ void cynes::Mapper::map_bank_prg(uint8_t page, uint8_t size, uint16_t address) {
     }
 }
 
-void cynes::Mapper::map_bank_cpu_ram(uint8_t page, uint16_t address, bool access) {
+void cynes::Mapper::map_bank_cpu_ram(uint8_t page, uint16_t address, bool read_only) {
     _banks_cpu[page].memory = &_memory_cpu_ram[address << 10];
-    _banks_cpu[page].access = access;
+    _banks_cpu[page].read_only = read_only;
 }
 
-void cynes::Mapper::map_bank_cpu_ram(uint8_t page, uint8_t size, uint16_t address, bool access) {
+void cynes::Mapper::map_bank_cpu_ram(uint8_t page, uint8_t size, uint16_t address, bool read_only) {
     for (uint8_t index = 0; index < size; index++) {
-        map_bank_cpu_ram(page + index, address + index, access);
+        map_bank_cpu_ram(page + index, address + index, read_only);
     }
 }
 
 void cynes::Mapper::map_bank_chr(uint8_t page, uint16_t address) {
     _banks_ppu[page].memory = &_memory_chr[address << 10];
-    _banks_ppu[page].access = false;
+    _banks_ppu[page].read_only = true;
 }
 
 void cynes::Mapper::map_bank_chr(uint8_t page, uint8_t size, uint16_t address) {
@@ -119,20 +119,20 @@ void cynes::Mapper::map_bank_chr(uint8_t page, uint8_t size, uint16_t address) {
     }
 }
 
-void cynes::Mapper::map_bank_vram(uint8_t page, uint16_t address, bool access) {
+void cynes::Mapper::map_bank_ppu_ram(uint8_t page, uint16_t address, bool read_only) {
     _banks_ppu[page].memory = &_memory_ppu_ram[address << 10];
-    _banks_ppu[page].access = access;
+    _banks_ppu[page].read_only = read_only;
 }
 
-void cynes::Mapper::map_bank_vram(uint8_t page, uint8_t size, uint16_t address, bool access) {
+void cynes::Mapper::map_bank_ppu_ram(uint8_t page, uint8_t size, uint16_t address, bool read_only) {
     for (uint8_t index = 0; index < size; index++) {
-        map_bank_vram(page + index, address + index, access);
+        map_bank_ppu_ram(page + index, address + index, read_only);
     }
 }
 
 void cynes::Mapper::unmap_bank_cpu(uint8_t page) {
     _banks_ppu[page].memory = nullptr;
-    _banks_ppu[page].access = false;
+    _banks_ppu[page].read_only = true;
 }
 
 void cynes::Mapper::unmap_bank_cpu(uint8_t page, uint8_t size) {
@@ -143,23 +143,23 @@ void cynes::Mapper::unmap_bank_cpu(uint8_t page, uint8_t size) {
 
 void cynes::Mapper::set_mirroring_mode(MirroringMode mode) {
     if (mode == MirroringMode::ONE_SCREEN_LOW) {
-        map_bank_vram(0x8, 0x00, true);
-        map_bank_vram(0x9, 0x00, true);
-        map_bank_vram(0xA, 0x00, true);
-        map_bank_vram(0xB, 0x00, true);
+        map_bank_ppu_ram(0x8, 0x00, false);
+        map_bank_ppu_ram(0x9, 0x00, false);
+        map_bank_ppu_ram(0xA, 0x00, false);
+        map_bank_ppu_ram(0xB, 0x00, false);
     } else if (mode == MirroringMode::ONE_SCREEN_HIGH) {
-        map_bank_vram(0x8, 0x01, true);
-        map_bank_vram(0x9, 0x01, true);
-        map_bank_vram(0xA, 0x01, true);
-        map_bank_vram(0xB, 0x01, true);
+        map_bank_ppu_ram(0x8, 0x01, false);
+        map_bank_ppu_ram(0x9, 0x01, false);
+        map_bank_ppu_ram(0xA, 0x01, false);
+        map_bank_ppu_ram(0xB, 0x01, false);
     } else if (mode == MirroringMode::VERTICAL) {
-        map_bank_vram(0x8, 0x2, 0x00, true);
-        map_bank_vram(0xA, 0x2, 0x00, true);
+        map_bank_ppu_ram(0x8, 0x2, 0x00, false);
+        map_bank_ppu_ram(0xA, 0x2, 0x00, false);
     } else if (mode == MirroringMode::HORIZONTAL) {
-        map_bank_vram(0x8, 0x00, true);
-        map_bank_vram(0x9, 0x00, true);
-        map_bank_vram(0xA, 0x01, true);
-        map_bank_vram(0xB, 0x01, true);
+        map_bank_ppu_ram(0x8, 0x00, false);
+        map_bank_ppu_ram(0x9, 0x00, false);
+        map_bank_ppu_ram(0xA, 0x01, false);
+        map_bank_ppu_ram(0xB, 0x01, false);
     }
 
     mirror_ppu_banks(0x8, 0x4, 0xC);
@@ -168,14 +168,14 @@ void cynes::Mapper::set_mirroring_mode(MirroringMode mode) {
 void cynes::Mapper::mirror_cpu_banks(uint8_t page, uint8_t size, uint8_t mirror) {
     for (uint8_t index = 0; index < size; index++) {
         _banks_cpu[mirror + index].memory = _banks_cpu[page + index].memory;
-        _banks_cpu[mirror + index].access = _banks_cpu[page + index].access;
+        _banks_cpu[mirror + index].read_only = _banks_cpu[page + index].read_only;
     }
 }
 
 void cynes::Mapper::mirror_ppu_banks(uint8_t page, uint8_t size, uint8_t mirror) {
     for (uint8_t index = 0; index < size; index++) {
         _banks_ppu[mirror + index].memory = _banks_ppu[page + index].memory;
-        _banks_ppu[mirror + index].access = _banks_ppu[page + index].access;
+        _banks_ppu[mirror + index].read_only = _banks_ppu[page + index].read_only;
     }
 }
 
@@ -192,7 +192,7 @@ cynes::NROM::NROM(NES& nes, NESMetadata metadata, MirroringMode mode)
         map_bank_prg(0x30, 0x10, 0x0);
     }
 
-    map_bank_cpu_ram(0x18, 0x8, 0x0, true);
+    map_bank_cpu_ram(0x18, 0x8, 0x0, false);
 }
 
 cynes::NROM::~NROM() {}
@@ -284,10 +284,11 @@ void cynes::MMC1::update_banks() {
         map_bank_prg(0x20, 0x20, (_registers[0x3] & 0x0E) << 4);
     }
 
+    // TODO move within
     if (_registers[0x3] & 0x10) {
-        map_bank_cpu_ram(0x18, 0x8, 0x0, false);
-    } else {
         map_bank_cpu_ram(0x18, 0x8, 0x0, true);
+    } else {
+        map_bank_cpu_ram(0x18, 0x8, 0x0, false);
     }
 }
 
@@ -298,7 +299,7 @@ cynes::UxROM::UxROM(NES& nes, NESMetadata metadata, MirroringMode mode)
     map_bank_prg(0x20, 0x10, 0x00);
     map_bank_prg(0x30, 0x10, _size_prg - 0x10);
 
-    map_bank_vram(0x0, 0x8, 0x02, true);
+    map_bank_ppu_ram(0x0, 0x8, 0x02, false);
 }
 
 cynes::UxROM::~UxROM() { }
@@ -354,7 +355,7 @@ cynes::MMC3::MMC3(
     map_bank_chr(0x0, 0x8, 0x0);
     map_bank_prg(0x20, 0x10, 0x0);
     map_bank_prg(0x30, 0x10, _size_prg - 0x10);
-    map_bank_cpu_ram(0x18, 0x8, 0x0, true);
+    map_bank_cpu_ram(0x18, 0x8, 0x0, false);
 
     memset(_registers, 0x0000, 0x20);
 }
@@ -411,10 +412,11 @@ void cynes::MMC3::write_cpu(uint16_t address, uint8_t value) {
         }
     } else if (address < 0xC000) {
         if (address & 0x1) {
+            // TODO: move within
             if (value & 0x40) {
-                map_bank_cpu_ram(0x18, 0x8, 0x0, false);
-            } else {
                 map_bank_cpu_ram(0x18, 0x8, 0x0, true);
+            } else {
+                map_bank_cpu_ram(0x18, 0x8, 0x0, false);
             }
         } else  if (value & 0x1) {
             set_mirroring_mode(MirroringMode::HORIZONTAL);
@@ -474,7 +476,7 @@ void cynes::MMC3::update_state(bool state) {
 cynes::AxROM::AxROM(NES& nes, NESMetadata metadata)
     : Mapper(nes, metadata, MirroringMode::ONE_SCREEN_LOW, 0x8, 0x10)
 {
-    map_bank_vram(0x0, 0x8, 0x2, true);
+    map_bank_ppu_ram(0x0, 0x8, 0x2, false);
     map_bank_prg(0x20, 0x20, 0x0);
 }
 

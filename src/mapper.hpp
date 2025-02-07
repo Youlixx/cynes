@@ -15,27 +15,34 @@ enum class MirroringMode : uint8_t {
 
 struct NESMetadata {
 public:
-    uint16_t sizePRG = 0x00;
-    uint16_t sizeCHR = 0x00;
+    uint16_t size_prg = 0x00;
+    uint16_t size_chr = 0x00;
 
     uint8_t* trainer = nullptr;
-    uint8_t* memoryPRG = nullptr;
-    uint8_t* memoryCHR = nullptr;
+    uint8_t* memory_prg = nullptr;
+    uint8_t* memory_chr = nullptr;
 };
 
 class Mapper {
 public:
-    Mapper(NES& nes, NESMetadata metadata, MirroringMode mode, uint8_t sizeWRAM = 0x8, uint8_t sizeVRAM = 0x2);
+    Mapper(
+        NES& nes,
+        NESMetadata metadata,
+        MirroringMode mode,
+        uint8_t size_cpu_ram = 0x8,
+        uint8_t size_ppu_ram = 0x2
+    );
+
     virtual ~Mapper();
 
 public:
     virtual void tick();
 
-    virtual void writeCPU(uint16_t address, uint8_t value);
-    virtual void writePPU(uint16_t address, uint8_t value);
+    virtual void write_cpu(uint16_t address, uint8_t value);
+    virtual void write_ppu(uint16_t address, uint8_t value);
 
-    virtual uint8_t readCPU(uint16_t address);
-    virtual uint8_t readPPU(uint16_t address);
+    virtual uint8_t read_cpu(uint16_t address);
+    virtual uint8_t read_ppu(uint16_t address);
 
 protected:
     struct MemoryBank {
@@ -55,59 +62,59 @@ protected:
     NES& _nes;
 
 protected:
-    const uint16_t SIZE_PRG;
-    const uint16_t SIZE_CHR;
+    const uint16_t _size_prg;
+    const uint16_t _sire_chr;
 
-    const uint8_t SIZE_WRAM;
-    const uint8_t SIZE_VRAM;
+    const uint8_t _size_cpu_ram;
+    const uint8_t _size_ppu_ram;
 
-    uint8_t* _memoryPRG;
-    uint8_t* _memoryCHR;
+    uint8_t* _memory_prg;
+    uint8_t* _memory_chr;
 
-    uint8_t* _memoryWRAM;
-    uint8_t* _memoryVRAM;
+    uint8_t* _memory_cpu_ram;
+    uint8_t* _memory_ppu_ram;
 
-    MemoryBank _banksCPU[0x40];
-    MemoryBank _banksPPU[0x10];
+    MemoryBank _banks_cpu[0x40];
+    MemoryBank _banks_ppu[0x10];
 
 protected:
-    void setBankPRG(uint8_t page, uint16_t address);
-    void setBankPRG(uint8_t page, uint8_t size, uint16_t address);
+    void map_bank_prg(uint8_t page, uint16_t address);
+    void map_bank_prg(uint8_t page, uint8_t size, uint16_t address);
 
-    void setBankWRAM(uint8_t page, uint16_t address, bool access);
-    void setBankWRAM(uint8_t page, uint8_t size, uint16_t address, bool access);
+    void map_bank_cpu_ram(uint8_t page, uint16_t address, bool access);
+    void map_bank_cpu_ram(uint8_t page, uint8_t size, uint16_t address, bool access);
 
-    void setBankCHR(uint8_t page, uint16_t address);
-    void setBankCHR(uint8_t page, uint8_t size, uint16_t address);
+    void map_bank_chr(uint8_t page, uint16_t address);
+    void map_bank_chr(uint8_t page, uint8_t size, uint16_t address);
 
-    void setBankVRAM(uint8_t page, uint16_t address, bool access);
-    void setBankVRAM(uint8_t page, uint8_t size, uint16_t address, bool access);
+    void map_bank_vram(uint8_t page, uint16_t address, bool access);
+    void map_bank_vram(uint8_t page, uint8_t size, uint16_t address, bool access);
 
-    void removeBankCPU(uint8_t page);
-    void removeBankCPU(uint8_t page, uint8_t size);
+    void unmap_bank_cpu(uint8_t page);
+    void unmap_bank_cpu(uint8_t page, uint8_t size);
 
-    void setMirroringMode(MirroringMode mode);
+    void set_mirroring_mode(MirroringMode mode);
 
-    void mirrorBankCPU(uint8_t page, uint8_t size, uint8_t mirror);
-    void mirrorBankPPU(uint8_t page, uint8_t size, uint8_t mirror);
+    void mirror_cpu_banks(uint8_t page, uint8_t size, uint8_t mirror);
+    void mirror_ppu_banks(uint8_t page, uint8_t size, uint8_t mirror);
 
 public:
     template<DumpOperation operation, typename T>
     constexpr void dump(T& buffer) {
         for (uint8_t k = 0x00; k < 0x40; k++) {
-            _banksCPU[k].dump<operation>(buffer);
+            _banks_cpu[k].dump<operation>(buffer);
         }
 
         for (uint8_t k = 0x00; k < 0x10; k++) {
-            _banksPPU[k].dump<operation>(buffer);
+            _banks_ppu[k].dump<operation>(buffer);
         }
 
-        if (SIZE_WRAM) {
-            cynes::dump<operation>(buffer, _memoryWRAM, SIZE_WRAM << 10);
+        if (_size_cpu_ram) {
+            cynes::dump<operation>(buffer, _memory_cpu_ram, _size_cpu_ram << 10);
         }
 
-        if (SIZE_VRAM) {
-            cynes::dump<operation>(buffer, _memoryVRAM, SIZE_VRAM << 10);
+        if (_size_ppu_ram) {
+            cynes::dump<operation>(buffer, _memory_ppu_ram, _size_ppu_ram << 10);
         }
     }
 };
@@ -127,17 +134,15 @@ public:
 public:
     virtual void tick();
 
-    virtual void writeCPU(uint16_t address, uint8_t value);
+    virtual void write_cpu(uint16_t address, uint8_t value);
 
 private:
-    void writeRegister(uint8_t registerTarget, uint8_t value);
-    void updateBanks();
+    void write_registers(uint8_t register_target, uint8_t value);
+    void update_banks();
 
 private:
     uint8_t _tick;
-
     uint8_t _registers[0x4];
-
     uint8_t _register;
     uint8_t _counter;
 
@@ -159,7 +164,7 @@ public:
     ~UxROM();
 
 public:
-    virtual void writeCPU(uint16_t address, uint8_t value);
+    virtual void write_cpu(uint16_t address, uint8_t value);
 };
 
 class CNROM : public Mapper {
@@ -168,7 +173,7 @@ public:
     ~CNROM();
 
 public:
-    virtual void writeCPU(uint16_t address, uint8_t value);
+    virtual void write_cpu(uint16_t address, uint8_t value);
 };
 
 class MMC3 : public Mapper {
@@ -179,29 +184,26 @@ public:
 public:
     virtual void tick();
 
-    virtual void writeCPU(uint16_t address, uint8_t value);
-    virtual void writePPU(uint16_t address, uint8_t value);
+    virtual void write_cpu(uint16_t address, uint8_t value);
+    virtual void write_ppu(uint16_t address, uint8_t value);
 
-    virtual uint8_t readPPU(uint16_t address);
+    virtual uint8_t read_ppu(uint16_t address);
 
 private:
-    void updateState(bool state);
+    void update_state(bool state);
 
 private:
     uint32_t _tick;
-
     uint32_t _registers[0x8];
-
     uint16_t _counter;
-    uint16_t _counterReload;
+    uint16_t _counter_reset_value;
 
-    uint8_t _registerTarget;
+    uint8_t _register_target;
 
-    bool _modePRG;
-    bool _modeCHR;
-
-    bool _enableIRQ;
-    bool _shouldReloadIRQ;
+    bool _mode_prg;
+    bool _mode_chr;
+    bool _enable_interrupt;
+    bool _should_reload_interrupt;
 
 public:
     template<DumpOperation operation, typename T>
@@ -211,12 +213,12 @@ public:
         cynes::dump<operation>(buffer, _tick);
         cynes::dump<operation>(buffer, _registers);
         cynes::dump<operation>(buffer, _counter);
-        cynes::dump<operation>(buffer, _counterReload);
-        cynes::dump<operation>(buffer, _registerTarget);
-        cynes::dump<operation>(buffer, _modePRG);
-        cynes::dump<operation>(buffer, _modeCHR);
-        cynes::dump<operation>(buffer, _enableIRQ);
-        cynes::dump<operation>(buffer, _shouldReloadIRQ);
+        cynes::dump<operation>(buffer, _counter_reset_value);
+        cynes::dump<operation>(buffer, _register_target);
+        cynes::dump<operation>(buffer, _mode_prg);
+        cynes::dump<operation>(buffer, _mode_chr);
+        cynes::dump<operation>(buffer, _enable_interrupt);
+        cynes::dump<operation>(buffer, _should_reload_interrupt);
     }
 };
 
@@ -226,85 +228,85 @@ public:
     ~AxROM();
 
 public:
-    virtual void writeCPU(uint16_t address, uint8_t value);
+    virtual void write_cpu(uint16_t address, uint8_t value);
 };
 
-template<uint8_t bankSize>
+template<uint8_t BANK_SIZE>
 class MMC : public Mapper {
 public:
     MMC(NES& nes, NESMetadata metadata, MirroringMode mode) :
         Mapper(nes, metadata, mode) {
-        setBankCHR(0x0, 0x8, 0x0);
+        map_bank_chr(0x0, 0x8, 0x0);
 
-        setBankPRG(0x20, bankSize, 0x0);
-        setBankPRG(0x20 + bankSize, 0x20 - bankSize, SIZE_PRG - 0x20 + bankSize);
+        map_bank_prg(0x20, BANK_SIZE, 0x0);
+        map_bank_prg(0x20 + BANK_SIZE, 0x20 - BANK_SIZE, _size_prg - 0x20 + BANK_SIZE);
 
-        setBankWRAM(0x18, 0x8, 0x0, true);
+        map_bank_cpu_ram(0x18, 0x8, 0x0, true);
 
         memset(_latches, false, 0x2);
-        memset(_selectedBanks, 0x0, 0x4);
+        memset(_selected_banks, 0x0, 0x4);
     }
 
     ~MMC() { }
 
 public:
-    virtual void writeCPU(uint16_t address, uint8_t value) {
+    virtual void write_cpu(uint16_t address, uint8_t value) {
         if (address < 0xA000) {
-            Mapper::writeCPU(address, value);
+            Mapper::write_cpu(address, value);
         } else if (address < 0xB000) {
-            setBankPRG(0x20, bankSize, (value & 0xF) * bankSize);
+            map_bank_prg(0x20, BANK_SIZE, (value & 0xF) * BANK_SIZE);
         } else if (address < 0xC000) {
-            _selectedBanks[0x0] = value & 0x1F; updateBanks();
+            _selected_banks[0x0] = value & 0x1F; update_banks();
         } else if (address < 0xD000) {
-            _selectedBanks[0x1] = value & 0x1F; updateBanks();
+            _selected_banks[0x1] = value & 0x1F; update_banks();
         } else if (address < 0xE000) {
-            _selectedBanks[0x2] = value & 0x1F; updateBanks();
+            _selected_banks[0x2] = value & 0x1F; update_banks();
         } else if (address < 0xF000) {
-            _selectedBanks[0x3] = value & 0x1F; updateBanks();
+            _selected_banks[0x3] = value & 0x1F; update_banks();
         } else {
             if (value & 0x01) {
-                setMirroringMode(MirroringMode::HORIZONTAL);
+                set_mirroring_mode(MirroringMode::HORIZONTAL);
             } else {
-                setMirroringMode(MirroringMode::VERTICAL);
+                set_mirroring_mode(MirroringMode::VERTICAL);
             }
         }
     }
 
-    virtual uint8_t readPPU(uint16_t address) {
-        uint8_t value = Mapper::readPPU(address);
+    virtual uint8_t read_ppu(uint16_t address) {
+        uint8_t value = Mapper::read_ppu(address);
 
         if (address == 0x0FD8) {
-            _latches[0] = true; updateBanks();
+            _latches[0] = true; update_banks();
         } else if (address == 0x0FE8) {
-            _latches[0] = false; updateBanks();
+            _latches[0] = false; update_banks();
         } else if (address >= 0x1FD8 && address < 0x1FE0) {
-            _latches[1] = true; updateBanks();
+            _latches[1] = true; update_banks();
         } else if (address >= 0x1FE8 && address < 0x1FF0) {
-            _latches[1] = false; updateBanks();
+            _latches[1] = false; update_banks();
         }
 
         return value;
     }
 
 private:
-    void updateBanks() {
+    void update_banks() {
         if (_latches[0]) {
-            setBankCHR(0x0, 0x4, _selectedBanks[0x0] << 2);
+            map_bank_chr(0x0, 0x4, _selected_banks[0x0] << 2);
         } else {
-            setBankCHR(0x0, 0x4, _selectedBanks[0x1] << 2);
+            map_bank_chr(0x0, 0x4, _selected_banks[0x1] << 2);
         }
 
         if (_latches[1]) {
-            setBankCHR(0x4, 0x4, _selectedBanks[0x2] << 2);
+            map_bank_chr(0x4, 0x4, _selected_banks[0x2] << 2);
         } else {
-            setBankCHR(0x4, 0x4, _selectedBanks[0x3] << 2);
+            map_bank_chr(0x4, 0x4, _selected_banks[0x3] << 2);
         }
     }
 
 private:
     bool _latches[0x2];
 
-    uint8_t _selectedBanks[0x4];
+    uint8_t _selected_banks[0x4];
 
 public:
     template<DumpOperation operation, typename T>
@@ -312,7 +314,7 @@ public:
         Mapper::dump<operation>(buffer);
 
         cynes::dump<operation>(buffer, _latches);
-        cynes::dump<operation>(buffer, _selectedBanks);
+        cynes::dump<operation>(buffer, _selected_banks);
     }
 };
 
@@ -325,7 +327,7 @@ public:
     ~GxROM();
 
 public:
-    virtual void writeCPU(uint16_t address, uint8_t value);
+    virtual void write_cpu(uint16_t address, uint8_t value);
 };
 }
 

@@ -34,29 +34,29 @@ std::unique_ptr<cynes::Mapper> load_mapper(cynes::NES& nes, const char* path) {
 
     cynes::NESMetadata metadata;
 
-    metadata.sizePRG = program_banks << 4;
-    metadata.sizeCHR = character_banks << 3;
+    metadata.size_prg = program_banks << 4;
+    metadata.size_chr = character_banks << 3;
 
     if (flag6 & 0x04) {
         metadata.trainer = new uint8_t[0x200];
         stream.read(reinterpret_cast<char*>(metadata.trainer), 0x200);
     }
 
-    if (metadata.sizePRG > 0) {
-        size_t memory_size = static_cast<size_t>(metadata.sizePRG) << 10;
-        metadata.memoryPRG = new uint8_t[memory_size]{ 0 };
-        stream.read(reinterpret_cast<char*>(metadata.memoryPRG), memory_size);
+    if (metadata.size_prg > 0) {
+        size_t memory_size = static_cast<size_t>(metadata.size_prg) << 10;
+        metadata.memory_prg = new uint8_t[memory_size]{ 0 };
+        stream.read(reinterpret_cast<char*>(metadata.memory_prg), memory_size);
     }
 
-    if (metadata.sizeCHR > 0) {
-        size_t memory_size = static_cast<size_t>(metadata.sizeCHR) << 10;
-        metadata.memoryCHR = new uint8_t[memory_size]{ 0 };
-        stream.read(reinterpret_cast<char*>(metadata.memoryCHR), memory_size);
+    if (metadata.size_chr > 0) {
+        size_t memory_size = static_cast<size_t>(metadata.size_chr) << 10;
+        metadata.memory_chr = new uint8_t[memory_size]{ 0 };
+        stream.read(reinterpret_cast<char*>(metadata.memory_chr), memory_size);
     }
 
-    if (metadata.sizeCHR == 0) {
-        metadata.sizeCHR = 8;
-        metadata.memoryCHR = new uint8_t[0x2000]{ 0 };
+    if (metadata.size_chr == 0) {
+        metadata.size_chr = 8;
+        metadata.memory_chr = new uint8_t[0x2000]{ 0 };
     }
 
     stream.close();
@@ -151,14 +151,14 @@ void cynes::NES::write_cpu(uint16_t address, uint8_t value) {
         apu.write(address & 0xFF, value);
     }
 
-    _mapper->writeCPU(address, value);
+    _mapper->write_cpu(address, value);
 }
 
 void cynes::NES::write_ppu(uint16_t address, uint8_t value) {
     address &= 0x3FFF;
 
     if (address < 0x3F00) {
-        _mapper->writePPU(address, value);
+        _mapper->write_ppu(address, value);
     } else {
         address &= 0x1F;
 
@@ -205,7 +205,7 @@ uint8_t cynes::NES::read_cpu(uint16_t address) {
     } else if (address < 0x4018) {
         return apu.read(address & 0xFF);
     } else {
-        return _mapper->readCPU(address);
+        return _mapper->read_cpu(address);
     }
 }
 
@@ -213,7 +213,7 @@ uint8_t cynes::NES::read_ppu(uint16_t address) {
     address &= 0x3FFF;
 
     if (address < 0x3F00) {
-        return _mapper->readPPU(address);
+        return _mapper->read_ppu(address);
     } else {
         address &= 0x1F;
 

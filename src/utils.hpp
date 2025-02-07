@@ -21,9 +21,9 @@ constexpr void dump(uint8_t*& buffer, T& value) {
 }
 
 template<DumpOperation operation, typename T>
-constexpr void dump(unsigned int& bufferSize, T&) {
+constexpr void dump(unsigned int& buffer_size, T&) {
     if constexpr (operation == DumpOperation::SIZE) {
-        bufferSize += sizeof(T);
+        buffer_size += sizeof(T);
     }
 }
 
@@ -39,9 +39,9 @@ constexpr void dump(uint8_t*& buffer, T* values, unsigned int size) {
 }
 
 template<DumpOperation operation, typename T>
-constexpr void dump(unsigned int& bufferSize, T*, unsigned int size) {
+constexpr void dump(unsigned int& buffer_size, T*, unsigned int size) {
     if constexpr (operation == DumpOperation::SIZE) {
-        bufferSize += sizeof(T) * size;
+        buffer_size += sizeof(T) * size;
     }
 }
 }

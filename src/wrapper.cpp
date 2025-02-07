@@ -18,11 +18,11 @@ cynes::wrapper::Wrapper::Wrapper(const char* rom)
 cynes::wrapper::Wrapper::~Wrapper() {}
 
 void cynes::wrapper::Wrapper::write(uint16_t address, uint8_t value) {
-    _nes.writeCPU(address, value);
+    _nes.write_cpu(address, value);
 }
 
 uint8_t cynes::wrapper::Wrapper::read(uint16_t address) {
-    return _nes.readCPU(address);
+    return _nes.read_cpu(address);
 }
 
 void cynes::wrapper::Wrapper::reset() {

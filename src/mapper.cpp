@@ -83,7 +83,7 @@ void cynes::Mapper::writePPU(uint16_t address, uint8_t value) {
 
 uint8_t cynes::Mapper::readCPU(uint16_t address) {
     if (_banksCPU[address >> 10].memory == nullptr) {
-        return _nes.getOpenBus();
+        return _nes.get_open_bus();
     }
 
     return _banksCPU[address >> 10].memory[address & 0x3FF];
@@ -463,7 +463,7 @@ void cynes::MMC3::writeCPU(uint16_t address, uint8_t value) {
             _enableIRQ = true;
         } else {
             _enableIRQ = false;
-            _nes.cpu.setMapperIRQ(false);
+            _nes.cpu.set_mapper_interrupt(false);
         }
     }
 }
@@ -490,7 +490,7 @@ void cynes::MMC3::updateState(bool state) {
             }
 
             if (_counter == 0 && _enableIRQ) {
-                _nes.cpu.setMapperIRQ(true);
+                _nes.cpu.set_mapper_interrupt(true);
             }
 
             _shouldReloadIRQ = false;

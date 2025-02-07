@@ -26,7 +26,7 @@ public:
     void reset();
 
     /// Perform a dummy read cycle.
-    void dummyRead();
+    void dummy_read();
 
     /// Write to the console memory while ticking its components.
     /// @note This function has other side effects than simply writing to the
@@ -40,21 +40,21 @@ public:
     /// memory, it should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    void writeCPU(uint16_t address, uint8_t value);
+    void write_cpu(uint16_t address, uint8_t value);
 
     /// Write to the PPU memory.
     /// @note This function has other side effects than simply writing to the
     /// memory, it should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    void writePPU(uint16_t address, uint8_t value);
+    void write_ppu(uint16_t address, uint8_t value);
 
     /// Write to the OAM memory.
     /// @note This function has other side effects than simply writing to the
     /// memory, it should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    void writeOAM(uint8_t address, uint8_t value);
+    void write_oam(uint8_t address, uint8_t value);
 
     /// Read from the console memory while ticking its components.
     /// @note This function has other side effects than simply reading from
@@ -68,25 +68,25 @@ public:
     /// memory, it should not be used as a memory watch function.
     /// @param address Memory address within the console memory address space.
     /// @return The value stored at the given address.
-    uint8_t readCPU(uint16_t address);
+    uint8_t read_cpu(uint16_t address);
 
     /// Read from the PPU memory.
     /// @note This function has other side effects than simply reading from
     /// memory, it should not be used as a memory watch function.
     /// @param address Memory address within the console memory address space.
     /// @return The value stored at the given address.
-    uint8_t readPPU(uint16_t address);
+    uint8_t read_ppu(uint16_t address);
 
     /// Read from the OAM memory.
     /// @note This function has other side effects than simply reading from
     /// memory, it should not be used as a memory watch function.
     /// @param address Memory address within the console memory address space.
     /// @return The value stored at the given address.
-    uint8_t readOAM(uint8_t address) const;
+    uint8_t read_oam(uint8_t address) const;
 
     /// Get the current open bus state.
     /// @return The open bus value.
-    uint8_t getOpenBus() const;
+    uint8_t get_open_bus() const;
 
     /// Step the emulation by the given amount of frame.
     /// @param buffer Output frame buffer.
@@ -111,26 +111,26 @@ public:
     PPU ppu;
     APU apu;
 
-    Mapper& getMapper();
+    Mapper& get_mapper();
 
 private:
     std::unique_ptr<Mapper> _mapper;
 
 private:
-    uint8_t _memoryCPU[0x800];
+    uint8_t _memory_cpu[0x800];
 
-    uint8_t _memoryOAM[0x100];
-    uint8_t _memoryPalette[0x20];
+    uint8_t _memory_oam[0x100];
+    uint8_t _memory_palette[0x20];
 
-    uint8_t _openBus;
+    uint8_t _open_bus;
 
-    uint8_t _controllerStates[0x2];
-    uint8_t _controllerShifters[0x2];
+    uint8_t _controller_status[0x2];
+    uint8_t _controller_shifters[0x2];
 
 private:
-    void loadControllerShifter(bool polling);
+    void load_controller_shifter(bool polling);
 
-    uint8_t pollController(uint8_t player);
+    uint8_t poll_controller(uint8_t player);
 
 private:
     template<DumpOperation operation, class T> void dump(T& buffer);

@@ -25,7 +25,7 @@ public:
 
 class Mapper {
 public:
-    Mapper(NES& nes, NESMetadata metadata, MirroringMode mode, uint8_t sizeWRAM = 0x8, uint8_t sizeVRAM = 0x2, uint8_t sizeERAM = 0x0);
+    Mapper(NES& nes, NESMetadata metadata, MirroringMode mode, uint8_t sizeWRAM = 0x8, uint8_t sizeVRAM = 0x2);
     virtual ~Mapper();
 
 public:
@@ -44,7 +44,7 @@ protected:
 
         bool access = false;
 
-        template<DumpOperation operation, typename T> 
+        template<DumpOperation operation, typename T>
         constexpr void dump(T& buffer) {
             cynes::dump<operation>(buffer, memory);
             cynes::dump<operation>(buffer, access);
@@ -60,14 +60,12 @@ protected:
 
     const uint8_t SIZE_WRAM;
     const uint8_t SIZE_VRAM;
-    const uint8_t SIZE_ERAM;
 
     uint8_t* _memoryPRG;
     uint8_t* _memoryCHR;
 
     uint8_t* _memoryWRAM;
     uint8_t* _memoryVRAM;
-    uint8_t* _memoryERAM;
 
     MemoryBank _banksCPU[0x40];
     MemoryBank _banksPPU[0x10];
@@ -85,12 +83,6 @@ protected:
     void setBankVRAM(uint8_t page, uint16_t address, bool access);
     void setBankVRAM(uint8_t page, uint8_t size, uint16_t address, bool access);
 
-    void setBankERAMCPU(uint8_t page, uint16_t address, bool access);
-    void setBankERAMCPU(uint8_t page, uint8_t size, uint16_t address, bool access);
-
-    void setBankERAMPPU(uint8_t page, uint16_t address, bool access);
-    void setBankERAMPPU(uint8_t page, uint8_t size, uint16_t address, bool access);
-
     void removeBankCPU(uint8_t page);
     void removeBankCPU(uint8_t page, uint8_t size);
 
@@ -100,7 +92,7 @@ protected:
     void mirrorBankPPU(uint8_t page, uint8_t size, uint8_t mirror);
 
 public:
-    template<DumpOperation operation, typename T> 
+    template<DumpOperation operation, typename T>
     constexpr void dump(T& buffer) {
         for (uint8_t k = 0x00; k < 0x40; k++) {
             _banksCPU[k].dump<operation>(buffer);
@@ -116,10 +108,6 @@ public:
 
         if (SIZE_VRAM) {
             cynes::dump<operation>(buffer, _memoryVRAM, SIZE_VRAM << 10);
-        }
-
-        if (SIZE_ERAM) {
-            cynes::dump<operation>(buffer, _memoryERAM, SIZE_ERAM << 10);
         }
     }
 };
@@ -154,7 +142,7 @@ private:
     uint8_t _counter;
 
 public:
-    template<DumpOperation operation, typename T> 
+    template<DumpOperation operation, typename T>
     constexpr void dump(T& buffer) {
         Mapper::dump<operation>(buffer);
 
@@ -216,7 +204,7 @@ private:
     bool _shouldReloadIRQ;
 
 public:
-    template<DumpOperation operation, typename T> 
+    template<DumpOperation operation, typename T>
     constexpr void dump(T& buffer) {
         Mapper::dump<operation>(buffer);
 
@@ -319,7 +307,7 @@ private:
     uint8_t _selectedBanks[0x4];
 
 public:
-    template<DumpOperation operation, typename T> 
+    template<DumpOperation operation, typename T>
     constexpr void dump(T& buffer) {
         Mapper::dump<operation>(buffer);
 

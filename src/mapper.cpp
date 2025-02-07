@@ -8,19 +8,16 @@ cynes::Mapper::Mapper(
     NESMetadata metadata,
     MirroringMode mode,
     uint8_t sizeWRAM,
-    uint8_t sizeVRAM,
-    uint8_t sizeERAM
+    uint8_t sizeVRAM
 ) : _nes{nes}
   , SIZE_PRG{metadata.sizePRG}
   , SIZE_CHR{metadata.sizeCHR}
   , SIZE_WRAM{sizeWRAM}
   , SIZE_VRAM{sizeVRAM}
-  , SIZE_ERAM{sizeERAM}
   , _memoryPRG{metadata.memoryPRG}
   , _memoryCHR{metadata.memoryCHR}
   , _memoryWRAM{}
   , _memoryVRAM{}
-  , _memoryERAM{}
   , _banksCPU{}
   , _banksPPU{}
 {
@@ -36,10 +33,6 @@ cynes::Mapper::Mapper(
 
     if (SIZE_VRAM) {
         _memoryVRAM = new uint8_t[uint64_t(SIZE_VRAM) << 10];
-    }
-
-    if (SIZE_ERAM) {
-        _memoryERAM = new uint8_t[uint64_t(SIZE_ERAM) >> 10];
     }
 
     setMirroringMode(mode);
@@ -60,10 +53,6 @@ cynes::Mapper::~Mapper() {
 
     if (SIZE_VRAM) {
         delete[] _memoryVRAM;
-    }
-
-    if (SIZE_ERAM) {
-        delete[] _memoryERAM;
     }
 }
 
@@ -138,28 +127,6 @@ void cynes::Mapper::setBankVRAM(uint8_t page, uint16_t address, bool access) {
 void cynes::Mapper::setBankVRAM(uint8_t page, uint8_t size, uint16_t address, bool access) {
     for (uint8_t index = 0; index < size; index++) {
         setBankVRAM(page + index, address + index, access);
-    }
-}
-
-void cynes::Mapper::setBankERAMCPU(uint8_t page, uint16_t address, bool access) {
-    _banksCPU[page].memory = &_memoryERAM[address << 10];
-    _banksCPU[page].access = access;
-}
-
-void cynes::Mapper::setBankERAMCPU(uint8_t page, uint8_t size, uint16_t address, bool access) {
-    for (uint8_t index = 0; index < size; index++) {
-        setBankERAMCPU(page + index, address + index, access);
-    }
-}
-
-void cynes::Mapper::setBankERAMPPU(uint8_t page, uint16_t address, bool access) {
-    _banksPPU[page].memory = &_memoryERAM[address << 10];
-    _banksPPU[page].access = access;
-}
-
-void cynes::Mapper::setBankERAMPPU(uint8_t page, uint8_t size, uint16_t address, bool access) {
-    for (uint8_t index = 0; index < size; index++) {
-        setBankERAMPPU(page + index, address + index, access);
     }
 }
 

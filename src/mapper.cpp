@@ -284,12 +284,8 @@ void cynes::MMC1::update_banks() {
         map_bank_prg(0x20, 0x20, (_registers[0x3] & 0x0E) << 4);
     }
 
-    // TODO move within
-    if (_registers[0x3] & 0x10) {
-        map_bank_cpu_ram(0x18, 0x8, 0x0, true);
-    } else {
-        map_bank_cpu_ram(0x18, 0x8, 0x0, false);
-    }
+    bool read_only = _registers[0x3] & 0x10;
+    map_bank_cpu_ram(0x18, 0x8, 0x0, read_only);
 }
 
 
@@ -412,12 +408,8 @@ void cynes::MMC3::write_cpu(uint16_t address, uint8_t value) {
         }
     } else if (address < 0xC000) {
         if (address & 0x1) {
-            // TODO: move within
-            if (value & 0x40) {
-                map_bank_cpu_ram(0x18, 0x8, 0x0, true);
-            } else {
-                map_bank_cpu_ram(0x18, 0x8, 0x0, false);
-            }
+            bool read_only = value & 0x40;
+            map_bank_cpu_ram(0x18, 0x8, 0x0, read_only);
         } else  if (value & 0x1) {
             set_mirroring_mode(MirroringMode::HORIZONTAL);
         } else {

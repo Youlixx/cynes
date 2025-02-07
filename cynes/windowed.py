@@ -1,5 +1,5 @@
 # cynes - C/C++ NES emulator with Python bindings
-# Copyright (C) 2021 - 2024  Combey Theo <https://www.gnu.org/licenses/>
+# Copyright (C) 2021 - 2025  Combey Theo <https://www.gnu.org/licenses/>
 
 """Module containing a simple NES wrapper using SDL2 for the rendering."""
 
@@ -109,7 +109,7 @@ class WindowedNES(NES):
     ) -> None:
         """Initialize the NES emulator.
 
-        The emulator initialisation can fail if the ROM file cannot be found or if the
+        The emulator initialization can fail if the ROM file cannot be found or if the
         Mapper used by the game is currently unsupported.
 
         Parameters
@@ -162,11 +162,11 @@ class WindowedNES(NES):
         Parameters
         ----------
         error: Type[BaseException], optional
-            If an error occured, the type of the exception.
+            If an error occurred, the type of the exception.
         value: BaseException, optional
-            If an error occured, the exception itself.
+            If an error occurred, the exception itself.
         traceback: Any, optional
-            If an error occured, the current traceback.
+            If an error occurred, the current traceback.
 
         Returns
         -------
@@ -212,7 +212,7 @@ class WindowedNES(NES):
         key_code: int
             The code of the key that triggers the handler.
         handler: Callable[[], None]
-            A function that takes not argmuent, called when the key is pressed.
+            A function that takes not argument, called when the key is pressed.
         """
         self._handlers[key_code] = handler
 

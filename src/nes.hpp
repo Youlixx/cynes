@@ -100,9 +100,11 @@ public:
     unsigned int size();
 
     /// Save the state of the emulator to the buffer.
+    /// @param buffer Save state buffer.
     void save(uint8_t* buffer);
 
     /// Load a previous emulator state from the buffer.
+    /// @param buffer Save state buffer.
     void load(uint8_t* buffer);
 
     /// Get a pointer to the internal frame buffer.

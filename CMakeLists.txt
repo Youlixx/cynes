@@ -33,6 +33,8 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(pybind11)
 
+add_definitions(-DPYTHON_MODULE_VERSION="${PYTHON_MODULE_VERSION}")
+
 pybind11_add_module(emulator
     src/wrapper.cpp
 )

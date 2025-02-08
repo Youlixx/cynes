@@ -4,6 +4,9 @@
 import numpy as np
 from numpy.typing import NDArray
 
+__version__ = ...
+
+
 class NES:
     """The base emulator class."""
 
@@ -77,8 +80,8 @@ class NES:
     def reset(self) -> None:
         """Send a reset signal to the emulator.
 
-        Resetting the NES is different from re-creating a new emulator as the RAM content
-        is not cleared.
+        Resetting the NES is different from re-creating a new emulator as the RAM
+        content is not cleared.
         """
         ...
 

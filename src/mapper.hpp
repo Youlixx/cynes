@@ -150,24 +150,23 @@ protected:
     void mirror_ppu_banks(uint8_t page, uint8_t size, uint8_t mirror);
 
 public:
-    // TODO
     template<DumpOperation operation, typename T>
-    constexpr void dump(T&) {
-        // for (uint8_t k = 0x00; k < 0x40; k++) {
-        //     _banks_cpu[k].dump<operation>(buffer);
-        // }
+    constexpr void dump(T& buffer) {
+        for (uint8_t k = 0x00; k < 0x40; k++) {
+            _banks_cpu[k].dump<operation>(buffer);
+        }
 
-        // for (uint8_t k = 0x00; k < 0x10; k++) {
-        //     _banks_ppu[k].dump<operation>(buffer);
-        // }
+        for (uint8_t k = 0x00; k < 0x10; k++) {
+            _banks_ppu[k].dump<operation>(buffer);
+        }
 
-        // if (_size_cpu_ram) {
-        //     cynes::dump<operation>(buffer, _memory_cpu_ram, _size_cpu_ram << 10);
-        // }
+        if (_size_cpu_ram) {
+            cynes::dump<operation>(buffer, _memory.get() + _size_prg + _size_chr, _size_cpu_ram);
+        }
 
-        // if (_size_ppu_ram) {
-        //     cynes::dump<operation>(buffer, _memory_ppu_ram, _size_ppu_ram << 10);
-        // }
+        if (_size_ppu_ram) {
+            cynes::dump<operation>(buffer, _memory.get() + _size_prg + _size_chr + _size_cpu_ram, _size_ppu_ram);
+        }
     }
 };
 

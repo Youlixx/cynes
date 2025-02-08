@@ -172,6 +172,10 @@ public:
             _banks_ppu[k].dump<operation>(buffer);
         }
 
+        if (!_read_only_chr) {
+            cynes::dump<operation>(buffer, _memory.get() + _size_prg, _size_chr);
+        }
+
         if (_size_cpu_ram) {
             cynes::dump<operation>(buffer, _memory.get() + _size_prg + _size_chr, _size_cpu_ram);
         }

@@ -125,10 +125,9 @@ private:
     std::unique_ptr<Mapper> _mapper;
 
 private:
-    uint8_t _memory_cpu[0x800];
-
-    uint8_t _memory_oam[0x100];
-    uint8_t _memory_palette[0x20];
+    std::unique_ptr<uint8_t[]> _memory_cpu;
+    std::unique_ptr<uint8_t[]> _memory_oam;
+    std::unique_ptr<uint8_t[]> _memory_palette;
 
     uint8_t _open_bus;
 

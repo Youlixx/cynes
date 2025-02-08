@@ -10,6 +10,14 @@
 #include <stdexcept>
 
 
+constexpr uint8_t PALETTE_RAM_BOOT_VALUES[0x20] = {
+    0x09, 0x01, 0x00, 0x01, 0x00, 0x02, 0x02, 0x0D,
+    0x08, 0x10, 0x08, 0x24, 0x00, 0x00, 0x04, 0x2C,
+    0x09, 0x01, 0x34, 0x03, 0x00, 0x04, 0x00, 0x14,
+    0x08, 0x3A, 0x00, 0x02, 0x00, 0x20, 0x2C, 0x08
+};
+
+
 // TODO: maybe move elsewhere?
 std::unique_ptr<cynes::Mapper> load_mapper(cynes::NES& nes, const char* path) {
     std::ifstream stream{path, std::ios::binary};
@@ -88,21 +96,17 @@ cynes::NES::NES(const char* path)
     , ppu{*this}
     , apu{*this}
     , _mapper{load_mapper(static_cast<NES&>(*this), path)}
+    , _memory_cpu{new uint8_t[0x800]}
+    , _memory_oam{new uint8_t[0x100]}
+    , _memory_palette{new uint8_t[0x20]}
 {
     cpu.power();
     ppu.power();
     apu.power();
 
-    // TODO: move elsewhere
-    uint8_t palette_ram_boot_values[0x20] = {
-        0x09, 0x01, 0x00, 0x01, 0x00, 0x02, 0x02, 0x0D, 0x08, 0x10, 0x08, 0x24, 0x00, 0x00, 0x04, 0x2C,
-        0x09, 0x01, 0x34, 0x03, 0x00, 0x04, 0x00, 0x14, 0x08, 0x3A, 0x00, 0x02, 0x00, 0x20, 0x2C, 0x08
-    };
-
-    std::memcpy(_memory_palette, palette_ram_boot_values, 0x20);
-
-    std::memset(_memory_cpu, 0x00, 0x800);
-    std::memset(_memory_oam, 0x00, 0x100);
+    std::memcpy(_memory_palette.get(), PALETTE_RAM_BOOT_VALUES, 0x20);
+    std::memset(_memory_cpu.get(), 0x00, 0x800);
+    std::memset(_memory_oam.get(), 0x00, 0x100);
     std::memset(_controller_status, 0x00, 0x2);
     std::memset(_controller_shifters, 0x00, 0x2);
 
@@ -297,9 +301,9 @@ void cynes::NES::dump(T& buffer) {
 
     _mapper->dump<operation>(buffer);
 
-    cynes::dump<operation>(buffer, _memory_cpu);
-    cynes::dump<operation>(buffer, _memory_oam);
-    cynes::dump<operation>(buffer, _memory_palette);
+    cynes::dump<operation>(buffer, _memory_cpu.get(), 0x800);
+    cynes::dump<operation>(buffer, _memory_oam.get(), 0x100);
+    cynes::dump<operation>(buffer, _memory_palette.get(), 0x20);
 
     cynes::dump<operation>(buffer, _controller_status);
     cynes::dump<operation>(buffer, _controller_shifters);

@@ -1,8 +1,10 @@
 #ifndef __CYNES_MAPPER__
 #define __CYNES_MAPPER__
 
+#include <array>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 
 #include "utils.hpp"
 
@@ -42,7 +44,8 @@ public:
         uint8_t size_ppu_ram = 0x2
     );
 
-    virtual ~Mapper();
+    /// Default destructor.
+    virtual ~Mapper() = default;
 
 public:
     /// Tick the mapper.
@@ -77,15 +80,31 @@ public:
     virtual uint8_t read_ppu(uint16_t address);
 
 protected:
+    /// A memory bank provides a view within the mapper memory.
+    // Each bank is exactly 0x400 bytes large.
     struct MemoryBank {
     public:
-        uint8_t* memory = nullptr;
-        bool read_only = true;
+        /// Initialize an unmapped bank.
+        MemoryBank();
+
+        /// Initialize a mapped bank using the given offset.
+        /// @param offset Mapper memory offset.
+        /// @param read_only Bank read only flag.
+        MemoryBank(size_t offset, bool read_only);
+
+        /// Default destructor.
+        ~MemoryBank() = default;
+
+    public:
+        size_t offset;
+        bool read_only;
+        bool mapped;
 
         template<DumpOperation operation, typename T>
         constexpr void dump(T& buffer) {
-            cynes::dump<operation>(buffer, memory);
+            cynes::dump<operation>(buffer, offset);
             cynes::dump<operation>(buffer, read_only);
+            cynes::dump<operation>(buffer, mapped);
         }
     };
 
@@ -93,20 +112,21 @@ protected:
     NES& _nes;
 
 protected:
-    const uint16_t _size_prg;
-    const uint16_t _sire_chr;
+    const uint16_t _banks_prg;
+    const uint16_t _banks_chr;
+    const uint8_t _banks_cpu_ram;
+    const uint8_t _banks_ppu_ram;
 
-    const uint8_t _size_cpu_ram;
-    const uint8_t _size_ppu_ram;
+private:
+    const size_t _size_prg;
+    const size_t _size_chr;
+    const size_t _size_cpu_ram;
+    const size_t _size_ppu_ram;
 
-    uint8_t* _memory_prg;
-    uint8_t* _memory_chr;
+    std::unique_ptr<uint8_t[]> _memory;
 
-    uint8_t* _memory_cpu_ram;
-    uint8_t* _memory_ppu_ram;
-
-    MemoryBank _banks_cpu[0x40];
-    MemoryBank _banks_ppu[0x10];
+    std::array<MemoryBank, 0x40> _banks_cpu;
+    std::array<MemoryBank, 0x10> _banks_ppu;
 
 protected:
     void map_bank_prg(uint8_t page, uint16_t address);
@@ -130,23 +150,24 @@ protected:
     void mirror_ppu_banks(uint8_t page, uint8_t size, uint8_t mirror);
 
 public:
+    // TODO
     template<DumpOperation operation, typename T>
-    constexpr void dump(T& buffer) {
-        for (uint8_t k = 0x00; k < 0x40; k++) {
-            _banks_cpu[k].dump<operation>(buffer);
-        }
+    constexpr void dump(T&) {
+        // for (uint8_t k = 0x00; k < 0x40; k++) {
+        //     _banks_cpu[k].dump<operation>(buffer);
+        // }
 
-        for (uint8_t k = 0x00; k < 0x10; k++) {
-            _banks_ppu[k].dump<operation>(buffer);
-        }
+        // for (uint8_t k = 0x00; k < 0x10; k++) {
+        //     _banks_ppu[k].dump<operation>(buffer);
+        // }
 
-        if (_size_cpu_ram) {
-            cynes::dump<operation>(buffer, _memory_cpu_ram, _size_cpu_ram << 10);
-        }
+        // if (_size_cpu_ram) {
+        //     cynes::dump<operation>(buffer, _memory_cpu_ram, _size_cpu_ram << 10);
+        // }
 
-        if (_size_ppu_ram) {
-            cynes::dump<operation>(buffer, _memory_ppu_ram, _size_ppu_ram << 10);
-        }
+        // if (_size_ppu_ram) {
+        //     cynes::dump<operation>(buffer, _memory_ppu_ram, _size_ppu_ram << 10);
+        // }
     }
 };
 
@@ -320,7 +341,7 @@ public:
         map_bank_chr(0x0, 0x8, 0x0);
 
         map_bank_prg(0x20, BANK_SIZE, 0x0);
-        map_bank_prg(0x20 + BANK_SIZE, 0x20 - BANK_SIZE, _size_prg - 0x20 + BANK_SIZE);
+        map_bank_prg(0x20 + BANK_SIZE, 0x20 - BANK_SIZE, _banks_prg - 0x20 + BANK_SIZE);
 
         map_bank_cpu_ram(0x18, 0x8, 0x0, true);
 

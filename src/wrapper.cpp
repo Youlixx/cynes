@@ -45,7 +45,7 @@ PYBIND11_MODULE(emulator, mod) {
 
     pybind11::class_<cynes::wrapper::NesWrapper>(mod, "NES")
         .def(
-            pybind11::init<const char*>(), pybind11::arg("path_rom"),
+            pybind11::init<const char*>(),
             pybind11::arg("path_rom"),
             "Initialize the emulator."
         )

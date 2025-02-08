@@ -5,7 +5,7 @@ project(cynes C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_library(cynes_core STATIC
+add_library(cynes_core OBJECT
     src/apu.cpp
     src/cpu.cpp
     src/ppu.cpp

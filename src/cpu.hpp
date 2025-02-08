@@ -118,40 +118,8 @@ private:
     void addr_zyr();
     void addr_zyw();
 
-    void (CPU::* _addressing_modes[256]) (void) = {
-        &CPU::addr_imp,&CPU::addr_ixr,&CPU::addr_acc,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
-        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_acc,&CPU::addr_imm,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
-        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iym,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,
-        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_aym,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_axm,&CPU::addr_axm,
-        &CPU::addr_abw,&CPU::addr_ixr,&CPU::addr_acc,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
-        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_acc,&CPU::addr_imm,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
-        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iym,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,
-        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_aym,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_axm,&CPU::addr_axm,
-        &CPU::addr_imp,&CPU::addr_ixr,&CPU::addr_acc,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
-        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_acc,&CPU::addr_imm,&CPU::addr_abw,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
-        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iym,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,
-        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_aym,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_axm,&CPU::addr_axm,
-        &CPU::addr_imp,&CPU::addr_ixr,&CPU::addr_acc,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
-        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_acc,&CPU::addr_imm,&CPU::addr_ind,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
-        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iym,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,
-        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_aym,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_axm,&CPU::addr_axm,
-        &CPU::addr_imm,&CPU::addr_ixw,&CPU::addr_imm,&CPU::addr_ixw,&CPU::addr_zpw,&CPU::addr_zpw,&CPU::addr_zpw,&CPU::addr_zpw,
-        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_imp,&CPU::addr_imm,&CPU::addr_abw,&CPU::addr_abw,&CPU::addr_abw,&CPU::addr_abw,
-        &CPU::addr_rel,&CPU::addr_iyw,&CPU::addr_acc,&CPU::addr_iyw,&CPU::addr_zxw,&CPU::addr_zxw,&CPU::addr_zyw,&CPU::addr_zyw,
-        &CPU::addr_imp,&CPU::addr_ayw,&CPU::addr_imp,&CPU::addr_ayw,&CPU::addr_axw,&CPU::addr_axw,&CPU::addr_ayw,&CPU::addr_ayw,
-        &CPU::addr_imm,&CPU::addr_ixr,&CPU::addr_imm,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
-        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_imp,&CPU::addr_imm,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
-        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iyr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zyr,&CPU::addr_zyr,
-        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_ayr,&CPU::addr_ayr,
-        &CPU::addr_imm,&CPU::addr_ixr,&CPU::addr_imm,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
-        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_imp,&CPU::addr_imm,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
-        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iym,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,
-        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_aym,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_axm,&CPU::addr_axm,
-        &CPU::addr_imm,&CPU::addr_ixr,&CPU::addr_imm,&CPU::addr_ixr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,&CPU::addr_zpr,
-        &CPU::addr_imp,&CPU::addr_imm,&CPU::addr_imp,&CPU::addr_imm,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,&CPU::addr_abr,
-        &CPU::addr_rel,&CPU::addr_iyr,&CPU::addr_acc,&CPU::addr_iym,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,&CPU::addr_zxr,
-        &CPU::addr_imp,&CPU::addr_ayr,&CPU::addr_imp,&CPU::addr_aym,&CPU::addr_axr,&CPU::addr_axr,&CPU::addr_axm,&CPU::addr_axm
-    };
+    using _addr_ptr = void (CPU::*)();
+    static const _addr_ptr ADDRESSING_MODES[256];
 
 private:
     void op_aal();
@@ -236,40 +204,8 @@ private:
     void op_tya();
     void op_usb();
 
-    void (CPU::* _instructions[256]) (void) = {
-        &CPU::op_brk,&CPU::op_ora,&CPU::op_jam,&CPU::op_slo,&CPU::op_nop,&CPU::op_ora,&CPU::op_asl,&CPU::op_slo,
-        &CPU::op_php,&CPU::op_ora,&CPU::op_aal,&CPU::op_anc,&CPU::op_nop,&CPU::op_ora,&CPU::op_asl,&CPU::op_slo,
-        &CPU::op_bpl,&CPU::op_ora,&CPU::op_jam,&CPU::op_slo,&CPU::op_nop,&CPU::op_ora,&CPU::op_asl,&CPU::op_slo,
-        &CPU::op_clc,&CPU::op_ora,&CPU::op_nop,&CPU::op_slo,&CPU::op_nop,&CPU::op_ora,&CPU::op_asl,&CPU::op_slo,
-        &CPU::op_jsr,&CPU::op_and,&CPU::op_jam,&CPU::op_rla,&CPU::op_bit,&CPU::op_and,&CPU::op_rol,&CPU::op_rla,
-        &CPU::op_plp,&CPU::op_and,&CPU::op_ral,&CPU::op_anc,&CPU::op_bit,&CPU::op_and,&CPU::op_rol,&CPU::op_rla,
-        &CPU::op_bmi,&CPU::op_and,&CPU::op_jam,&CPU::op_rla,&CPU::op_nop,&CPU::op_and,&CPU::op_rol,&CPU::op_rla,
-        &CPU::op_sec,&CPU::op_and,&CPU::op_nop,&CPU::op_rla,&CPU::op_nop,&CPU::op_and,&CPU::op_rol,&CPU::op_rla,
-        &CPU::op_rti,&CPU::op_eor,&CPU::op_jam,&CPU::op_sre,&CPU::op_nop,&CPU::op_eor,&CPU::op_lsr,&CPU::op_sre,
-        &CPU::op_pha,&CPU::op_eor,&CPU::op_lar,&CPU::op_alr,&CPU::op_jmp,&CPU::op_eor,&CPU::op_lsr,&CPU::op_sre,
-        &CPU::op_bvc,&CPU::op_eor,&CPU::op_jam,&CPU::op_sre,&CPU::op_nop,&CPU::op_eor,&CPU::op_lsr,&CPU::op_sre,
-        &CPU::op_cli,&CPU::op_eor,&CPU::op_nop,&CPU::op_sre,&CPU::op_nop,&CPU::op_eor,&CPU::op_lsr,&CPU::op_sre,
-        &CPU::op_rts,&CPU::op_adc,&CPU::op_jam,&CPU::op_rra,&CPU::op_nop,&CPU::op_adc,&CPU::op_ror,&CPU::op_rra,
-        &CPU::op_pla,&CPU::op_adc,&CPU::op_rar,&CPU::op_arr,&CPU::op_jmp,&CPU::op_adc,&CPU::op_ror,&CPU::op_rra,
-        &CPU::op_bvs,&CPU::op_adc,&CPU::op_jam,&CPU::op_rra,&CPU::op_nop,&CPU::op_adc,&CPU::op_ror,&CPU::op_rra,
-        &CPU::op_sei,&CPU::op_adc,&CPU::op_nop,&CPU::op_rra,&CPU::op_nop,&CPU::op_adc,&CPU::op_ror,&CPU::op_rra,
-        &CPU::op_nop,&CPU::op_sta,&CPU::op_nop,&CPU::op_sax,&CPU::op_sty,&CPU::op_sta,&CPU::op_stx,&CPU::op_sax,
-        &CPU::op_dey,&CPU::op_nop,&CPU::op_txa,&CPU::op_ane,&CPU::op_sty,&CPU::op_sta,&CPU::op_stx,&CPU::op_sax,
-        &CPU::op_bcc,&CPU::op_sta,&CPU::op_jam,&CPU::op_sha,&CPU::op_sty,&CPU::op_sta,&CPU::op_stx,&CPU::op_sax,
-        &CPU::op_tya,&CPU::op_sta,&CPU::op_txs,&CPU::op_tas,&CPU::op_shy,&CPU::op_sta,&CPU::op_shx,&CPU::op_sha,
-        &CPU::op_ldy,&CPU::op_lda,&CPU::op_ldx,&CPU::op_lax,&CPU::op_ldy,&CPU::op_lda,&CPU::op_ldx,&CPU::op_lax,
-        &CPU::op_tay,&CPU::op_lda,&CPU::op_tax,&CPU::op_lxa,&CPU::op_ldy,&CPU::op_lda,&CPU::op_ldx,&CPU::op_lax,
-        &CPU::op_bcs,&CPU::op_lda,&CPU::op_jam,&CPU::op_lax,&CPU::op_ldy,&CPU::op_lda,&CPU::op_ldx,&CPU::op_lax,
-        &CPU::op_clv,&CPU::op_lda,&CPU::op_tsx,&CPU::op_las,&CPU::op_ldy,&CPU::op_lda,&CPU::op_ldx,&CPU::op_lax,
-        &CPU::op_cpy,&CPU::op_cmp,&CPU::op_nop,&CPU::op_dcp,&CPU::op_cpy,&CPU::op_cmp,&CPU::op_dec,&CPU::op_dcp,
-        &CPU::op_iny,&CPU::op_cmp,&CPU::op_dex,&CPU::op_sbx,&CPU::op_cpy,&CPU::op_cmp,&CPU::op_dec,&CPU::op_dcp,
-        &CPU::op_bne,&CPU::op_cmp,&CPU::op_jam,&CPU::op_dcp,&CPU::op_nop,&CPU::op_cmp,&CPU::op_dec,&CPU::op_dcp,
-        &CPU::op_cld,&CPU::op_cmp,&CPU::op_nop,&CPU::op_dcp,&CPU::op_nop,&CPU::op_cmp,&CPU::op_dec,&CPU::op_dcp,
-        &CPU::op_cpx,&CPU::op_sbc,&CPU::op_nop,&CPU::op_isc,&CPU::op_cpx,&CPU::op_sbc,&CPU::op_inc,&CPU::op_isc,
-        &CPU::op_inx,&CPU::op_sbc,&CPU::op_nop,&CPU::op_usb,&CPU::op_cpx,&CPU::op_sbc,&CPU::op_inc,&CPU::op_isc,
-        &CPU::op_beq,&CPU::op_sbc,&CPU::op_jam,&CPU::op_isc,&CPU::op_nop,&CPU::op_sbc,&CPU::op_inc,&CPU::op_isc,
-        &CPU::op_sed,&CPU::op_sbc,&CPU::op_nop,&CPU::op_isc,&CPU::op_nop,&CPU::op_sbc,&CPU::op_inc,&CPU::op_isc
-    };
+    using _op_ptr = void (CPU::*)();
+    static const _op_ptr INSTRUCTIONS[256];
 
 public:
     template<DumpOperation operation, typename T>

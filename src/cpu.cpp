@@ -3,6 +3,78 @@
 
 #include <cstring>
 
+using _addr_ptr = void (cynes::CPU::*)();;
+const _addr_ptr cynes::CPU::ADDRESSING_MODES[256] = {
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_ixr, &cynes::CPU::addr_acc, &cynes::CPU::addr_ixr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_imm, &cynes::CPU::addr_acc, &cynes::CPU::addr_imm, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr,
+    &cynes::CPU::addr_rel, &cynes::CPU::addr_iyr, &cynes::CPU::addr_acc, &cynes::CPU::addr_iym, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_ayr, &cynes::CPU::addr_imp, &cynes::CPU::addr_aym, &cynes::CPU::addr_axr, &cynes::CPU::addr_axr, &cynes::CPU::addr_axm, &cynes::CPU::addr_axm,
+    &cynes::CPU::addr_abw, &cynes::CPU::addr_ixr, &cynes::CPU::addr_acc, &cynes::CPU::addr_ixr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_imm, &cynes::CPU::addr_acc, &cynes::CPU::addr_imm, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr,
+    &cynes::CPU::addr_rel, &cynes::CPU::addr_iyr, &cynes::CPU::addr_acc, &cynes::CPU::addr_iym, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_ayr, &cynes::CPU::addr_imp, &cynes::CPU::addr_aym, &cynes::CPU::addr_axr, &cynes::CPU::addr_axr, &cynes::CPU::addr_axm, &cynes::CPU::addr_axm,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_ixr, &cynes::CPU::addr_acc, &cynes::CPU::addr_ixr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_imm, &cynes::CPU::addr_acc, &cynes::CPU::addr_imm, &cynes::CPU::addr_abw, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr,
+    &cynes::CPU::addr_rel, &cynes::CPU::addr_iyr, &cynes::CPU::addr_acc, &cynes::CPU::addr_iym, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_ayr, &cynes::CPU::addr_imp, &cynes::CPU::addr_aym, &cynes::CPU::addr_axr, &cynes::CPU::addr_axr, &cynes::CPU::addr_axm, &cynes::CPU::addr_axm,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_ixr, &cynes::CPU::addr_acc, &cynes::CPU::addr_ixr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_imm, &cynes::CPU::addr_acc, &cynes::CPU::addr_imm, &cynes::CPU::addr_ind, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr,
+    &cynes::CPU::addr_rel, &cynes::CPU::addr_iyr, &cynes::CPU::addr_acc, &cynes::CPU::addr_iym, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_ayr, &cynes::CPU::addr_imp, &cynes::CPU::addr_aym, &cynes::CPU::addr_axr, &cynes::CPU::addr_axr, &cynes::CPU::addr_axm, &cynes::CPU::addr_axm,
+    &cynes::CPU::addr_imm, &cynes::CPU::addr_ixw, &cynes::CPU::addr_imm, &cynes::CPU::addr_ixw, &cynes::CPU::addr_zpw, &cynes::CPU::addr_zpw, &cynes::CPU::addr_zpw, &cynes::CPU::addr_zpw,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_imm, &cynes::CPU::addr_imp, &cynes::CPU::addr_imm, &cynes::CPU::addr_abw, &cynes::CPU::addr_abw, &cynes::CPU::addr_abw, &cynes::CPU::addr_abw,
+    &cynes::CPU::addr_rel, &cynes::CPU::addr_iyw, &cynes::CPU::addr_acc, &cynes::CPU::addr_iyw, &cynes::CPU::addr_zxw, &cynes::CPU::addr_zxw, &cynes::CPU::addr_zyw, &cynes::CPU::addr_zyw,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_ayw, &cynes::CPU::addr_imp, &cynes::CPU::addr_ayw, &cynes::CPU::addr_axw, &cynes::CPU::addr_axw, &cynes::CPU::addr_ayw, &cynes::CPU::addr_ayw,
+    &cynes::CPU::addr_imm, &cynes::CPU::addr_ixr, &cynes::CPU::addr_imm, &cynes::CPU::addr_ixr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_imm, &cynes::CPU::addr_imp, &cynes::CPU::addr_imm, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr,
+    &cynes::CPU::addr_rel, &cynes::CPU::addr_iyr, &cynes::CPU::addr_acc, &cynes::CPU::addr_iyr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zyr, &cynes::CPU::addr_zyr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_ayr, &cynes::CPU::addr_imp, &cynes::CPU::addr_ayr, &cynes::CPU::addr_axr, &cynes::CPU::addr_axr, &cynes::CPU::addr_ayr, &cynes::CPU::addr_ayr,
+    &cynes::CPU::addr_imm, &cynes::CPU::addr_ixr, &cynes::CPU::addr_imm, &cynes::CPU::addr_ixr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_imm, &cynes::CPU::addr_imp, &cynes::CPU::addr_imm, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr,
+    &cynes::CPU::addr_rel, &cynes::CPU::addr_iyr, &cynes::CPU::addr_acc, &cynes::CPU::addr_iym, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_ayr, &cynes::CPU::addr_imp, &cynes::CPU::addr_aym, &cynes::CPU::addr_axr, &cynes::CPU::addr_axr, &cynes::CPU::addr_axm, &cynes::CPU::addr_axm,
+    &cynes::CPU::addr_imm, &cynes::CPU::addr_ixr, &cynes::CPU::addr_imm, &cynes::CPU::addr_ixr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr, &cynes::CPU::addr_zpr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_imm, &cynes::CPU::addr_imp, &cynes::CPU::addr_imm, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr, &cynes::CPU::addr_abr,
+    &cynes::CPU::addr_rel, &cynes::CPU::addr_iyr, &cynes::CPU::addr_acc, &cynes::CPU::addr_iym, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr, &cynes::CPU::addr_zxr,
+    &cynes::CPU::addr_imp, &cynes::CPU::addr_ayr, &cynes::CPU::addr_imp, &cynes::CPU::addr_aym, &cynes::CPU::addr_axr, &cynes::CPU::addr_axr, &cynes::CPU::addr_axm, &cynes::CPU::addr_axm
+};
+
+using _op_ptr = void (cynes::CPU::*)();;
+const _op_ptr cynes::CPU::INSTRUCTIONS[256] = {
+    &cynes::CPU::op_brk, &cynes::CPU::op_ora, &cynes::CPU::op_jam, &cynes::CPU::op_slo, &cynes::CPU::op_nop, &cynes::CPU::op_ora, &cynes:: CPU::op_asl, &cynes::CPU::op_slo,
+    &cynes::CPU::op_php, &cynes::CPU::op_ora, &cynes::CPU::op_aal, &cynes::CPU::op_anc, &cynes::CPU::op_nop, &cynes::CPU::op_ora, &cynes:: CPU::op_asl, &cynes::CPU::op_slo,
+    &cynes::CPU::op_bpl, &cynes::CPU::op_ora, &cynes::CPU::op_jam, &cynes::CPU::op_slo, &cynes::CPU::op_nop, &cynes::CPU::op_ora, &cynes:: CPU::op_asl, &cynes::CPU::op_slo,
+    &cynes::CPU::op_clc, &cynes::CPU::op_ora, &cynes::CPU::op_nop, &cynes::CPU::op_slo, &cynes::CPU::op_nop, &cynes::CPU::op_ora, &cynes:: CPU::op_asl, &cynes::CPU::op_slo,
+    &cynes::CPU::op_jsr, &cynes::CPU::op_and, &cynes::CPU::op_jam, &cynes::CPU::op_rla, &cynes::CPU::op_bit, &cynes::CPU::op_and, &cynes:: CPU::op_rol, &cynes::CPU::op_rla,
+    &cynes::CPU::op_plp, &cynes::CPU::op_and, &cynes::CPU::op_ral, &cynes::CPU::op_anc, &cynes::CPU::op_bit, &cynes::CPU::op_and, &cynes:: CPU::op_rol, &cynes::CPU::op_rla,
+    &cynes::CPU::op_bmi, &cynes::CPU::op_and, &cynes::CPU::op_jam, &cynes::CPU::op_rla, &cynes::CPU::op_nop, &cynes::CPU::op_and, &cynes:: CPU::op_rol, &cynes::CPU::op_rla,
+    &cynes::CPU::op_sec, &cynes::CPU::op_and, &cynes::CPU::op_nop, &cynes::CPU::op_rla, &cynes::CPU::op_nop, &cynes::CPU::op_and, &cynes:: CPU::op_rol, &cynes::CPU::op_rla,
+    &cynes::CPU::op_rti, &cynes::CPU::op_eor, &cynes::CPU::op_jam, &cynes::CPU::op_sre, &cynes::CPU::op_nop, &cynes::CPU::op_eor, &cynes:: CPU::op_lsr, &cynes::CPU::op_sre,
+    &cynes::CPU::op_pha, &cynes::CPU::op_eor, &cynes::CPU::op_lar, &cynes::CPU::op_alr, &cynes::CPU::op_jmp, &cynes::CPU::op_eor, &cynes:: CPU::op_lsr, &cynes::CPU::op_sre,
+    &cynes::CPU::op_bvc, &cynes::CPU::op_eor, &cynes::CPU::op_jam, &cynes::CPU::op_sre, &cynes::CPU::op_nop, &cynes::CPU::op_eor, &cynes:: CPU::op_lsr, &cynes::CPU::op_sre,
+    &cynes::CPU::op_cli, &cynes::CPU::op_eor, &cynes::CPU::op_nop, &cynes::CPU::op_sre, &cynes::CPU::op_nop, &cynes::CPU::op_eor, &cynes:: CPU::op_lsr, &cynes::CPU::op_sre,
+    &cynes::CPU::op_rts, &cynes::CPU::op_adc, &cynes::CPU::op_jam, &cynes::CPU::op_rra, &cynes::CPU::op_nop, &cynes::CPU::op_adc, &cynes:: CPU::op_ror, &cynes::CPU::op_rra,
+    &cynes::CPU::op_pla, &cynes::CPU::op_adc, &cynes::CPU::op_rar, &cynes::CPU::op_arr, &cynes::CPU::op_jmp, &cynes::CPU::op_adc, &cynes:: CPU::op_ror, &cynes::CPU::op_rra,
+    &cynes::CPU::op_bvs, &cynes::CPU::op_adc, &cynes::CPU::op_jam, &cynes::CPU::op_rra, &cynes::CPU::op_nop, &cynes::CPU::op_adc, &cynes:: CPU::op_ror, &cynes::CPU::op_rra,
+    &cynes::CPU::op_sei, &cynes::CPU::op_adc, &cynes::CPU::op_nop, &cynes::CPU::op_rra, &cynes::CPU::op_nop, &cynes::CPU::op_adc, &cynes:: CPU::op_ror, &cynes::CPU::op_rra,
+    &cynes::CPU::op_nop, &cynes::CPU::op_sta, &cynes::CPU::op_nop, &cynes::CPU::op_sax, &cynes::CPU::op_sty, &cynes::CPU::op_sta, &cynes:: CPU::op_stx, &cynes::CPU::op_sax,
+    &cynes::CPU::op_dey, &cynes::CPU::op_nop, &cynes::CPU::op_txa, &cynes::CPU::op_ane, &cynes::CPU::op_sty, &cynes::CPU::op_sta, &cynes:: CPU::op_stx, &cynes::CPU::op_sax,
+    &cynes::CPU::op_bcc, &cynes::CPU::op_sta, &cynes::CPU::op_jam, &cynes::CPU::op_sha, &cynes::CPU::op_sty, &cynes::CPU::op_sta, &cynes:: CPU::op_stx, &cynes::CPU::op_sax,
+    &cynes::CPU::op_tya, &cynes::CPU::op_sta, &cynes::CPU::op_txs, &cynes::CPU::op_tas, &cynes::CPU::op_shy, &cynes::CPU::op_sta, &cynes:: CPU::op_shx, &cynes::CPU::op_sha,
+    &cynes::CPU::op_ldy, &cynes::CPU::op_lda, &cynes::CPU::op_ldx, &cynes::CPU::op_lax, &cynes::CPU::op_ldy, &cynes::CPU::op_lda, &cynes:: CPU::op_ldx, &cynes::CPU::op_lax,
+    &cynes::CPU::op_tay, &cynes::CPU::op_lda, &cynes::CPU::op_tax, &cynes::CPU::op_lxa, &cynes::CPU::op_ldy, &cynes::CPU::op_lda, &cynes:: CPU::op_ldx, &cynes::CPU::op_lax,
+    &cynes::CPU::op_bcs, &cynes::CPU::op_lda, &cynes::CPU::op_jam, &cynes::CPU::op_lax, &cynes::CPU::op_ldy, &cynes::CPU::op_lda, &cynes:: CPU::op_ldx, &cynes::CPU::op_lax,
+    &cynes::CPU::op_clv, &cynes::CPU::op_lda, &cynes::CPU::op_tsx, &cynes::CPU::op_las, &cynes::CPU::op_ldy, &cynes::CPU::op_lda, &cynes:: CPU::op_ldx, &cynes::CPU::op_lax,
+    &cynes::CPU::op_cpy, &cynes::CPU::op_cmp, &cynes::CPU::op_nop, &cynes::CPU::op_dcp, &cynes::CPU::op_cpy, &cynes::CPU::op_cmp, &cynes:: CPU::op_dec, &cynes::CPU::op_dcp,
+    &cynes::CPU::op_iny, &cynes::CPU::op_cmp, &cynes::CPU::op_dex, &cynes::CPU::op_sbx, &cynes::CPU::op_cpy, &cynes::CPU::op_cmp, &cynes:: CPU::op_dec, &cynes::CPU::op_dcp,
+    &cynes::CPU::op_bne, &cynes::CPU::op_cmp, &cynes::CPU::op_jam, &cynes::CPU::op_dcp, &cynes::CPU::op_nop, &cynes::CPU::op_cmp, &cynes:: CPU::op_dec, &cynes::CPU::op_dcp,
+    &cynes::CPU::op_cld, &cynes::CPU::op_cmp, &cynes::CPU::op_nop, &cynes::CPU::op_dcp, &cynes::CPU::op_nop, &cynes::CPU::op_cmp, &cynes:: CPU::op_dec, &cynes::CPU::op_dcp,
+    &cynes::CPU::op_cpx, &cynes::CPU::op_sbc, &cynes::CPU::op_nop, &cynes::CPU::op_isc, &cynes::CPU::op_cpx, &cynes::CPU::op_sbc, &cynes:: CPU::op_inc, &cynes::CPU::op_isc,
+    &cynes::CPU::op_inx, &cynes::CPU::op_sbc, &cynes::CPU::op_nop, &cynes::CPU::op_usb, &cynes::CPU::op_cpx, &cynes::CPU::op_sbc, &cynes:: CPU::op_inc, &cynes::CPU::op_isc,
+    &cynes::CPU::op_beq, &cynes::CPU::op_sbc, &cynes::CPU::op_jam, &cynes::CPU::op_isc, &cynes::CPU::op_nop, &cynes::CPU::op_sbc, &cynes:: CPU::op_inc, &cynes::CPU::op_isc,
+    &cynes::CPU::op_sed, &cynes::CPU::op_sbc, &cynes::CPU::op_nop, &cynes::CPU::op_isc, &cynes::CPU::op_nop, &cynes::CPU::op_sbc, &cynes:: CPU::op_inc, &cynes::CPU::op_isc
+};
+
 
 cynes::CPU::CPU(NES& nes)
 : _nes{nes}
@@ -60,8 +132,8 @@ void cynes::CPU::tick() {
 
     uint8_t instruction = fetch_next();
 
-    (this->*_addressing_modes[instruction])();
-    (this->*_instructions[instruction])();
+    (this->*ADDRESSING_MODES[instruction])();
+    (this->*INSTRUCTIONS[instruction])();
 
     if (_delay_non_maskable_interrupt || _delay_interrupt) {
         _nes.read(_program_counter);

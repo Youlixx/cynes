@@ -10,8 +10,8 @@ namespace cynes {
 class NES;
 
 /// Audio Processing Unit (see https://www.nesdev.org/wiki/APU).
-/// This implementation does not produce any sound, it is only emulated for
-/// timing and interrupt purposes.
+/// This implementation does not produce any sound, it is only emulated for timing and
+/// interrupt purposes.
 class APU {
 public:
     /// Initialize the APU.

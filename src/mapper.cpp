@@ -195,8 +195,6 @@ cynes::NROM::NROM(NES& nes, NESMetadata metadata, MirroringMode mode)
     map_bank_cpu_ram(0x18, 0x8, 0x0, false);
 }
 
-cynes::NROM::~NROM() {}
-
 
 cynes::MMC1::MMC1(
     NES& nes,
@@ -213,8 +211,6 @@ cynes::MMC1::MMC1(
 
     update_banks();
 }
-
-cynes::MMC1::~MMC1() {}
 
 void cynes::MMC1::tick() {
     if (_tick < 6) {
@@ -298,8 +294,6 @@ cynes::UxROM::UxROM(NES& nes, NESMetadata metadata, MirroringMode mode)
     map_bank_ppu_ram(0x0, 0x8, 0x02, false);
 }
 
-cynes::UxROM::~UxROM() { }
-
 void cynes::UxROM::write_cpu(uint16_t address, uint8_t value) {
     if (address < 0x8000) {
         cynes::Mapper::write_cpu(address, value);
@@ -321,8 +315,6 @@ cynes::CNROM::CNROM(NES& nes, NESMetadata metadata, MirroringMode mode)
         map_bank_prg(0x30, 0x10, 0x0);
     }
 }
-
-cynes::CNROM::~CNROM() { }
 
 void cynes::CNROM::write_cpu(uint16_t address, uint8_t value) {
     if (address < 0x8000) {
@@ -355,8 +347,6 @@ cynes::MMC3::MMC3(
 
     memset(_registers, 0x0000, 0x20);
 }
-
-cynes::MMC3::~MMC3() { }
 
 void cynes::MMC3::tick() {
     if (_tick > 0 && _tick < 11) {
@@ -472,8 +462,6 @@ cynes::AxROM::AxROM(NES& nes, NESMetadata metadata)
     map_bank_prg(0x20, 0x20, 0x0);
 }
 
-cynes::AxROM::~AxROM() { }
-
 void cynes::AxROM::write_cpu(uint16_t address, uint8_t value) {
     if (address < 0x8000) {
         cynes::Mapper::write_cpu(address, value);
@@ -495,8 +483,6 @@ cynes::GxROM::GxROM(NES& nes, NESMetadata metadata, MirroringMode mode)
     map_bank_prg(0x20, 0x20, 0x0);
     map_bank_chr(0x00, 0x08, 0x0);
 }
-
-cynes::GxROM::~GxROM() { }
 
 void cynes::GxROM::write_cpu(uint16_t address, uint8_t value) {
     if (address < 0x8000) {

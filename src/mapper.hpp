@@ -7,12 +7,14 @@
 #include "utils.hpp"
 
 namespace cynes {
+// Forward declaration.
 class NES;
 
 enum class MirroringMode : uint8_t {
     NONE, ONE_SCREEN_LOW, ONE_SCREEN_HIGH, HORIZONTAL, VERTICAL
 };
 
+// TODO: use smart pointers
 struct NESMetadata {
 public:
     uint16_t size_prg = 0x00;
@@ -23,8 +25,15 @@ public:
     uint8_t* memory_chr = nullptr;
 };
 
+/// Generic NES Mapper (see https://www.nesdev.org/wiki/Mapper).
 class Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
+    /// @param size_cpu_ram Size of the CPU RAM.
+    /// @param size_ppu_ram Size of the PPU RAM.
     Mapper(
         NES& nes,
         NESMetadata metadata,
@@ -36,12 +45,35 @@ public:
     virtual ~Mapper();
 
 public:
+    /// Tick the mapper.
     virtual void tick();
 
+    /// Write to a CPU mapped memory bank.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
+    /// @param address Memory address within the console memory address space.
+    /// @param value Value to write.
     virtual void write_cpu(uint16_t address, uint8_t value);
+
+    /// Write to a PPU mapped memory bank.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
+    /// @param address Memory address within the console memory address space.
+    /// @param value Value to write.
     virtual void write_ppu(uint16_t address, uint8_t value);
 
+    /// Read from the CPU memory mapped banks.
+    /// @note This function has other side effects than simply reading from memory, it
+    /// should not be used as a memory watch function.
+    /// @param address Memory address within the console memory address space.
+    /// @return The value stored at the given address.
     virtual uint8_t read_cpu(uint16_t address);
+
+    /// Read from the PPU memory mapped banks.
+    /// @note This function has other side effects than simply reading from memory, it
+    /// should not be used as a memory watch function.
+    /// @param address Memory address within the console memory address space.
+    /// @return The value stored at the given address.
     virtual uint8_t read_ppu(uint16_t address);
 
 protected:
@@ -119,20 +151,29 @@ public:
 };
 
 
+/// NROM mapper (see https://www.nesdev.org/wiki/NROM).
 class NROM : public Mapper {
 public:
     NROM(NES& nes, NESMetadata metadata, MirroringMode mode);
-    ~NROM();
+    ~NROM() = default;
 };
 
+
+/// MMC1 mapper (see https://www.nesdev.org/wiki/MMC1).
 class MMC1 : public Mapper {
 public:
     MMC1(NES& nes, NESMetadata metadata, MirroringMode mode);
-    ~MMC1();
+    ~MMC1() = default;
 
 public:
+    /// Tick the mapper.
     virtual void tick();
 
+    /// Write to a CPU mapped memory bank.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
+    /// @param address Memory address within the console memory address space.
+    /// @param value Value to write.
     virtual void write_cpu(uint16_t address, uint8_t value);
 
 private:
@@ -157,35 +198,68 @@ public:
     }
 };
 
+
+/// UxROM mapper (see https://www.nesdev.org/wiki/UxROM).
 class UxROM : public Mapper {
 public:
     UxROM(NES& nes, NESMetadata metadata, MirroringMode mode);
-    ~UxROM();
+    ~UxROM() = default;
 
 public:
+    /// Write to a CPU mapped memory bank.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
+    /// @param address Memory address within the console memory address space.
+    /// @param value Value to write.
     virtual void write_cpu(uint16_t address, uint8_t value);
 };
 
+
+/// CNROM mapper (see https://www.nesdev.org/wiki/CNROM).
 class CNROM : public Mapper {
 public:
     CNROM(NES& nes, NESMetadata metadata, MirroringMode mode);
-    ~CNROM();
+    ~CNROM() = default;
 
 public:
+    /// Write to a CPU mapped memory bank.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
+    /// @param address Memory address within the console memory address space.
+    /// @param value Value to write.
     virtual void write_cpu(uint16_t address, uint8_t value);
 };
 
+
+/// MMC3 mapper (see https://www.nesdev.org/wiki/MMC3).
 class MMC3 : public Mapper {
 public:
     MMC3(NES& nes, NESMetadata metadata, MirroringMode mode);
-    ~MMC3();
+    ~MMC3() = default;
 
 public:
+    /// Tick the mapper.
     virtual void tick();
 
+    /// Write to a CPU mapped memory bank.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
+    /// @param address Memory address within the console memory address space.
+    /// @param value Value to write.
     virtual void write_cpu(uint16_t address, uint8_t value);
+
+    /// Write to a PPU mapped memory bank.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
+    /// @param address Memory address within the console memory address space.
+    /// @param value Value to write.
     virtual void write_ppu(uint16_t address, uint8_t value);
 
+    /// Read from the PPU memory mapped banks.
+    /// @note This function has other side effects than simply reading from memory, it
+    /// should not be used as a memory watch function.
+    /// @param address Memory address within the console memory address space.
+    /// @return The value stored at the given address.
     virtual uint8_t read_ppu(uint16_t address);
 
 private:
@@ -221,15 +295,23 @@ public:
     }
 };
 
+
+/// AxROM mapper (see https://www.nesdev.org/wiki/AxROM).
 class AxROM : public Mapper {
 public:
     AxROM(NES& nes, NESMetadata metadata);
-    ~AxROM();
+    ~AxROM() = default;
 
 public:
+    /// Write to a CPU mapped memory bank.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
+    /// @param address Memory address within the console memory address space.
+    /// @param value Value to write.
     virtual void write_cpu(uint16_t address, uint8_t value);
 };
 
+/// Generic MMC mapper (see https://www.nesdev.org/wiki/MMC2).
 template<uint8_t BANK_SIZE>
 class MMC : public Mapper {
 public:
@@ -246,9 +328,14 @@ public:
         memset(_selected_banks, 0x0, 0x4);
     }
 
-    ~MMC() { }
+    ~MMC() = default;
 
 public:
+    /// Write to a CPU mapped memory bank.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
+    /// @param address Memory address within the console memory address space.
+    /// @param value Value to write.
     virtual void write_cpu(uint16_t address, uint8_t value) {
         if (address < 0xA000) {
             Mapper::write_cpu(address, value);
@@ -271,6 +358,11 @@ public:
         }
     }
 
+    /// Read from the PPU memory mapped banks.
+    /// @note This function has other side effects than simply reading from memory, it
+    /// should not be used as a memory watch function.
+    /// @param address Memory address within the console memory address space.
+    /// @return The value stored at the given address.
     virtual uint8_t read_ppu(uint16_t address) {
         uint8_t value = Mapper::read_ppu(address);
 
@@ -320,12 +412,19 @@ public:
 using MMC2 = MMC<0x08>;
 using MMC4 = MMC<0x10>;
 
+
+/// GxROM mapper (see https://www.nesdev.org/wiki/GxROM).
 class GxROM : public Mapper {
 public:
     GxROM(NES& nes, NESMetadata metadata, MirroringMode mode);
-    ~GxROM();
+    ~GxROM() = default;
 
 public:
+    /// Write to a CPU mapped memory bank.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
+    /// @param address Memory address within the console memory address space.
+    /// @param value Value to write.
     virtual void write_cpu(uint16_t address, uint8_t value);
 };
 }

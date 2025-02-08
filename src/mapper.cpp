@@ -1,6 +1,7 @@
 #include "mapper.hpp"
 #include "cpu.hpp"
 #include "nes.hpp"
+#include <fstream>
 
 
 cynes::Mapper::MemoryBank::MemoryBank()
@@ -12,7 +13,7 @@ cynes::Mapper::MemoryBank::MemoryBank(size_t offset, bool read_only)
 
 cynes::Mapper::Mapper(
     NES& nes,
-    NESMetadata metadata,
+    const NESMetadata& metadata,
     MirroringMode mode,
     uint8_t size_cpu_ram,
     uint8_t size_ppu_ram
@@ -32,36 +33,99 @@ cynes::Mapper::Mapper(
     if (metadata.memory_prg != nullptr) {
         std::memcpy(
             _memory.get(),
-            metadata.memory_prg,
+            metadata.memory_prg.get(),
             _size_prg
         );
-
-        // TODO use smart pointers
-        delete[] metadata.memory_prg;
     }
 
     if (metadata.memory_chr != nullptr) {
         std::memcpy(
             _memory.get() + _size_prg,
-            metadata.memory_chr,
+            metadata.memory_chr.get(),
             _size_chr
         );
-
-        // TODO use smart pointers
-        delete[] metadata.memory_chr;
     }
 
     if (metadata.trainer != nullptr) {
         std::memcpy(
             _memory.get() + _size_prg + _size_chr,
-            metadata.trainer,
+            metadata.trainer.get(),
             0x200
         );
-
-        delete[] metadata.trainer;
     }
 
     set_mirroring_mode(mode);
+}
+
+std::unique_ptr<cynes::Mapper> cynes::Mapper::load_mapper(
+    NES &nes,
+    const std::filesystem::path& path_rom
+) {
+    std::ifstream stream{path_rom, std::ios::binary};
+
+    if (!stream.is_open()) {
+        throw std::runtime_error("The file cannot be read.");
+    }
+
+    uint32_t header;
+    stream.read(reinterpret_cast<char*>(&header), sizeof(uint32_t));
+
+    if (header != 0x1A53454E) {
+        throw std::runtime_error("The specified file is not a NES ROM.");
+    }
+
+    uint8_t program_banks = stream.get();
+    uint8_t character_banks = stream.get();
+    uint8_t flag6 = stream.get();
+    uint8_t flag7 = stream.get();
+
+    stream.seekg(8, std::ios::cur);
+
+    cynes::NESMetadata metadata{};
+    metadata.size_prg = static_cast<uint16_t>(program_banks) << 4;
+    metadata.size_chr = static_cast<uint16_t>(character_banks) << 3;
+
+    if (flag6 & 0x04) {
+        metadata.trainer.reset(new uint8_t[0x200]);
+        stream.read(reinterpret_cast<char*>(metadata.trainer.get()), 0x200);
+    }
+
+    if (metadata.size_prg > 0) {
+        size_t memory_size = static_cast<size_t>(metadata.size_prg) << 10;
+        metadata.memory_prg.reset(new uint8_t[memory_size]);
+        stream.read(reinterpret_cast<char*>(metadata.memory_prg.get()), memory_size);
+    }
+
+    if (metadata.size_chr > 0) {
+        size_t memory_size = static_cast<size_t>(metadata.size_chr) << 10;
+        metadata.memory_chr.reset(new uint8_t[memory_size]);
+        stream.read(reinterpret_cast<char*>(metadata.memory_chr.get()), memory_size);
+    } else {
+        metadata.size_chr = 8;
+        metadata.memory_chr.reset(new uint8_t[0x2000]);
+    }
+
+    stream.close();
+
+    uint8_t mapper_index = (flag7 & 0xF0) | flag6 >> 4;
+
+    cynes::MirroringMode mode = (flag6 & 0x01) == 1
+        ? cynes::MirroringMode::VERTICAL
+        : cynes::MirroringMode::HORIZONTAL;
+
+    switch (mapper_index) {
+    case   0: return std::make_unique<cynes::NROM> (nes, metadata, mode);
+    case   1: return std::make_unique<cynes::MMC1> (nes, metadata, mode);
+    case   2: return std::make_unique<cynes::UxROM>(nes, metadata, mode);
+    case   3: return std::make_unique<cynes::CNROM>(nes, metadata, mode);
+    case   4: return std::make_unique<cynes::MMC3> (nes, metadata, mode);
+    case   7: return std::make_unique<cynes::AxROM>(nes, metadata);
+    case   9: return std::make_unique<cynes::MMC2> (nes, metadata, mode);
+    case  10: return std::make_unique<cynes::MMC4> (nes, metadata, mode);
+    case  66: return std::make_unique<cynes::GxROM>(nes, metadata, mode);
+    case  71: return std::make_unique<cynes::UxROM>(nes, metadata, mode);
+    default: throw std::runtime_error("The ROM Mapper is not supported.");
+    }
 }
 
 void cynes::Mapper::tick() { }
@@ -201,7 +265,7 @@ void cynes::Mapper::mirror_ppu_banks(uint8_t page, uint8_t size, uint8_t mirror)
 }
 
 
-cynes::NROM::NROM(NES& nes, NESMetadata metadata, MirroringMode mode)
+cynes::NROM::NROM(NES& nes, const NESMetadata& metadata, MirroringMode mode)
     : Mapper(nes, metadata, mode)
 {
     map_bank_chr(0x0, 0x8, 0x0);
@@ -219,7 +283,7 @@ cynes::NROM::NROM(NES& nes, NESMetadata metadata, MirroringMode mode)
 
 cynes::MMC1::MMC1(
     NES& nes,
-    NESMetadata metadata,
+    const NESMetadata& metadata,
     MirroringMode mode
 ) : Mapper(nes, metadata, mode)
   , _tick{0x00}
@@ -306,7 +370,7 @@ void cynes::MMC1::update_banks() {
 }
 
 
-cynes::UxROM::UxROM(NES& nes, NESMetadata metadata, MirroringMode mode)
+cynes::UxROM::UxROM(NES& nes, const NESMetadata& metadata, MirroringMode mode)
     : Mapper(nes, metadata, mode, 0x0, 0x10)
 {
     map_bank_prg(0x20, 0x10, 0x00);
@@ -324,7 +388,7 @@ void cynes::UxROM::write_cpu(uint16_t address, uint8_t value) {
 }
 
 
-cynes::CNROM::CNROM(NES& nes, NESMetadata metadata, MirroringMode mode)
+cynes::CNROM::CNROM(NES& nes, const NESMetadata& metadata, MirroringMode mode)
     : Mapper(nes, metadata, mode, 0x0)
 {
     map_bank_chr(0x0, 0x8, 0x0);
@@ -348,7 +412,7 @@ void cynes::CNROM::write_cpu(uint16_t address, uint8_t value) {
 
 cynes::MMC3::MMC3(
     NES& nes,
-    NESMetadata metadata,
+    const NESMetadata& metadata,
     MirroringMode mode
 ) : Mapper(nes, metadata, mode)
   , _tick{0x0000}
@@ -476,7 +540,7 @@ void cynes::MMC3::update_state(bool state) {
 }
 
 
-cynes::AxROM::AxROM(NES& nes, NESMetadata metadata)
+cynes::AxROM::AxROM(NES& nes, const NESMetadata& metadata)
     : Mapper(nes, metadata, MirroringMode::ONE_SCREEN_LOW, 0x8, 0x10)
 {
     map_bank_ppu_ram(0x0, 0x8, 0x2, false);
@@ -498,7 +562,7 @@ void cynes::AxROM::write_cpu(uint16_t address, uint8_t value) {
 }
 
 
-cynes::GxROM::GxROM(NES& nes, NESMetadata metadata, MirroringMode mode)
+cynes::GxROM::GxROM(NES& nes, const NESMetadata& metadata, MirroringMode mode)
     : Mapper(nes, metadata, mode, 0x0)
 {
     map_bank_prg(0x20, 0x20, 0x0);

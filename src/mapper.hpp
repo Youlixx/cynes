@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <memory>
 
 #include "utils.hpp"
@@ -22,9 +23,9 @@ public:
     uint16_t size_prg = 0x00;
     uint16_t size_chr = 0x00;
 
-    uint8_t* trainer = nullptr;
-    uint8_t* memory_prg = nullptr;
-    uint8_t* memory_chr = nullptr;
+    std::unique_ptr<uint8_t[]> trainer;
+    std::unique_ptr<uint8_t[]> memory_prg;
+    std::unique_ptr<uint8_t[]> memory_chr;
 };
 
 /// Generic NES Mapper (see https://www.nesdev.org/wiki/Mapper).
@@ -38,7 +39,7 @@ public:
     /// @param size_ppu_ram Size of the PPU RAM.
     Mapper(
         NES& nes,
-        NESMetadata metadata,
+        const NESMetadata& metadata,
         MirroringMode mode,
         uint8_t size_cpu_ram = 0x8,
         uint8_t size_ppu_ram = 0x2
@@ -46,6 +47,15 @@ public:
 
     /// Default destructor.
     virtual ~Mapper() = default;
+
+    /// Load and deserialize a ROM into a mapper.
+    /// @param nes Emulator.
+    /// @param path_rom Path to the NES ROM file.
+    /// @return A pointer to the instantiated mapper.
+    static std::unique_ptr<Mapper> load_mapper(
+        NES& nes,
+        const std::filesystem::path& path_rom
+    );
 
 public:
     /// Tick the mapper.
@@ -174,7 +184,7 @@ public:
 /// NROM mapper (see https://www.nesdev.org/wiki/NROM).
 class NROM : public Mapper {
 public:
-    NROM(NES& nes, NESMetadata metadata, MirroringMode mode);
+    NROM(NES& nes, const NESMetadata& metadata, MirroringMode mode);
     ~NROM() = default;
 };
 
@@ -182,7 +192,7 @@ public:
 /// MMC1 mapper (see https://www.nesdev.org/wiki/MMC1).
 class MMC1 : public Mapper {
 public:
-    MMC1(NES& nes, NESMetadata metadata, MirroringMode mode);
+    MMC1(NES& nes, const NESMetadata& metadata, MirroringMode mode);
     ~MMC1() = default;
 
 public:
@@ -222,7 +232,7 @@ public:
 /// UxROM mapper (see https://www.nesdev.org/wiki/UxROM).
 class UxROM : public Mapper {
 public:
-    UxROM(NES& nes, NESMetadata metadata, MirroringMode mode);
+    UxROM(NES& nes, const NESMetadata& metadata, MirroringMode mode);
     ~UxROM() = default;
 
 public:
@@ -238,7 +248,7 @@ public:
 /// CNROM mapper (see https://www.nesdev.org/wiki/CNROM).
 class CNROM : public Mapper {
 public:
-    CNROM(NES& nes, NESMetadata metadata, MirroringMode mode);
+    CNROM(NES& nes, const NESMetadata& metadata, MirroringMode mode);
     ~CNROM() = default;
 
 public:
@@ -254,7 +264,7 @@ public:
 /// MMC3 mapper (see https://www.nesdev.org/wiki/MMC3).
 class MMC3 : public Mapper {
 public:
-    MMC3(NES& nes, NESMetadata metadata, MirroringMode mode);
+    MMC3(NES& nes, const NESMetadata& metadata, MirroringMode mode);
     ~MMC3() = default;
 
 public:
@@ -319,7 +329,7 @@ public:
 /// AxROM mapper (see https://www.nesdev.org/wiki/AxROM).
 class AxROM : public Mapper {
 public:
-    AxROM(NES& nes, NESMetadata metadata);
+    AxROM(NES& nes, const NESMetadata& metadata);
     ~AxROM() = default;
 
 public:
@@ -335,7 +345,7 @@ public:
 template<uint8_t BANK_SIZE>
 class MMC : public Mapper {
 public:
-    MMC(NES& nes, NESMetadata metadata, MirroringMode mode) :
+    MMC(NES& nes, const NESMetadata& metadata, MirroringMode mode) :
         Mapper(nes, metadata, mode) {
         map_bank_chr(0x0, 0x8, 0x0);
 
@@ -436,7 +446,7 @@ using MMC4 = MMC<0x10>;
 /// GxROM mapper (see https://www.nesdev.org/wiki/GxROM).
 class GxROM : public Mapper {
 public:
-    GxROM(NES& nes, NESMetadata metadata, MirroringMode mode);
+    GxROM(NES& nes, const NESMetadata& metadata, MirroringMode mode);
     ~GxROM() = default;
 
 public:

@@ -20,6 +20,7 @@ enum class MirroringMode : uint8_t {
 /// Simple wrapper storing memory parsed from a ROM file.
 struct ParsedMemory {
 public:
+    bool read_only_chr = true;
     uint16_t size_prg = 0x00;
     uint16_t size_chr = 0x00;
 
@@ -132,6 +133,7 @@ private:
     const size_t _size_chr;
     const size_t _size_cpu_ram;
     const size_t _size_ppu_ram;
+    const bool _read_only_chr;
 
     std::unique_ptr<uint8_t[]> _memory;
 

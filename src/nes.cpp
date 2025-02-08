@@ -5,10 +5,6 @@
 #include "ppu.hpp"
 #include "mapper.hpp"
 
-#include <fstream>
-#include <memory>
-#include <stdexcept>
-
 
 constexpr uint8_t PALETTE_RAM_BOOT_VALUES[0x20] = {
     0x09, 0x01, 0x00, 0x01, 0x00, 0x02, 0x02, 0x0D,
@@ -18,84 +14,11 @@ constexpr uint8_t PALETTE_RAM_BOOT_VALUES[0x20] = {
 };
 
 
-// TODO: maybe move elsewhere?
-std::unique_ptr<cynes::Mapper> load_mapper(cynes::NES& nes, const char* path) {
-    std::ifstream stream{path, std::ios::binary};
-
-    if (!stream.is_open()) {
-        throw std::runtime_error("The file cannot be read.");
-    }
-
-    uint32_t header;
-    stream.read(reinterpret_cast<char*>(&header), 4);
-
-    if (header != 0x1A53454E) {
-        throw std::runtime_error("The specified file is not a NES ROM.");
-    }
-
-    uint8_t program_banks = stream.get();
-    uint8_t character_banks = stream.get();
-    uint8_t flag6 = stream.get();
-    uint8_t flag7 = stream.get();
-
-    stream.seekg(8, std::ios::cur);
-
-    cynes::NESMetadata metadata;
-
-    metadata.size_prg = program_banks << 4;
-    metadata.size_chr = character_banks << 3;
-
-    if (flag6 & 0x04) {
-        metadata.trainer = new uint8_t[0x200];
-        stream.read(reinterpret_cast<char*>(metadata.trainer), 0x200);
-    }
-
-    if (metadata.size_prg > 0) {
-        size_t memory_size = static_cast<size_t>(metadata.size_prg) << 10;
-        metadata.memory_prg = new uint8_t[memory_size]{ 0 };
-        stream.read(reinterpret_cast<char*>(metadata.memory_prg), memory_size);
-    }
-
-    if (metadata.size_chr > 0) {
-        size_t memory_size = static_cast<size_t>(metadata.size_chr) << 10;
-        metadata.memory_chr = new uint8_t[memory_size]{ 0 };
-        stream.read(reinterpret_cast<char*>(metadata.memory_chr), memory_size);
-    }
-
-    if (metadata.size_chr == 0) {
-        metadata.size_chr = 8;
-        metadata.memory_chr = new uint8_t[0x2000]{ 0 };
-    }
-
-    stream.close();
-
-    uint8_t mapper_index = (flag7 & 0xF0) | flag6 >> 4;
-
-    cynes::MirroringMode mode = (flag6 & 0x01) == 1
-        ? cynes::MirroringMode::VERTICAL
-        : cynes::MirroringMode::HORIZONTAL;
-
-    switch (mapper_index) {
-    case   0: return std::make_unique<cynes::NROM> (nes, metadata, mode);
-    case   1: return std::make_unique<cynes::MMC1> (nes, metadata, mode);
-    case   2: return std::make_unique<cynes::UxROM>(nes, metadata, mode);
-    case   3: return std::make_unique<cynes::CNROM>(nes, metadata, mode);
-    case   4: return std::make_unique<cynes::MMC3> (nes, metadata, mode);
-    case   7: return std::make_unique<cynes::AxROM>(nes, metadata);
-    case   9: return std::make_unique<cynes::MMC2> (nes, metadata, mode);
-    case  10: return std::make_unique<cynes::MMC4> (nes, metadata, mode);
-    case  66: return std::make_unique<cynes::GxROM>(nes, metadata, mode);
-    case  71: return std::make_unique<cynes::UxROM>(nes, metadata, mode);
-    default: throw std::runtime_error("The ROM Mapper is not supported.");
-    }
-}
-
-
 cynes::NES::NES(const char* path)
     : cpu{*this}
     , ppu{*this}
     , apu{*this}
-    , _mapper{load_mapper(static_cast<NES&>(*this), path)}
+    , _mapper{Mapper::load_mapper(static_cast<NES&>(*this), path)}
     , _memory_cpu{new uint8_t[0x800]}
     , _memory_oam{new uint8_t[0x100]}
     , _memory_palette{new uint8_t[0x20]}

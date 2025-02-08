@@ -1,8 +1,11 @@
 #ifndef __CYNES_MAPPER__
 #define __CYNES_MAPPER__
 
+#include <array>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
+#include <memory>
 
 #include "utils.hpp"
 
@@ -14,15 +17,15 @@ enum class MirroringMode : uint8_t {
     NONE, ONE_SCREEN_LOW, ONE_SCREEN_HIGH, HORIZONTAL, VERTICAL
 };
 
-// TODO: use smart pointers
-struct NESMetadata {
+/// Simple wrapper storing memory parsed from a ROM file.
+struct ParsedMemory {
 public:
     uint16_t size_prg = 0x00;
     uint16_t size_chr = 0x00;
 
-    uint8_t* trainer = nullptr;
-    uint8_t* memory_prg = nullptr;
-    uint8_t* memory_chr = nullptr;
+    std::unique_ptr<uint8_t[]> trainer;
+    std::unique_ptr<uint8_t[]> memory_prg;
+    std::unique_ptr<uint8_t[]> memory_chr;
 };
 
 /// Generic NES Mapper (see https://www.nesdev.org/wiki/Mapper).
@@ -36,13 +39,23 @@ public:
     /// @param size_ppu_ram Size of the PPU RAM.
     Mapper(
         NES& nes,
-        NESMetadata metadata,
+        const ParsedMemory& metadata,
         MirroringMode mode,
         uint8_t size_cpu_ram = 0x8,
         uint8_t size_ppu_ram = 0x2
     );
 
-    virtual ~Mapper();
+    /// Default destructor.
+    virtual ~Mapper() = default;
+
+    /// Load and deserialize a ROM into a mapper.
+    /// @param nes Emulator.
+    /// @param path_rom Path to the NES ROM file.
+    /// @return A pointer to the instantiated mapper.
+    static std::unique_ptr<Mapper> load_mapper(
+        NES& nes,
+        const std::filesystem::path& path_rom
+    );
 
 public:
     /// Tick the mapper.
@@ -77,15 +90,31 @@ public:
     virtual uint8_t read_ppu(uint16_t address);
 
 protected:
+    /// A memory bank provides a view within the mapper memory.
+    // Each bank is exactly 0x400 bytes large.
     struct MemoryBank {
     public:
-        uint8_t* memory = nullptr;
-        bool read_only = true;
+        /// Initialize an unmapped bank.
+        MemoryBank();
+
+        /// Initialize a mapped bank using the given offset.
+        /// @param offset Mapper memory offset.
+        /// @param read_only Bank read only flag.
+        MemoryBank(size_t offset, bool read_only);
+
+        /// Default destructor.
+        ~MemoryBank() = default;
+
+    public:
+        size_t offset;
+        bool read_only;
+        bool mapped;
 
         template<DumpOperation operation, typename T>
         constexpr void dump(T& buffer) {
-            cynes::dump<operation>(buffer, memory);
+            cynes::dump<operation>(buffer, offset);
             cynes::dump<operation>(buffer, read_only);
+            cynes::dump<operation>(buffer, mapped);
         }
     };
 
@@ -93,20 +122,21 @@ protected:
     NES& _nes;
 
 protected:
-    const uint16_t _size_prg;
-    const uint16_t _sire_chr;
+    const uint16_t _banks_prg;
+    const uint16_t _banks_chr;
+    const uint8_t _banks_cpu_ram;
+    const uint8_t _banks_ppu_ram;
 
-    const uint8_t _size_cpu_ram;
-    const uint8_t _size_ppu_ram;
+private:
+    const size_t _size_prg;
+    const size_t _size_chr;
+    const size_t _size_cpu_ram;
+    const size_t _size_ppu_ram;
 
-    uint8_t* _memory_prg;
-    uint8_t* _memory_chr;
+    std::unique_ptr<uint8_t[]> _memory;
 
-    uint8_t* _memory_cpu_ram;
-    uint8_t* _memory_ppu_ram;
-
-    MemoryBank _banks_cpu[0x40];
-    MemoryBank _banks_ppu[0x10];
+    std::array<MemoryBank, 0x40> _banks_cpu;
+    std::array<MemoryBank, 0x10> _banks_ppu;
 
 protected:
     void map_bank_prg(uint8_t page, uint16_t address);
@@ -141,11 +171,11 @@ public:
         }
 
         if (_size_cpu_ram) {
-            cynes::dump<operation>(buffer, _memory_cpu_ram, _size_cpu_ram << 10);
+            cynes::dump<operation>(buffer, _memory.get() + _size_prg + _size_chr, _size_cpu_ram);
         }
 
         if (_size_ppu_ram) {
-            cynes::dump<operation>(buffer, _memory_ppu_ram, _size_ppu_ram << 10);
+            cynes::dump<operation>(buffer, _memory.get() + _size_prg + _size_chr + _size_cpu_ram, _size_ppu_ram);
         }
     }
 };
@@ -154,7 +184,7 @@ public:
 /// NROM mapper (see https://www.nesdev.org/wiki/NROM).
 class NROM : public Mapper {
 public:
-    NROM(NES& nes, NESMetadata metadata, MirroringMode mode);
+    NROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
     ~NROM() = default;
 };
 
@@ -162,7 +192,7 @@ public:
 /// MMC1 mapper (see https://www.nesdev.org/wiki/MMC1).
 class MMC1 : public Mapper {
 public:
-    MMC1(NES& nes, NESMetadata metadata, MirroringMode mode);
+    MMC1(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
     ~MMC1() = default;
 
 public:
@@ -202,7 +232,7 @@ public:
 /// UxROM mapper (see https://www.nesdev.org/wiki/UxROM).
 class UxROM : public Mapper {
 public:
-    UxROM(NES& nes, NESMetadata metadata, MirroringMode mode);
+    UxROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
     ~UxROM() = default;
 
 public:
@@ -218,7 +248,7 @@ public:
 /// CNROM mapper (see https://www.nesdev.org/wiki/CNROM).
 class CNROM : public Mapper {
 public:
-    CNROM(NES& nes, NESMetadata metadata, MirroringMode mode);
+    CNROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
     ~CNROM() = default;
 
 public:
@@ -234,7 +264,7 @@ public:
 /// MMC3 mapper (see https://www.nesdev.org/wiki/MMC3).
 class MMC3 : public Mapper {
 public:
-    MMC3(NES& nes, NESMetadata metadata, MirroringMode mode);
+    MMC3(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
     ~MMC3() = default;
 
 public:
@@ -299,7 +329,7 @@ public:
 /// AxROM mapper (see https://www.nesdev.org/wiki/AxROM).
 class AxROM : public Mapper {
 public:
-    AxROM(NES& nes, NESMetadata metadata);
+    AxROM(NES& nes, const ParsedMemory& metadata);
     ~AxROM() = default;
 
 public:
@@ -315,12 +345,12 @@ public:
 template<uint8_t BANK_SIZE>
 class MMC : public Mapper {
 public:
-    MMC(NES& nes, NESMetadata metadata, MirroringMode mode) :
+    MMC(NES& nes, const ParsedMemory& metadata, MirroringMode mode) :
         Mapper(nes, metadata, mode) {
         map_bank_chr(0x0, 0x8, 0x0);
 
         map_bank_prg(0x20, BANK_SIZE, 0x0);
-        map_bank_prg(0x20 + BANK_SIZE, 0x20 - BANK_SIZE, _size_prg - 0x20 + BANK_SIZE);
+        map_bank_prg(0x20 + BANK_SIZE, 0x20 - BANK_SIZE, _banks_prg - 0x20 + BANK_SIZE);
 
         map_bank_cpu_ram(0x18, 0x8, 0x0, true);
 
@@ -416,7 +446,7 @@ using MMC4 = MMC<0x10>;
 /// GxROM mapper (see https://www.nesdev.org/wiki/GxROM).
 class GxROM : public Mapper {
 public:
-    GxROM(NES& nes, NESMetadata metadata, MirroringMode mode);
+    GxROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
     ~GxROM() = default;
 
 public:

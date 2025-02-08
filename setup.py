@@ -104,7 +104,7 @@ class CMakeBuild(build_ext):
 
 setup(
     name="cynes",
-    version="0.1.0",
+    version="0.1.1",
     author="Theo Combey",
     author_email="combey.theo@hotmail.com",
     description="C/C++ NES emulator with Python bindings",

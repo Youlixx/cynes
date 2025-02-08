@@ -21,7 +21,7 @@ while not nes.should_close:
 ```
 """
 
-from cynes.emulator import NES  # type: ignore
+from cynes.emulator import NES, __version__
 
 NES_INPUT_RIGHT = 0x01
 NES_INPUT_LEFT = 0x02
@@ -32,9 +32,8 @@ NES_INPUT_SELECT = 0x20
 NES_INPUT_B = 0x40
 NES_INPUT_A = 0x80
 
-__version__ = "0.1.0"
-
 __all__ = [
+    "__version__",
     "NES",
     "NES_INPUT_RIGHT",
     "NES_INPUT_LEFT",

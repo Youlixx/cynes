@@ -2,6 +2,7 @@
 #include "cpu.hpp"
 #include "nes.hpp"
 #include <fstream>
+#include <sstream>
 
 
 cynes::Mapper::MemoryBank::MemoryBank()
@@ -127,8 +128,16 @@ std::unique_ptr<cynes::Mapper> cynes::Mapper::load_mapper(
     case  10: return std::make_unique<cynes::MMC4> (nes, metadata, mode);
     case  66: return std::make_unique<cynes::GxROM>(nes, metadata, mode);
     case  71: return std::make_unique<cynes::UxROM>(nes, metadata, mode);
-    default: throw std::runtime_error("The ROM Mapper is not supported.");
+    default: break;
     }
+
+    std::stringstream error_message{};
+    error_message
+        << "The mapped used by the ROM is currently not supported (mapper id: "
+        << mapper_index
+        << ").";
+
+    throw std::runtime_error(error_message.str());
 }
 
 void cynes::Mapper::tick() { }

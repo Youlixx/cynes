@@ -19,7 +19,7 @@ from cynes import (
     NES_INPUT_START,
     NES_INPUT_UP,
 )
-from cynes.emulator import NES  # type: ignore
+from cynes.emulator import NES
 
 
 class SDLContext:
@@ -28,12 +28,9 @@ class SDLContext:
     def __init__(self, window_name: str, scaling_factor: int = 3) -> None:
         """Initialize the SDL context.
 
-        Parameters
-        ----------
-        window_name: str
-            Name of the window.
-        scaling_factor: int
-            Scaling factor of the window size.
+        Args:
+            window_name (str): Name of the window.
+            scaling_factor (int): Scaling factor of the window size.
         """
         self._hidden = False
 
@@ -68,18 +65,17 @@ class SDLContext:
         sdl2.SDL_DestroyTexture(self._texture)
         sdl2.SDL_DestroyWindow(self._window)
 
-    def render_frame(self, frame_buffer: NDArray[np.uint8]) -> None:
+    def render_frame(self, framebuffer: NDArray[np.uint8]) -> None:
         """Update the rendered frame.
 
-        Parameters
-        ----------
-        frame_buffer: NDArray[np.uint8]
-            The numpy array containing the frame buffer (shape 240x256x3).
+        Args:
+            framebuffer (NDArray[np.uint8]): The numpy array containing the framebuffer
+                in the same format as returned by the emulator (shape 240x256x3).
         """
         sdl2.SDL_UpdateTexture(
             self._texture,
             None,
-            frame_buffer.ctypes._as_parameter_,
+            framebuffer.ctypes._as_parameter_,
             768
         )
 
@@ -103,31 +99,31 @@ class WindowedNES(NES):
 
     def __init__(
         self,
-        rom: str,
+        path_rom: str,
         scaling_factor: int = 3,
         default_handlers: bool = True
     ) -> None:
         """Initialize the NES emulator.
 
-        The emulator initialization can fail if the ROM file cannot be found or if the
-        Mapper used by the game is currently unsupported.
+        This function sets up the NES emulator by loading the specified ROM file. The
+        initialization process can fail for several reasons, including:
+        - The ROM file cannot be found at the specified path.
+        - The given file is not a valid ROM file.
+        - The mapper used by the ROM is currently unsupported by the emulator.
 
-        Parameters
-        ----------
-        rom: str
-            The path to the NES file containing the game data.
-        scaling_factor: int
-            Scaling factor of the window size.
-        default_handlers: bool
-            If set to True, the default key handlers will be registered.
+        Args:
+            path_rom (str): The path to the NES ROM file containing the game data.
+            scaling_factor (int): Scaling factor of the window size.
+            default_handlers (bool): If set to True, the default key handlers will be
+                registered.
         """
-        super().__init__(rom)
+        super().__init__(path_rom)
 
         self._should_close = False
         self._handlers = {sdl2.SDL_SCANCODE_ESCAPE: self.__input_escape}
 
         self._context = SDLContext(
-            window_name=rom,
+            window_name=path_rom,
             scaling_factor=scaling_factor
         )
 
@@ -142,12 +138,14 @@ class WindowedNES(NES):
             self.register_handler(sdl2.SDL_SCANCODE_RIGHT, self.__input_right)
 
     def __enter__(self) -> "WindowedNES":
-        """Enter the runtime context related to the emulator.
+        """Enters the runtime context related to the emulator.
 
-        Returns
-        -------
-        emulator: WindowedNES
-            Current NES emulator.
+        This method is part of the context management protocol and is called when
+        exiting a `with` statement block. It ensures that the emulator window is
+        properly closed, releasing any associated resources.
+
+        Returns:
+            emulator (WindowedNES): The current instance of the NES emulator.
         """
         return self
 
@@ -159,23 +157,22 @@ class WindowedNES(NES):
     ) -> bool:
         """Close the window when exiting the runtime context related to the emulator.
 
-        Parameters
-        ----------
-        error: Type[BaseException], optional
-            If an error occurred, the type of the exception.
-        value: BaseException, optional
-            If an error occurred, the exception itself.
-        traceback: Any, optional
-            If an error occurred, the current traceback.
+        This method is part of the context management protocol and is called when
+        exiting a `with` statement block. It ensures that the emulator window is
+        properly closed, releasing any associated resources.
 
-        Returns
-        -------
-        should_suppress_error: bool
-            True if the exception should be suppressed, False otherwise.
+        Args:
+            error (Type[BaseException], optional): If an error occurred, the type of the
+                exception.
+            value (BaseException, optional): If an error occurred, the exception itself.
+            traceback (Any, optional): If an error occurred, the current traceback.
+
+        Returns:
+            should_suppress_error (bool): True if the exception should be suppressed,
+                False otherwise.
         """
         self.close()
-
-        return True
+        return False
 
     def __input_a(self) -> None:
         self.controller |= NES_INPUT_A
@@ -207,27 +204,28 @@ class WindowedNES(NES):
     def register_handler(self, key_code: int, handler: Callable[[], None]) -> None:
         """Register a new key handler.
 
-        Parameters
-        ----------
-        key_code: int
-            The code of the key that triggers the handler.
-        handler: Callable[[], None]
-            A function that takes not argument, called when the key is pressed.
+        Args:
+            key_code (int): The code of the key that will trigger the handler function.
+            handler (Callable[[], None]): A function that takes no arguments and is
+                called when the specified key is pressed.
         """
         self._handlers[key_code] = handler
 
-    def step(self, frames: int = 1) -> Optional[NDArray[np.uint8]]:
-        """Run the emulator for the specified amount of frame.
+    def step(self, frames: int = 1) -> NDArray[np.uint8]:
+        """Run the emulator for the specified number of frames.
 
-        Parameters
-        ----------
-        frames: int, default: 1
-            Indicates the number of frames for which the emulator will be run.
+        This method advances the emulator's state by the specified number of frames. By
+        default, it runs the emulator for a single frame. In windowed mode, also updates
+        the rendered frame.
 
-        Returns
-        -------
-        frame_buffer: NDArray[np.uint8], optional
-            The numpy array containing the frame buffer (shape 240x256x3).
+        Args:
+            frames (int): The number of frames to run the emulator for. Default is 1.
+
+        Returns:
+            framebuffer (NDArray[np.uint8]): A NumPy array containing the frame buffer
+                in RGB format. The array has a shape of (240, 256, 3) and provides a
+                read-only view of the framebuffer. If modifications are needed, a copy
+                of the array should be made.
         """
         if self.should_close:
             self._context.hide_window()
@@ -264,9 +262,9 @@ class WindowedNES(NES):
 
     @property
     def should_close(self) -> bool:
-        """Indicate if the emulator should close.
+        """Indicate whether the emulator should close.
 
-        This is set True when the emulator has either crash or if the user requested to
-        close the window.
+        This is set to True if the emulator has crashed or if the user has  requested to
+        close the emulator window.
         """
         return self.has_crashed or self._should_close

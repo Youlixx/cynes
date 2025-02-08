@@ -1,5 +1,5 @@
 # cynes - C/C++ NES emulator with Python bindings
-# Copyright (C) 2021 - 2024  Combey Theo <https://www.gnu.org/licenses/>
+# Copyright (C) 2021 - 2025  Combey Theo <https://www.gnu.org/licenses/>
 
 """Main cynes package.
 

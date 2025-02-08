@@ -1,209 +1,252 @@
 #include "apu.hpp"
 #include "cpu.hpp"
 #include "ppu.hpp"
+#include "nes.hpp"
 
 #include <cstring>
 
+constexpr uint8_t LENGTH_COUNTER_TABLE[0x20] = {
+    0x0A, 0xFE, 0x14, 0x02, 0x28, 0x04, 0x50, 0x06,
+    0xA0, 0x08, 0x3C, 0x0A, 0x0E, 0x0C, 0x1A, 0x0E,
+    0x0C, 0x10, 0x18, 0x12, 0x30, 0x14, 0x60, 0x16,
+    0xC0, 0x18, 0x48, 0x1A, 0x10, 0x1C, 0x20, 0x1E
+};
 
-cynes::APU::APU(NES& nes) : _nes(nes) {
-    _latchCycle = false;
+constexpr uint16_t PERIOD_DMC_TABLE[0x10] = {
+    0x1AC, 0x17C, 0x154, 0x140, 0x11E, 0x0FE, 0x0E2, 0x0D6,
+    0x0BE, 0x0A0, 0x08E, 0x080, 0x06A, 0x054, 0x048, 0x036
+};
 
-    _delayDMA = 0x00;
-    _addressDMA = 0x00;
 
-    _pendingDMA = false;
-
-    _openBus = 0x00;
-
-    _frameCounterClock = 0x0000;
-    _delayFrameReset = 0x0000;
-
-    memset(_channelCounters, 0x00, 4);
-    memset(_channelEnabled, false, 4);
-    memset(_channelHalted, false, 4);
-
-    _stepMode = false;
-
-    _inhibitFrameIRQ = false;
-    _sendFrameIRQ = false;
-
-    _deltaChannelRemainingBytes = 0x0000;
-    _deltaChannelSampleLength = 0x0000;
-    _deltaChannelPeriodCounter = 0x0000;
-    _deltaChannelPeriodLoad = 0x0000;
-
-    _deltaChannelBitsInBuffer = 0x00;
-
-    _deltaChannelShouldLoop = false;
-    _deltaChannelEnableIRQ = false;
-    _deltaChannelSampleBufferEmpty = false;
-
-    _enableDMC = false;
-    _sendDeltaChannelIRQ = false;
+cynes::APU::APU(NES& nes)
+    : _nes{nes}
+    , _latch_cycle{false}
+    , _delay_dma{0x00}
+    , _address_dma{0x00}
+    , _pending_dma{false}
+    , _open_bus{0x00}
+    , _frame_counter_clock{0x0000}
+    , _delay_frame_reset{0x0000}
+    , _channels_counters{}
+    , _channel_enabled{}
+    , _channel_halted{}
+    , _step_mode{false}
+    , _inhibit_frame_interrupt{false}
+    , _send_frame_interrupt{false}
+    , _delta_channel_remaining_bytes{0x0000}
+    , _delta_channel_sample_length{0x0000}
+    , _delta_channel_period_counter{0x0000}
+    , _delta_channel_period_load{0x0000}
+    , _delta_channel_bits_in_buffer{0x00}
+    , _delta_channel_should_loop{false}
+    , _delta_channel_enable_interrupt{false}
+    , _delta_channel_sample_buffer_empty{false}
+    , _enable_dmc{false}
+    , _send_delta_channel_interrupt{false}
+{
+    std::memset(_channels_counters, 0x00, 4);
+    std::memset(_channel_enabled, false, 4);
+    std::memset(_channel_halted, false, 4);
 }
 
-cynes::APU::~APU() { }
-
 void cynes::APU::power() {
-    _latchCycle = false;
+    _latch_cycle = false;
+    _delay_dma = 0x00;
+    _address_dma = 0x00;
+    _pending_dma = false;
+    _open_bus = 0x00;
+    _frame_counter_clock = 0x0000;
+    _delay_frame_reset = 0x0000;
 
-    _delayDMA = 0x00;
-    _addressDMA = 0x00;
+    std::memset(_channels_counters, 0x00, 4);
+    std::memset(_channel_enabled, false, 4);
+    std::memset(_channel_halted, false, 4);
 
-    _pendingDMA = false;
-
-    _openBus = 0x00;
-
-    _frameCounterClock = 0x0000;
-    _delayFrameReset = 0x0000;
-
-    memset(_channelCounters, 0x00, 4);
-    memset(_channelEnabled, false, 4);
-    memset(_channelHalted, false, 4);
-
-    _stepMode = false;
-
-    _inhibitFrameIRQ = false;
-    _sendFrameIRQ = false;
-
-    _deltaChannelRemainingBytes = 0x0000;
-    _deltaChannelSampleLength = 0x0000;
-    _deltaChannelPeriodCounter = PERIOD_DMC_TABLE[0];
-    _deltaChannelPeriodLoad = PERIOD_DMC_TABLE[0];
-
-    _deltaChannelBitsInBuffer = 0x08;
-
-    _deltaChannelShouldLoop = false;
-    _deltaChannelEnableIRQ = false;
-    _deltaChannelSampleBufferEmpty = true;
-
-    _enableDMC = false;
-    _sendDeltaChannelIRQ = false;
+    _step_mode = false;
+    _inhibit_frame_interrupt = false;
+    _send_frame_interrupt = false;
+    _delta_channel_remaining_bytes = 0x0000;
+    _delta_channel_sample_length = 0x0000;
+    _delta_channel_period_counter = PERIOD_DMC_TABLE[0];
+    _delta_channel_period_load = PERIOD_DMC_TABLE[0];
+    _delta_channel_bits_in_buffer = 0x08;
+    _delta_channel_should_loop = false;
+    _delta_channel_enable_interrupt = false;
+    _delta_channel_sample_buffer_empty = true;
+    _enable_dmc = false;
+    _send_delta_channel_interrupt = false;
 }
 
 void cynes::APU::reset() {
-    _enableDMC = false;
+    _enable_dmc = false;
 
-    memset(_channelCounters, 0x00, 4);
-    memset(_channelEnabled, false, 4);
+    std::memset(_channels_counters, 0x00, 4);
+    std::memset(_channel_enabled, false, 4);
 
-    _sendDeltaChannelIRQ = false;
-    _deltaChannelRemainingBytes = 0;
-
-    _latchCycle = false;
-
-    _delayDMA = 0x00;
-    _sendFrameIRQ = false;
-    _sendDeltaChannelIRQ = false;
-    _deltaChannelPeriodCounter = PERIOD_DMC_TABLE[0];
-    _deltaChannelPeriodLoad = PERIOD_DMC_TABLE[0];
-    _deltaChannelRemainingBytes = 0;
-    _deltaChannelSampleBufferEmpty = true;
-    _deltaChannelBitsInBuffer = 8;
+    _send_delta_channel_interrupt = false;
+    _delta_channel_remaining_bytes = 0;
+    _latch_cycle = false;
+    _delay_dma = 0x00;
+    _send_frame_interrupt = false;
+    _send_delta_channel_interrupt = false;
+    _delta_channel_period_counter = PERIOD_DMC_TABLE[0];
+    _delta_channel_period_load = PERIOD_DMC_TABLE[0];
+    _delta_channel_remaining_bytes = 0;
+    _delta_channel_sample_buffer_empty = true;
+    _delta_channel_bits_in_buffer = 8;
 
     _nes.write(0x4015, 0x00);
-    _nes.write(0x4017, _stepMode << 7 | _inhibitFrameIRQ << 6);
+    _nes.write(0x4017, _step_mode << 7 | _inhibit_frame_interrupt << 6);
 }
 
-void cynes::APU::tick(bool reading, bool preventLoad) {
+void cynes::APU::tick(bool reading, bool prevent_load) {
     if (reading) {
-        performPendingDMA();
+        perform_pending_dma();
     }
 
-    _latchCycle = !_latchCycle;
+    _latch_cycle = !_latch_cycle;
 
-    if (_stepMode) {
-        if (_delayFrameReset > 0 && --_delayFrameReset == 0) {
-            _frameCounterClock = 0;
-        } else if (++_frameCounterClock == 37282) {
-            _frameCounterClock = 0;
-        } if (_frameCounterClock == 14913 || _frameCounterClock == 37281) {
-            updateCounters();
+    if (_step_mode) {
+        if (_delay_frame_reset > 0 && --_delay_frame_reset == 0) {
+            _frame_counter_clock = 0;
+        } else if (++_frame_counter_clock == 37282) {
+            _frame_counter_clock = 0;
+        } if (_frame_counter_clock == 14913 || _frame_counter_clock == 37281) {
+            update_counters();
         }
     } else {
-        if (_delayFrameReset > 0 && --_delayFrameReset == 0) {
-            _frameCounterClock = 0;
-        } else if (++_frameCounterClock == 29830) {
-            _frameCounterClock = 0;
+        if (_delay_frame_reset > 0 && --_delay_frame_reset == 0) {
+            _frame_counter_clock = 0;
+        } else if (++_frame_counter_clock == 29830) {
+            _frame_counter_clock = 0;
 
-            if (!_inhibitFrameIRQ) {
-                setFrameIRQ(true);
+            if (!_inhibit_frame_interrupt) {
+                set_frame_interrupt(true);
             }
         }
 
-        if (_frameCounterClock == 14913 || _frameCounterClock == 29829) {
-            updateCounters();
+        if (_frame_counter_clock == 14913 || _frame_counter_clock == 29829) {
+            update_counters();
         }
 
-        if (_frameCounterClock >= 29828 && !_inhibitFrameIRQ) {
-            setFrameIRQ(true);
+        if (_frame_counter_clock >= 29828 && !_inhibit_frame_interrupt) {
+            set_frame_interrupt(true);
         }
     }
 
-    if (--_deltaChannelPeriodCounter == 0) {
-        _deltaChannelPeriodCounter = _deltaChannelPeriodLoad;
+    _delta_channel_period_counter--;
 
-        if (--_deltaChannelBitsInBuffer == 0) {
-            _deltaChannelBitsInBuffer = 8;
+    if (_delta_channel_period_counter == 0) {
+        _delta_channel_period_counter = _delta_channel_period_load;
+        _delta_channel_bits_in_buffer--;
 
-            if (!_deltaChannelSampleBufferEmpty) {
-                _deltaChannelSampleBufferEmpty = true;
+        if (_delta_channel_bits_in_buffer == 0) {
+            _delta_channel_bits_in_buffer = 8;
+
+            if (!_delta_channel_sample_buffer_empty) {
+                _delta_channel_sample_buffer_empty = true;
             }
 
-            if (_deltaChannelRemainingBytes > 0 && !preventLoad) {
-                loadDeltaChannelByte(reading);
+            if (_delta_channel_remaining_bytes > 0 && !prevent_load) {
+                load_delta_channel_byte(reading);
             }
         }
     }
 }
 
 void cynes::APU::write(uint8_t address, uint8_t value) {
-    _openBus = value;
+    _open_bus = value;
 
-    switch (address) {
-    case Register::PULSE_1_0: _channelHalted[0x0] = value & 0x20; break;
-    case Register::PULSE_1_3: if (_channelEnabled[0x0]) _channelCounters[0x0] = LENGTH_COUNTER_TABLE[value >> 3]; break;
-    case Register::PULSE_2_0: _channelHalted[0x1] = value & 0x20; break;
-    case Register::PULSE_2_3: if (_channelEnabled[0x1]) _channelCounters[0x1] = LENGTH_COUNTER_TABLE[value >> 3]; break;
-    case Register::TRIANGLE_0: _channelHalted[0x2] = value & 0x80; break;
-    case Register::TRIANGLE_3: if (_channelEnabled[0x2]) _channelCounters[0x2] = LENGTH_COUNTER_TABLE[value >> 3]; break;
-    case Register::NOISE_0: _channelHalted[0x3] = value & 0x20; break;
-    case Register::NOISE_3: if (_channelEnabled[0x3]) _channelCounters[0x3] = LENGTH_COUNTER_TABLE[value >> 3]; break;
-    case Register::OAM_DMA: performDMA(value); break;
-    case Register::DELTA_3: _deltaChannelSampleLength = (value << 4) + 1; break;
+    switch (static_cast<Register>(address)) {
+    case Register::PULSE_1_0: {
+        _channel_halted[0x0] = value & 0x20;
+        break;
+    }
+
+    case Register::PULSE_1_3: {
+        if (_channel_enabled[0x0]) {
+            _channels_counters[0x0] = LENGTH_COUNTER_TABLE[value >> 3];
+        }
+        break;
+    }
+
+    case Register::PULSE_2_0: {
+        _channel_halted[0x1] = value & 0x20;
+        break;
+    }
+
+    case Register::PULSE_2_3: {
+        if (_channel_enabled[0x1]) {
+            _channels_counters[0x1] = LENGTH_COUNTER_TABLE[value >> 3];
+        }
+        break;
+    }
+
+    case Register::TRIANGLE_0: {
+        _channel_halted[0x2] = value & 0x80;
+        break;
+    }
+
+    case Register::TRIANGLE_3: {
+        if (_channel_enabled[0x2]) {
+            _channels_counters[0x2] = LENGTH_COUNTER_TABLE[value >> 3];
+        }
+        break;
+    }
+
+    case Register::NOISE_0: {
+        _channel_halted[0x3] = value & 0x20;
+        break;
+    }
+
+    case Register::NOISE_3:
+        if (_channel_enabled[0x3]) {
+            _channels_counters[0x3] = LENGTH_COUNTER_TABLE[value >> 3];
+        }
+        break;
+
+    case Register::OAM_DMA:{
+        perform_dma(value);
+        break;
+    }
+
+    case Register::DELTA_3: {
+        _delta_channel_sample_length = (value << 4) + 1;
+        break;
+    }
 
     case Register::DELTA_0: {
-        _deltaChannelEnableIRQ = value & 0x80;
-        _deltaChannelShouldLoop = value & 0x40;
-        _deltaChannelPeriodLoad = PERIOD_DMC_TABLE[value & 0x0F];
+        _delta_channel_enable_interrupt = value & 0x80;
+        _delta_channel_should_loop = value & 0x40;
+        _delta_channel_period_load = PERIOD_DMC_TABLE[value & 0x0F];
 
-        if (!_deltaChannelEnableIRQ) {
-            setDeltaIRQ(false);
+        if (!_delta_channel_enable_interrupt) {
+            set_delta_interrupt(false);
         }
 
         break;
     }
 
     case Register::CTRL_STATUS: {
-        _enableDMC = value & 0x10;
+        _enable_dmc = value & 0x10;
 
         for (uint8_t channel = 0; channel < 0x4; channel++) {
-            _channelEnabled[channel] = value & (1 << channel);
+            _channel_enabled[channel] = value & (1 << channel);
 
-            if (!_channelEnabled[channel]) {
-                _channelCounters[channel] = 0;
+            if (!_channel_enabled[channel]) {
+                _channels_counters[channel] = 0;
             }
         }
 
-        setDeltaIRQ(false);
+        set_delta_interrupt(false);
 
-        if (!_enableDMC) {
-            _deltaChannelRemainingBytes = 0;
+        if (!_enable_dmc) {
+            _delta_channel_remaining_bytes = 0;
         } else {
-            if (_deltaChannelRemainingBytes == 0) {
-                _deltaChannelRemainingBytes = _deltaChannelSampleLength;
-                if (_deltaChannelSampleBufferEmpty) {
-                    loadDeltaChannelByte(false);
+            if (_delta_channel_remaining_bytes == 0) {
+                _delta_channel_remaining_bytes = _delta_channel_sample_length;
+                if (_delta_channel_sample_buffer_empty) {
+                    load_delta_channel_byte(false);
                 }
             }
         }
@@ -212,17 +255,17 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
     }
 
     case Register::FRAME_COUNTER: {
-        _stepMode = value & 0x80;
-        _inhibitFrameIRQ = value & 0x40;
+        _step_mode = value & 0x80;
+        _inhibit_frame_interrupt = value & 0x40;
 
-        if (_inhibitFrameIRQ) {
-            setFrameIRQ(false);
+        if (_inhibit_frame_interrupt) {
+            set_frame_interrupt(false);
         }
 
-        _delayFrameReset = _latchCycle ? 4 : 3;
+        _delay_frame_reset = _latch_cycle ? 4 : 3;
 
-        if (_stepMode) {
-            updateCounters();
+        if (_step_mode) {
+            update_counters();
         }
 
         break;
@@ -231,31 +274,31 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
 }
 
 uint8_t cynes::APU::read(uint8_t address) {
-    if (address == Register::CTRL_STATUS) {
-        _openBus = _sendDeltaChannelIRQ << 7;
-        _openBus |= _sendFrameIRQ << 6;
-        _openBus |= (_deltaChannelRemainingBytes > 0) << 4;
+    if (static_cast<Register>(address) == Register::CTRL_STATUS) {
+        _open_bus = _send_delta_channel_interrupt << 7;
+        _open_bus |= _send_frame_interrupt << 6;
+        _open_bus |= (_delta_channel_remaining_bytes > 0) << 4;
 
         for (uint8_t channel = 0; channel < 0x4; channel++) {
-            _openBus |= (_channelCounters[channel] > 0) << channel;
+            _open_bus |= (_channels_counters[channel] > 0) << channel;
         }
 
-        setFrameIRQ(false);
+        set_frame_interrupt(false);
     }
 
-    return _openBus;
+    return _open_bus;
 }
 
-void cynes::APU::updateCounters() {
+void cynes::APU::update_counters() {
     for (uint8_t channel = 0; channel < 0x4; channel++) {
-        if (!_channelHalted[channel] && _channelCounters[channel] > 0) {
-            _channelCounters[channel]--;
+        if (!_channel_halted[channel] && _channels_counters[channel] > 0) {
+            _channels_counters[channel]--;
         }
     }
 }
 
-void cynes::APU::loadDeltaChannelByte(bool reading) {
-    uint8_t delay = _delayDMA;
+void cynes::APU::load_delta_channel_byte(bool reading) {
+    uint8_t delay = _delay_dma;
 
     if (delay == 0) {
         if (reading) {
@@ -268,76 +311,71 @@ void cynes::APU::loadDeltaChannelByte(bool reading) {
     for (uint8_t i = 0; i < delay; i++) {
         tick(false, true);
 
-        _nes.getPPU()->tick();
-        _nes.getPPU()->tick();
-        _nes.getPPU()->tick();
-        _nes.getCPU()->poll();
+        _nes.ppu.tick();
+        _nes.ppu.tick();
+        _nes.ppu.tick();
+        _nes.cpu.poll();
     }
 
-    _deltaChannelSampleBufferEmpty = false;
+    _delta_channel_sample_buffer_empty = false;
+    _delta_channel_remaining_bytes--;
 
-    if (--_deltaChannelRemainingBytes == 0) {
-        if (_deltaChannelShouldLoop) {
-            _deltaChannelRemainingBytes = _deltaChannelSampleLength;
-        } else if (_deltaChannelEnableIRQ) {
-            setDeltaIRQ(true);
+    if (_delta_channel_remaining_bytes == 0) {
+        if (_delta_channel_should_loop) {
+            _delta_channel_remaining_bytes = _delta_channel_sample_length;
+        } else if (_delta_channel_enable_interrupt) {
+            set_delta_interrupt(true);
         }
     }
 }
 
-void cynes::APU::performDMA(uint8_t address) {
-    _addressDMA = address;
-    _pendingDMA = true;
+void cynes::APU::perform_dma(uint8_t address) {
+    _address_dma = address;
+    _pending_dma = true;
 }
 
-void cynes::APU::performPendingDMA() {
-    if (!_pendingDMA) {
+void cynes::APU::perform_pending_dma() {
+    if (!_pending_dma) {
         return;
     }
 
-    _pendingDMA = false;
-    _delayDMA = 0x2;
+    _pending_dma = false;
+    _delay_dma = 0x2;
 
-    if (!_latchCycle) {
-        _nes.dummyRead();
+    if (!_latch_cycle) {
+        _nes.dummy_read();
     }
 
-    _nes.dummyRead();
+    _nes.dummy_read();
 
-    uint16_t currentAddress = _addressDMA << 8;
-    uint8_t lowByte = 0x00;
+    uint16_t current_address = _address_dma << 8;
+    uint8_t low_byte = 0x00;
 
-    _nes.write(0x2004, _nes.read(currentAddress++));
+    _nes.write(0x2004, _nes.read(current_address++));
 
-    while ((lowByte = currentAddress & 0xFF) != 0) {
-        uint8_t value = _nes.read(currentAddress++);
+    while ((low_byte = current_address & 0xFF) != 0) {
+        uint8_t value = _nes.read(current_address++);
 
-        if (lowByte == 254) {
-            _delayDMA = 0x1;
-
+        if (low_byte == 254) {
+            _delay_dma = 0x1;
             _nes.write(0x2004, value);
-
-            _delayDMA = 0x2;
-        } else if (lowByte == 255) {
-            _delayDMA = 0x3;
-
+            _delay_dma = 0x2;
+        } else if (low_byte == 255) {
+            _delay_dma = 0x3;
             _nes.write(0x2004, value);
-
-            _delayDMA = 0x0;
+            _delay_dma = 0x0;
         } else {
             _nes.write(0x2004, value);
         }
     }
 }
 
-void cynes::APU::setFrameIRQ(bool irq) {
-    _sendFrameIRQ = irq;
-
-    _nes.getCPU()->setFrameIRQ(irq);
+void cynes::APU::set_frame_interrupt(bool interrupt) {
+    _send_frame_interrupt = interrupt;
+    _nes.cpu.set_frame_interrupt(interrupt);
 }
 
-void cynes::APU::setDeltaIRQ(bool irq) {
-    _sendDeltaChannelIRQ = irq;
-
-    _nes.getCPU()->setDeltaIRQ(irq);
+void cynes::APU::set_delta_interrupt(bool interrupt) {
+    _send_delta_channel_interrupt = interrupt;
+    _nes.cpu.set_delta_interrupt(interrupt);
 }

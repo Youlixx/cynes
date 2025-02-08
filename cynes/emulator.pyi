@@ -1,5 +1,5 @@
 # cynes - C/C++ NES emulator with Python bindings
-# Copyright (C) 2021 - 2024  Combey Theo <https://www.gnu.org/licenses/>
+# Copyright (C) 2021 - 2025  Combey Theo <https://www.gnu.org/licenses/>
 
 import numpy as np
 from numpy.typing import NDArray
@@ -29,7 +29,7 @@ class NES:
     def __init__(self, rom: str) -> None:
         """Initialize the NES emulator.
 
-        The emulator initialisation can fail if the ROM file cannot be found or if the
+        The emulator initialization can fail if the ROM file cannot be found or if the
         Mapper used by the game is currently unsupported.
 
         Parameters
@@ -42,7 +42,7 @@ class NES:
     def __setitem__(self, address: int, value: int) -> None:
         """Write a value in the emulator memory at the specified address.
 
-        Writing to certains addresses may desynchronise the components of the console,
+        Writing to certain addresses may de-synchronize the components of the console,
         leading to undefined behavior. Only the RAM at addresses between 0x0000 - 0x1FFF
         and 0x6000 - 0x7FFF (Mapper RAM) can be accessed safely.
 
@@ -58,7 +58,7 @@ class NES:
     def __getitem__(self, address: int) -> int:
         """Read a value in the emulator memory at the specified address.
 
-        Reading certains addresses may desynchronise the components of the console,
+        Reading certain addresses may de-synchronize the components of the console,
         leading to undefined behavior. Only the RAM at addresses between 0x0000 - 0x1FFF
         and 0x6000 - 0x7FFF (Mapper RAM) can be accessed safely.
 
@@ -77,7 +77,7 @@ class NES:
     def reset(self) -> None:
         """Send a reset signal to the emulator.
 
-        Reseting the NES is different from re-creating a new emulator as the RAM content
+        Resetting the NES is different from re-creating a new emulator as the RAM content
         is not cleared.
         """
         ...

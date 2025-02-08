@@ -4,118 +4,144 @@
 #include <cstdint>
 
 #include "utils.hpp"
-#include "nes.hpp"
 
 namespace cynes {
+// Forward declaration.
+class NES;
+
+/// Audio Processing Unit (see https://www.nesdev.org/wiki/APU).
+/// This implementation does not produce any sound, it is only emulated for timing and
+/// interrupt purposes.
 class APU {
 public:
+    /// Initialize the APU.
     APU(NES& nes);
-    ~APU();
+
+    /// Default destructor.
+    ~APU() = default;
 
 public:
+    /// Set the APU in its power-up state.
     void power();
+
+    /// Set the APU in its reset state.
     void reset();
 
-    void tick(bool reading, bool preventLoad = false);
+    /// Tick the APU.
+    /// @param reading Should be true if the APU is ticked on a reading cycle.
+    /// @param prevent_load False by default, should be set to true only when called
+    /// from `APU::load_delta_channel_byte` to avoid recursion.
+    void tick(bool reading, bool prevent_load = false);
 
+    /// Write to the APU memory.
+    /// @param address Memory address within the APU memory address space.
+    /// @param value Value to write.
     void write(uint8_t address, uint8_t value);
 
+    /// Read from the APU memory.
+    /// @note This function has other side effects than simply reading from memory, it
+    /// should not be used as a memory watch function.
+    /// @param address Memory address within the APU memory address space.
+    /// @return The value stored at the given address.
     uint8_t read(uint8_t address);
 
 private:
     NES& _nes;
 
 private:
-    void updateCounters();
-    void loadDeltaChannelByte(bool reading);
+    void update_counters();
+    void load_delta_channel_byte(bool reading);
 
-    void performDMA(uint8_t address);
-    void performPendingDMA();
+    void perform_dma(uint8_t address);
+    void perform_pending_dma();
 
-    void setFrameIRQ(bool irq);
-    void setDeltaIRQ(bool irq);
-
-private:
-    bool _latchCycle;
-
-    uint8_t _delayDMA;
-    uint8_t _addressDMA;
-
-    bool _pendingDMA;
-
-    uint8_t _openBus;
+    void set_frame_interrupt(bool interrupt);
+    void set_delta_interrupt(bool interrupt);
 
 private:
-    uint32_t _frameCounterClock;
-    uint32_t _delayFrameReset;
+    bool _latch_cycle;
 
-    uint8_t _channelCounters[0x4];
+    uint8_t _delay_dma;
+    uint8_t _address_dma;
 
-    bool _channelEnabled[0x4];
-    bool _channelHalted[0x4];
+    bool _pending_dma;
 
-    bool _stepMode;
-
-    bool _inhibitFrameIRQ;
-    bool _sendFrameIRQ;
-
-    const uint8_t LENGTH_COUNTER_TABLE[0x20] = {
-        0x0A, 0xFE, 0x14, 0x02, 0x28, 0x04, 0x50, 0x06, 0xA0, 0x08, 0x3C, 0x0A, 0x0E, 0x0C, 0x1A, 0x0E,
-        0x0C, 0x10, 0x18, 0x12, 0x30, 0x14, 0x60, 0x16, 0xC0, 0x18, 0x48, 0x1A, 0x10, 0x1C, 0x20, 0x1E
-    };
+    uint8_t _open_bus;
 
 private:
-    uint16_t _deltaChannelRemainingBytes;
-    uint16_t _deltaChannelSampleLength;
-    uint16_t _deltaChannelPeriodCounter;
-    uint16_t _deltaChannelPeriodLoad;
+    uint32_t _frame_counter_clock;
+    uint32_t _delay_frame_reset;
 
-    uint8_t _deltaChannelBitsInBuffer;
+    uint8_t _channels_counters[0x4];
 
-    bool _deltaChannelShouldLoop;
-    bool _deltaChannelEnableIRQ;
-    bool _deltaChannelSampleBufferEmpty;
+    bool _channel_enabled[0x4];
+    bool _channel_halted[0x4];
 
-    bool _enableDMC;
-    bool _sendDeltaChannelIRQ;
+    bool _step_mode;
 
-    const uint16_t PERIOD_DMC_TABLE[0x10] = {
-        0x1AC, 0x17C, 0x154, 0x140, 0x11E, 0x0FE, 0x0E2, 0x0D6, 0x0BE, 0x0A0, 0x08E, 0x080, 0x06A, 0x054, 0x048, 0x036
-    };
+    bool _inhibit_frame_interrupt;
+    bool _send_frame_interrupt;
 
 private:
-    enum Register : uint8_t {
-        PULSE_1_0 = 0x00, PULSE_1_3 = 0x03, PULSE_2_0 = 0x04, PULSE_2_3 = 0x07, TRIANGLE_0 = 0x08, TRIANGLE_3 = 0x0B, NOISE_0 = 0x0C, NOISE_3 = 0x0F,
-        DELTA_0 = 0x10, DELTA_3 = 0x13, OAM_DMA = 0x14, CTRL_STATUS = 0x15, FRAME_COUNTER = 0x17
+    uint16_t _delta_channel_remaining_bytes;
+    uint16_t _delta_channel_sample_length;
+    uint16_t _delta_channel_period_counter;
+    uint16_t _delta_channel_period_load;
+
+    uint8_t _delta_channel_bits_in_buffer;
+
+    bool _delta_channel_should_loop;
+    bool _delta_channel_enable_interrupt;
+    bool _delta_channel_sample_buffer_empty;
+
+    bool _enable_dmc;
+    bool _send_delta_channel_interrupt;
+
+private:
+    enum class Register : uint8_t {
+        PULSE_1_0 = 0x00,
+        PULSE_1_3 = 0x03,
+        PULSE_2_0 = 0x04,
+        PULSE_2_3 = 0x07,
+        TRIANGLE_0 = 0x08,
+        TRIANGLE_3 = 0x0B,
+        NOISE_0 = 0x0C,
+        NOISE_3 = 0x0F,
+        DELTA_0 = 0x10,
+        DELTA_3 = 0x13,
+        OAM_DMA = 0x14,
+        CTRL_STATUS = 0x15,
+        FRAME_COUNTER = 0x17
     };
 
 public:
-    template<DumpOperation operation, class T> void dump(T& buffer) {
-        cynes::dump<operation>(buffer, _latchCycle);
-        cynes::dump<operation>(buffer, _delayDMA);
-        cynes::dump<operation>(buffer, _addressDMA);
-        cynes::dump<operation>(buffer, _pendingDMA);
-        cynes::dump<operation>(buffer, _openBus);
+    template<DumpOperation operation, typename T>
+    constexpr void dump(T& buffer) {
+        cynes::dump<operation>(buffer, _latch_cycle);
+        cynes::dump<operation>(buffer, _delay_dma);
+        cynes::dump<operation>(buffer, _address_dma);
+        cynes::dump<operation>(buffer, _pending_dma);
+        cynes::dump<operation>(buffer, _open_bus);
 
-        cynes::dump<operation>(buffer, _frameCounterClock);
-        cynes::dump<operation>(buffer, _delayFrameReset);
-        cynes::dump<operation>(buffer, _channelCounters);
-        cynes::dump<operation>(buffer, _channelEnabled);
-        cynes::dump<operation>(buffer, _channelHalted);
-        cynes::dump<operation>(buffer, _stepMode);
-        cynes::dump<operation>(buffer, _inhibitFrameIRQ);
-        cynes::dump<operation>(buffer, _sendFrameIRQ);
+        cynes::dump<operation>(buffer, _frame_counter_clock);
+        cynes::dump<operation>(buffer, _delay_frame_reset);
+        cynes::dump<operation>(buffer, _channels_counters);
+        cynes::dump<operation>(buffer, _channel_enabled);
+        cynes::dump<operation>(buffer, _channel_halted);
+        cynes::dump<operation>(buffer, _step_mode);
+        cynes::dump<operation>(buffer, _inhibit_frame_interrupt);
+        cynes::dump<operation>(buffer, _send_frame_interrupt);
 
-        cynes::dump<operation>(buffer, _deltaChannelRemainingBytes);
-        cynes::dump<operation>(buffer, _deltaChannelSampleLength);
-        cynes::dump<operation>(buffer, _deltaChannelPeriodCounter);
-        cynes::dump<operation>(buffer, _deltaChannelPeriodLoad);
-        cynes::dump<operation>(buffer, _deltaChannelBitsInBuffer);
-        cynes::dump<operation>(buffer, _deltaChannelShouldLoop);
-        cynes::dump<operation>(buffer, _deltaChannelEnableIRQ);
-        cynes::dump<operation>(buffer, _deltaChannelSampleBufferEmpty);
-        cynes::dump<operation>(buffer, _enableDMC);
-        cynes::dump<operation>(buffer, _sendDeltaChannelIRQ);
+        cynes::dump<operation>(buffer, _delta_channel_remaining_bytes);
+        cynes::dump<operation>(buffer, _delta_channel_sample_length);
+        cynes::dump<operation>(buffer, _delta_channel_period_counter);
+        cynes::dump<operation>(buffer, _delta_channel_period_load);
+        cynes::dump<operation>(buffer, _delta_channel_bits_in_buffer);
+        cynes::dump<operation>(buffer, _delta_channel_should_loop);
+        cynes::dump<operation>(buffer, _delta_channel_enable_interrupt);
+        cynes::dump<operation>(buffer, _delta_channel_sample_buffer_empty);
+        cynes::dump<operation>(buffer, _enable_dmc);
+        cynes::dump<operation>(buffer, _send_delta_channel_interrupt);
     }
 };
 }

@@ -15,6 +15,8 @@ class PPU {
 public:
     /// Initialize the PPU.
     PPU(NES& nes);
+
+    /// Default destructor.
     ~PPU() = default;
 
 public:
@@ -28,15 +30,15 @@ public:
     void tick();
 
     /// Write to the PPU memory.
-    /// @note This function has other side effects than simply writing to the
-    /// memory, it should not be used as a memory set function.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
     /// @param address Memory address within the PPU memory address space.
     /// @param value Value to write.
     void write(uint8_t address, uint8_t value);
 
     /// Read from the APU memory.
-    /// @note This function has other side effects than simply reading from
-    /// memory, it should not be used as a memory watch function.
+    /// @note This function has other side effects than simply reading from memory, it
+    /// should not be used as a memory watch function.
     /// @param address Memory address within the PPU memory address space.
     /// @return The value stored at the given address.
     uint8_t read(uint8_t address);

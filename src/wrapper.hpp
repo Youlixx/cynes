@@ -15,7 +15,7 @@ public:
     /// @param path_rom Path to the ROM file.
     NesWrapper(const char* path_rom);
 
-    // Default constructor.
+    // Default destructor.
     ~NesWrapper() = default;
 
     /// Step the emulation by the given amount of frame.
@@ -33,8 +33,8 @@ public:
     void load(pybind11::array_t<uint8_t> buffer);
 
     /// Write to the console memory.
-    /// @note This function has other side effects than simply writing to the
-    /// memory, it should not be used as a memory set function.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
     inline void write(uint16_t address, uint8_t value) {
@@ -42,8 +42,8 @@ public:
     }
 
     /// Read from the console memory while ticking its components.
-    /// @note This function has other side effects than simply reading from
-    /// memory, it should not be used as a memory watch function.
+    /// @note This function has other side effects than simply reading from memory, it
+    /// should not be used as a memory watch function.
     /// @param address Memory address within the console memory address space.
     /// @return The value stored at the given address.
     inline uint8_t read(uint16_t address) { return _nes.read_cpu(address); }
@@ -52,9 +52,9 @@ public:
     inline void reset() { _nes.reset(); }
 
     /// Check whether or not the emulator has hit a JAM instruction.
-    /// @note When the emulator has crashed, subsequent calls to
-    /// `NesWrapper::step` will not do anything. Resetting the emulator or
-    /// loading a valid save-state will reset this flag.
+    /// @note When the emulator has crashed, subsequent calls to `NesWrapper::step` will
+    /// not do anything. Resetting the emulator or loading a valid save-state will reset
+    /// this flag.
     /// @return True if the emulator crashed, false otherwise.
     inline bool has_crashed() const { return _crashed; }
 

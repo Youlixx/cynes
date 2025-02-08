@@ -14,6 +14,8 @@ class CPU {
 public:
     /// Initialize the CPU.
     CPU(NES& nes);
+
+    /// Default destructor.
     ~CPU() = default;
 
 public:

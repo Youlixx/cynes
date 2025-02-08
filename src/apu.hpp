@@ -16,6 +16,8 @@ class APU {
 public:
     /// Initialize the APU.
     APU(NES& nes);
+
+    /// Default destructor.
     ~APU() = default;
 
 public:
@@ -27,8 +29,8 @@ public:
 
     /// Tick the APU.
     /// @param reading Should be true if the APU is ticked on a reading cycle.
-    /// @param prevent_load False by default, should be set to true only when
-    /// called from `APU::load_delta_channel_byte` to avoid recursion.
+    /// @param prevent_load False by default, should be set to true only when called
+    /// from `APU::load_delta_channel_byte` to avoid recursion.
     void tick(bool reading, bool prevent_load = false);
 
     /// Write to the APU memory.
@@ -37,8 +39,8 @@ public:
     void write(uint8_t address, uint8_t value);
 
     /// Read from the APU memory.
-    /// @note This function has other side effects than simply reading from
-    /// memory, it should not be used as a memory watch function.
+    /// @note This function has other side effects than simply reading from memory, it
+    /// should not be used as a memory watch function.
     /// @param address Memory address within the APU memory address space.
     /// @return The value stored at the given address.
     uint8_t read(uint8_t address);

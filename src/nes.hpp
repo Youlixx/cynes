@@ -19,6 +19,8 @@ public:
     /// Initialize the NES.
     /// @param path Path to the ROM.
     NES(const char* path);
+
+    /// Default destructor.
     ~NES() = default;
 
 public:
@@ -29,57 +31,57 @@ public:
     void dummy_read();
 
     /// Write to the console memory while ticking its components.
-    /// @note This function has other side effects than simply writing to the
-    /// memory, it should not be used as a memory set function.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
     void write(uint16_t address, uint8_t value);
 
     /// Write to the console memory.
-    /// @note This function has other side effects than simply writing to the
-    /// memory, it should not be used as a memory set function.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
     void write_cpu(uint16_t address, uint8_t value);
 
     /// Write to the PPU memory.
-    /// @note This function has other side effects than simply writing to the
-    /// memory, it should not be used as a memory set function.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
     void write_ppu(uint16_t address, uint8_t value);
 
     /// Write to the OAM memory.
-    /// @note This function has other side effects than simply writing to the
-    /// memory, it should not be used as a memory set function.
+    /// @note This function has other side effects than simply writing to the memory, it
+    /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
     void write_oam(uint8_t address, uint8_t value);
 
     /// Read from the console memory while ticking its components.
-    /// @note This function has other side effects than simply reading from
-    /// memory, it should not be used as a memory watch function.
+    /// @note This function has other side effects than simply reading from  memory, it
+    /// should not be used as a memory watch function.
     /// @param address Memory address within the console memory address space.
     /// @return The value stored at the given address.
     uint8_t read(uint16_t address);
 
     /// Read from the console memory.
-    /// @note This function has other side effects than simply reading from
-    /// memory, it should not be used as a memory watch function.
+    /// @note This function has other side effects than simply reading from memory, it
+    /// should not be used as a memory watch function.
     /// @param address Memory address within the console memory address space.
     /// @return The value stored at the given address.
     uint8_t read_cpu(uint16_t address);
 
     /// Read from the PPU memory.
-    /// @note This function has other side effects than simply reading from
-    /// memory, it should not be used as a memory watch function.
+    /// @note This function has other side effects than simply reading from memory, it
+    /// should not be used as a memory watch function.
     /// @param address Memory address within the console memory address space.
     /// @return The value stored at the given address.
     uint8_t read_ppu(uint16_t address);
 
     /// Read from the OAM memory.
-    /// @note This function has other side effects than simply reading from
-    /// memory, it should not be used as a memory watch function.
+    /// @note This function has other side effects than simply reading from memory, it
+    /// should not be used as a memory watch function.
     /// @param address Memory address within the console memory address space.
     /// @return The value stored at the given address.
     uint8_t read_oam(uint8_t address) const;
@@ -89,8 +91,8 @@ public:
     uint8_t get_open_bus() const;
 
     /// Step the emulation by the given amount of frame.
-    /// @param controllers Controllers states (first 8-bits for controller 1,
-    /// the remaining 8-bits fro controller 2).
+    /// @param controllers Controllers states (first 8-bits for controller 1, the
+    /// remaining 8-bits fro controller 2).
     /// @param frames Number of frame of the step.
     /// @return True if the CPU is frozen, false otherwise.
     bool step(uint16_t controllers, unsigned int frames);

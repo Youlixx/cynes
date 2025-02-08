@@ -17,8 +17,8 @@ enum class MirroringMode : uint8_t {
     NONE, ONE_SCREEN_LOW, ONE_SCREEN_HIGH, HORIZONTAL, VERTICAL
 };
 
-// TODO: use smart pointers
-struct NESMetadata {
+/// Simple wrapper storing memory parsed from a ROM file.
+struct ParsedMemory {
 public:
     uint16_t size_prg = 0x00;
     uint16_t size_chr = 0x00;
@@ -39,7 +39,7 @@ public:
     /// @param size_ppu_ram Size of the PPU RAM.
     Mapper(
         NES& nes,
-        const NESMetadata& metadata,
+        const ParsedMemory& metadata,
         MirroringMode mode,
         uint8_t size_cpu_ram = 0x8,
         uint8_t size_ppu_ram = 0x2
@@ -184,7 +184,7 @@ public:
 /// NROM mapper (see https://www.nesdev.org/wiki/NROM).
 class NROM : public Mapper {
 public:
-    NROM(NES& nes, const NESMetadata& metadata, MirroringMode mode);
+    NROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
     ~NROM() = default;
 };
 
@@ -192,7 +192,7 @@ public:
 /// MMC1 mapper (see https://www.nesdev.org/wiki/MMC1).
 class MMC1 : public Mapper {
 public:
-    MMC1(NES& nes, const NESMetadata& metadata, MirroringMode mode);
+    MMC1(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
     ~MMC1() = default;
 
 public:
@@ -232,7 +232,7 @@ public:
 /// UxROM mapper (see https://www.nesdev.org/wiki/UxROM).
 class UxROM : public Mapper {
 public:
-    UxROM(NES& nes, const NESMetadata& metadata, MirroringMode mode);
+    UxROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
     ~UxROM() = default;
 
 public:
@@ -248,7 +248,7 @@ public:
 /// CNROM mapper (see https://www.nesdev.org/wiki/CNROM).
 class CNROM : public Mapper {
 public:
-    CNROM(NES& nes, const NESMetadata& metadata, MirroringMode mode);
+    CNROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
     ~CNROM() = default;
 
 public:
@@ -264,7 +264,7 @@ public:
 /// MMC3 mapper (see https://www.nesdev.org/wiki/MMC3).
 class MMC3 : public Mapper {
 public:
-    MMC3(NES& nes, const NESMetadata& metadata, MirroringMode mode);
+    MMC3(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
     ~MMC3() = default;
 
 public:
@@ -329,7 +329,7 @@ public:
 /// AxROM mapper (see https://www.nesdev.org/wiki/AxROM).
 class AxROM : public Mapper {
 public:
-    AxROM(NES& nes, const NESMetadata& metadata);
+    AxROM(NES& nes, const ParsedMemory& metadata);
     ~AxROM() = default;
 
 public:
@@ -345,7 +345,7 @@ public:
 template<uint8_t BANK_SIZE>
 class MMC : public Mapper {
 public:
-    MMC(NES& nes, const NESMetadata& metadata, MirroringMode mode) :
+    MMC(NES& nes, const ParsedMemory& metadata, MirroringMode mode) :
         Mapper(nes, metadata, mode) {
         map_bank_chr(0x0, 0x8, 0x0);
 
@@ -446,7 +446,7 @@ using MMC4 = MMC<0x10>;
 /// GxROM mapper (see https://www.nesdev.org/wiki/GxROM).
 class GxROM : public Mapper {
 public:
-    GxROM(NES& nes, const NESMetadata& metadata, MirroringMode mode);
+    GxROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
     ~GxROM() = default;
 
 public:

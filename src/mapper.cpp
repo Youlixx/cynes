@@ -13,7 +13,7 @@ cynes::Mapper::MemoryBank::MemoryBank(size_t offset, bool read_only)
 
 cynes::Mapper::Mapper(
     NES& nes,
-    const NESMetadata& metadata,
+    const ParsedMemory& metadata,
     MirroringMode mode,
     uint8_t size_cpu_ram,
     uint8_t size_ppu_ram
@@ -81,7 +81,7 @@ std::unique_ptr<cynes::Mapper> cynes::Mapper::load_mapper(
 
     stream.seekg(8, std::ios::cur);
 
-    cynes::NESMetadata metadata{};
+    cynes::ParsedMemory metadata{};
     metadata.size_prg = static_cast<uint16_t>(program_banks) << 4;
     metadata.size_chr = static_cast<uint16_t>(character_banks) << 3;
 
@@ -265,7 +265,7 @@ void cynes::Mapper::mirror_ppu_banks(uint8_t page, uint8_t size, uint8_t mirror)
 }
 
 
-cynes::NROM::NROM(NES& nes, const NESMetadata& metadata, MirroringMode mode)
+cynes::NROM::NROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode)
     : Mapper(nes, metadata, mode)
 {
     map_bank_chr(0x0, 0x8, 0x0);
@@ -283,7 +283,7 @@ cynes::NROM::NROM(NES& nes, const NESMetadata& metadata, MirroringMode mode)
 
 cynes::MMC1::MMC1(
     NES& nes,
-    const NESMetadata& metadata,
+    const ParsedMemory& metadata,
     MirroringMode mode
 ) : Mapper(nes, metadata, mode)
   , _tick{0x00}
@@ -370,7 +370,7 @@ void cynes::MMC1::update_banks() {
 }
 
 
-cynes::UxROM::UxROM(NES& nes, const NESMetadata& metadata, MirroringMode mode)
+cynes::UxROM::UxROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode)
     : Mapper(nes, metadata, mode, 0x0, 0x10)
 {
     map_bank_prg(0x20, 0x10, 0x00);
@@ -388,7 +388,7 @@ void cynes::UxROM::write_cpu(uint16_t address, uint8_t value) {
 }
 
 
-cynes::CNROM::CNROM(NES& nes, const NESMetadata& metadata, MirroringMode mode)
+cynes::CNROM::CNROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode)
     : Mapper(nes, metadata, mode, 0x0)
 {
     map_bank_chr(0x0, 0x8, 0x0);
@@ -412,7 +412,7 @@ void cynes::CNROM::write_cpu(uint16_t address, uint8_t value) {
 
 cynes::MMC3::MMC3(
     NES& nes,
-    const NESMetadata& metadata,
+    const ParsedMemory& metadata,
     MirroringMode mode
 ) : Mapper(nes, metadata, mode)
   , _tick{0x0000}
@@ -540,7 +540,7 @@ void cynes::MMC3::update_state(bool state) {
 }
 
 
-cynes::AxROM::AxROM(NES& nes, const NESMetadata& metadata)
+cynes::AxROM::AxROM(NES& nes, const ParsedMemory& metadata)
     : Mapper(nes, metadata, MirroringMode::ONE_SCREEN_LOW, 0x8, 0x10)
 {
     map_bank_ppu_ram(0x0, 0x8, 0x2, false);
@@ -562,7 +562,7 @@ void cynes::AxROM::write_cpu(uint16_t address, uint8_t value) {
 }
 
 
-cynes::GxROM::GxROM(NES& nes, const NESMetadata& metadata, MirroringMode mode)
+cynes::GxROM::GxROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode)
     : Mapper(nes, metadata, mode, 0x0)
 {
     map_bank_prg(0x20, 0x20, 0x0);

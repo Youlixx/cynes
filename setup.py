@@ -1,3 +1,5 @@
+"""Build and generate the wheel for cynes."""
+
 import os
 import re
 import subprocess
@@ -7,7 +9,6 @@ from pathlib import Path
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
-
 with open("README.md", "r") as file:
     long_description = file.read()
 
@@ -15,16 +16,16 @@ with open("README.md", "r") as file:
 class CMakeExtension(Extension):
     """CMake extension."""
 
-    def __init__(self, name: str, sourcedir: str = "") -> None:
+    def __init__(self, name: str, source_dir: str = "") -> None:
         """Initialize the extension.
 
         Args:
             name (str): Name of the extension.
-            sourcedir (str, optional): C++ source directory.
+            source_dir (str, optional): C++ source directory.
         """
         super().__init__(name, sources=[])
 
-        self.sourcedir = os.fspath(Path(sourcedir).resolve())
+        self.source_dir = os.fspath(Path(source_dir).resolve())
 
 
 class CMakeBuild(build_ext):
@@ -94,7 +95,7 @@ class CMakeBuild(build_ext):
             build_temp.mkdir(parents=True)
 
         subprocess.run(
-            ["cmake", ext.sourcedir, *cmake_args], cwd=build_temp, check=True
+            ["cmake", ext.source_dir, *cmake_args], cwd=build_temp, check=True
         )
 
         subprocess.run(
@@ -102,7 +103,7 @@ class CMakeBuild(build_ext):
         )
 
 setup(
-    name = "cynes",
+    name="cynes",
     version="0.1.0",
     author="Theo Combey",
     author_email="combey.theo@hotmail.com",
@@ -129,7 +130,8 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12"
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13"
     ],
     python_requires=">=3.6",
 )

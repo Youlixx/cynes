@@ -172,8 +172,7 @@ class WindowedNES(NES):
                 False otherwise.
         """
         self.close()
-
-        return True
+        return False
 
     def __input_a(self) -> None:
         self.controller |= NES_INPUT_A

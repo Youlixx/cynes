@@ -26,6 +26,7 @@ cynes::Mapper::Mapper(
   , _size_chr{static_cast<size_t>(_banks_chr) << 10}
   , _size_cpu_ram{static_cast<size_t>(_banks_cpu_ram) << 10}
   , _size_ppu_ram{static_cast<size_t>(_banks_ppu_ram) << 10}
+  , _read_only_chr{metadata.read_only_chr}
   , _memory{new uint8_t[_size_prg + _size_chr + _size_cpu_ram + _size_ppu_ram]}
   , _banks_cpu{}
   , _banks_ppu{}
@@ -98,10 +99,12 @@ std::unique_ptr<cynes::Mapper> cynes::Mapper::load_mapper(
 
     if (metadata.size_chr > 0) {
         size_t memory_size = static_cast<size_t>(metadata.size_chr) << 10;
+        metadata.read_only_chr = true;
         metadata.memory_chr.reset(new uint8_t[memory_size]);
         stream.read(reinterpret_cast<char*>(metadata.memory_chr.get()), memory_size);
     } else {
         metadata.size_chr = 8;
+        metadata.read_only_chr = false;
         metadata.memory_chr.reset(new uint8_t[0x2000]);
     }
 
@@ -195,7 +198,7 @@ void cynes::Mapper::map_bank_cpu_ram(uint8_t page, uint8_t size, uint16_t addres
 void cynes::Mapper::map_bank_chr(uint8_t page, uint16_t address) {
     _banks_ppu[page] = {
         _size_prg + static_cast<size_t>(address << 10),
-        true
+        _read_only_chr
     };
 }
 

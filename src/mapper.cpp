@@ -1,8 +1,15 @@
 #include "mapper.hpp"
+
 #include "cpu.hpp"
 #include "nes.hpp"
+
+#include <algorithm>
 #include <fstream>
+#include <random>
 #include <sstream>
+
+
+using random_bytes_engine = std::independent_bits_engine<std::default_random_engine, sizeof(uint8_t), uint8_t>;
 
 
 cynes::Mapper::MemoryBank::MemoryBank()
@@ -32,7 +39,7 @@ cynes::Mapper::Mapper(
   , _banks_cpu{}
   , _banks_ppu{}
 {
-    if (metadata.memory_prg != nullptr) {
+    if (_size_prg > 0) {
         std::memcpy(
             _memory.get(),
             metadata.memory_prg.get(),
@@ -40,7 +47,7 @@ cynes::Mapper::Mapper(
         );
     }
 
-    if (metadata.memory_chr != nullptr) {
+    if (_size_chr > 0) {
         std::memcpy(
             _memory.get() + _size_prg,
             metadata.memory_chr.get(),
@@ -48,11 +55,33 @@ cynes::Mapper::Mapper(
         );
     }
 
+    random_bytes_engine engine{};
+
     if (metadata.trainer != nullptr) {
         std::memcpy(
             _memory.get() + _size_prg + _size_chr,
             metadata.trainer.get(),
             0x200
+        );
+
+        std::generate(
+            _memory.get() + _size_prg + _size_chr + 0x200,
+            _memory.get() + _size_prg + _size_chr + _size_cpu_ram,
+            std::ref(engine)
+        );
+    } else {
+        std::generate(
+            _memory.get() + _size_prg + _size_chr,
+            _memory.get() + _size_prg + _size_chr + _size_cpu_ram,
+            std::ref(engine)
+        );
+    }
+
+    if (_size_ppu_ram > 0) {
+        std::generate(
+            _memory.get() + _size_prg + _size_chr + _size_cpu_ram,
+            _memory.get() + _size_prg + _size_chr + _size_cpu_ram + _size_ppu_ram,
+            std::ref(engine)
         );
     }
 

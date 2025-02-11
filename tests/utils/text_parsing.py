@@ -48,7 +48,10 @@ def parse_text_from_frame(
 
         for x in range(frame.shape[1] // 8):
             character = frame[y * 8: y * 8 + 8, x * 8: x * 8 + 8, 0]
-            character = int.from_bytes(np.packbits(np.reshape(character, -1)).tobytes())
+            character = int.from_bytes(
+                np.packbits(np.reshape(character, -1)).tobytes(),
+                byteorder="big"
+            )
 
             if character in character_map:
                 current_line += character_map[character]

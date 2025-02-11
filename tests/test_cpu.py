@@ -2,13 +2,20 @@
 
 import pytest
 
+from cynes import NES_INPUT_SELECT, NES_INPUT_START
 from tests.utils.test_rom import (
+    FrameCountedNES,
     MatchCondition,
     Matcher,
     run_test_rom_ppu,
     run_test_rom_ram,
 )
-from tests.utils.text_parsing import CHARACTER_MAP_DEFAULT, CHARACTER_MAP_RESTRAINED
+from tests.utils.text_parsing import (
+    CHARACTER_MAP_DEFAULT,
+    CHARACTER_MAP_NESTEST,
+    CHARACTER_MAP_RESTRAINED,
+    parse_text_from_frame,
+)
 
 
 @pytest.mark.parametrize(
@@ -196,4 +203,48 @@ def test_instr_timing(path_rom: str, frame_count: int) -> None:
     run_test_rom_ram(
         path_rom=path_rom,
         expected_frame_count=frame_count
+    )
+
+@pytest.mark.parametrize(
+    "path_rom,frame_count", [("other/nestest.nes", 33)]
+)
+def test_nestest(path_rom: str, frame_count: int) -> None:
+    """Run the nestest test suite."""
+    nes = FrameCountedNES(path_rom, timeout=frame_count+1)
+    output = parse_text_from_frame(nes.step(), CHARACTER_MAP_NESTEST)
+
+    while "Select: Invalid ops!" not in output:
+        output = parse_text_from_frame(nes.step(), CHARACTER_MAP_NESTEST)
+
+    # Press start to run the tests.
+    nes.controller = NES_INPUT_START
+
+    while "~~ Run all tests" in output:
+        output = parse_text_from_frame(nes.step(), CHARACTER_MAP_NESTEST)
+
+    assert "OK Run all tests" in output, (
+        "Some tests failed with the following errors:\n" +
+        "\n".join(output.split("\n")[1:-3])
+    )
+
+    # Press select to switch to invalid opcode tests.
+    nes.controller = NES_INPUT_SELECT
+
+    while "Select: Normal ops" not in output:
+        output = parse_text_from_frame(nes.step(), CHARACTER_MAP_NESTEST)
+
+    # Press start to run the tests.
+    nes.controller = NES_INPUT_START
+
+    while "~~ Run all tests" in output:
+        output = parse_text_from_frame(nes.step(), CHARACTER_MAP_NESTEST)
+
+    assert "OK Run all tests" in output, (
+        "Some tests failed with the following errors:\n" +
+        "\n".join(output.split("\n")[1:-3])
+    )
+
+    assert nes.frame_count == frame_count, (
+        f"Expected the test to succeed in exactly {frame_count} frames, it succeeded "
+        f"within {nes.frame_count} frames instead."
     )

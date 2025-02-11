@@ -149,3 +149,13 @@ def test_cpu_timing_test6(path_rom: str, frame_count: int) -> None:
         expected_frame_count=frame_count,
         character_map=CHARACTER_MAP_RESTRAINED
     )
+
+@pytest.mark.parametrize(
+    "path_rom,frame_count", [("instr_misc/instr_misc.nes", 224)]
+)
+def test_instr_misc(path_rom: str, frame_count: int) -> None:
+    """Run the instr_misc test suite."""
+    run_test_rom_ram(
+        path_rom=path_rom,
+        expected_frame_count=frame_count
+    )

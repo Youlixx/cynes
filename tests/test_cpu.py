@@ -248,3 +248,25 @@ def test_nestest(path_rom: str, frame_count: int) -> None:
         f"Expected the test to succeed in exactly {frame_count} frames, it succeeded "
         f"within {nes.frame_count} frames instead."
     )
+
+@pytest.mark.parametrize(
+    "path_rom,frame_count", [
+        ("nes_instr_test/rom_singles/01-implied.nes", 63),
+        ("nes_instr_test/rom_singles/02-immediate.nes", 57),
+        ("nes_instr_test/rom_singles/03-zero_page.nes", 75),
+        ("nes_instr_test/rom_singles/04-zp_xy.nes", 174),
+        ("nes_instr_test/rom_singles/05-absolute.nes", 71),
+        ("nes_instr_test/rom_singles/06-abs_xy.nes", 243),
+        ("nes_instr_test/rom_singles/07-ind_x.nes", 104),
+        ("nes_instr_test/rom_singles/08-ind_y.nes", 99),
+        ("nes_instr_test/rom_singles/09-branches.nes", 32),
+        ("nes_instr_test/rom_singles/10-stack.nes", 127),
+        ("nes_instr_test/rom_singles/11-special.nes", 10),
+    ]
+)
+def test_nes_instr_test(path_rom: str, frame_count: int) -> None:
+    """Run the nes_instr_test test suite."""
+    run_test_rom_ram(
+        path_rom=path_rom,
+        expected_frame_count=frame_count
+    )

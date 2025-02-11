@@ -7,7 +7,7 @@ from tests.utils.test_rom import (
     Matcher,
     run_test_rom_ppu,
 )
-from tests.utils.text_parsing import CHARACTER_MAP_DEFAULT
+from tests.utils.text_parsing import CHARACTER_MAP_DEFAULT, CHARACTER_MAP_RESTRAINED
 
 
 @pytest.mark.parametrize(
@@ -30,4 +30,28 @@ def test_blargg_nes_cpu_test5(path_rom: str, frame_count: int) -> None:
         ),
         expected_frame_count=frame_count,
         character_map=CHARACTER_MAP_DEFAULT
+    )
+
+
+@pytest.mark.parametrize(
+    "path_rom,frame_count", [
+        ("branch_timing_tests/1.Branch_Basics.nes", 13),
+        ("branch_timing_tests/2.Backward_Branch.nes", 15),
+        ("branch_timing_tests/3.Forward_Branch.nes", 15),
+    ]
+)
+def test_branch_timing_tests(path_rom: str, frame_count: int) -> None:
+    """Run the branch_timing_tests test suite."""
+    run_test_rom_ppu(
+        path_rom=path_rom,
+        success_matcher=Matcher(
+            string="PASSED",
+            condition=MatchCondition.LAST_LINE_STRICT
+        ),
+        failure_matcher=Matcher(
+            string="FAILED",
+            condition=MatchCondition.LAST_LINE_STRICT
+        ),
+        expected_frame_count=frame_count,
+        character_map=CHARACTER_MAP_RESTRAINED
     )

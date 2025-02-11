@@ -159,3 +159,31 @@ def test_instr_misc(path_rom: str, frame_count: int) -> None:
         path_rom=path_rom,
         expected_frame_count=frame_count
     )
+
+@pytest.mark.parametrize(
+    "path_rom,frame_count", [
+        ("instr_test-v3/rom_singles/01-implied.nes", 98),
+        ("instr_test-v3/rom_singles/02-immediate.nes", 87),
+        ("instr_test-v3/rom_singles/03-zero_page.nes", 116),
+        ("instr_test-v3/rom_singles/04-zp_xy.nes", 260),
+        ("instr_test-v3/rom_singles/05-absolute.nes", 110),
+        ("instr_test-v3/rom_singles/06-abs_xy.nes", 365),
+        ("instr_test-v3/rom_singles/07-ind_x.nes", 146),
+        ("instr_test-v3/rom_singles/08-ind_y.nes", 137),
+        ("instr_test-v3/rom_singles/09-branches.nes", 41),
+        ("instr_test-v3/rom_singles/10-stack.nes", 164),
+        ("instr_test-v3/rom_singles/11-jmp_jsr.nes", 17),
+        ("instr_test-v3/rom_singles/12-rts.nes", 14),
+        ("instr_test-v3/rom_singles/13-rti.nes", 15),
+        ("instr_test-v3/rom_singles/14-brk.nes", 27),
+        ("instr_test-v3/rom_singles/15-special.nes", 13),
+        ("instr_test-v3/official_only.nes", 1798),
+        ("instr_test-v3/all_instrs.nes", 2336),
+    ]
+)
+def test_instr_test_v3(path_rom: str, frame_count: int) -> None:
+    """Run the instr_test-v3 test suite."""
+    run_test_rom_ram(
+        path_rom=path_rom,
+        expected_frame_count=frame_count
+    )

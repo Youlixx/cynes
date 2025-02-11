@@ -6,6 +6,7 @@ from tests.utils.test_rom import (
     MatchCondition,
     Matcher,
     run_test_rom_ppu,
+    run_test_rom_ram,
 )
 from tests.utils.text_parsing import CHARACTER_MAP_DEFAULT, CHARACTER_MAP_RESTRAINED
 
@@ -72,4 +73,17 @@ def test_cpu_dummy_reads(path_rom: str, frame_count: int) -> None:
         ),
         expected_frame_count=frame_count,
         character_map=CHARACTER_MAP_DEFAULT
+    )
+
+@pytest.mark.parametrize(
+    "path_rom,frame_count", [
+        ("cpu_dummy_writes/cpu_dummy_writes_oam.nes", 313),
+        ("cpu_dummy_writes/cpu_dummy_writes_ppumem.nes", 219),
+    ]
+)
+def test_cpu_dummy_writes(path_rom: str, frame_count: int) -> None:
+    """Run the cpu_dummy_writes test suite."""
+    run_test_rom_ram(
+        path_rom=path_rom,
+        expected_frame_count=frame_count
     )

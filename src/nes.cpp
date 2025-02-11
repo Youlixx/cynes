@@ -68,6 +68,8 @@ void cynes::NES::write(uint16_t address, uint8_t value) {
 }
 
 void cynes::NES::write_cpu(uint16_t address, uint8_t value) {
+    _open_bus = value;
+
     if (address < 0x2000) {
         _memory_cpu[address & 0x7FF] = value;
     } else if (address < 0x4000) {
@@ -76,9 +78,9 @@ void cynes::NES::write_cpu(uint16_t address, uint8_t value) {
         load_controller_shifter(~value & 0x01);
     } else if (address < 0x4018) {
         apu.write(address & 0xFF, value);
+    } else {
+        _mapper->write_cpu(address, value);
     }
-
-    _mapper->write_cpu(address, value);
 }
 
 void cynes::NES::write_ppu(uint16_t address, uint8_t value) {

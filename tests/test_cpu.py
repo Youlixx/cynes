@@ -87,3 +87,16 @@ def test_cpu_dummy_writes(path_rom: str, frame_count: int) -> None:
         path_rom=path_rom,
         expected_frame_count=frame_count
     )
+
+@pytest.mark.parametrize(
+    "path_rom,frame_count", [
+        ("cpu_exec_space/test_cpu_exec_space_apu.nes", 279),
+        ("cpu_exec_space/test_cpu_exec_space_ppuio.nes", 40),
+    ]
+)
+def test_cpu_exec_space(path_rom: str, frame_count: int) -> None:
+    """Run the cpu_exec_space test suite."""
+    run_test_rom_ram(
+        path_rom=path_rom,
+        expected_frame_count=frame_count
+    )

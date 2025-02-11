@@ -130,3 +130,22 @@ def test_cpu_reset(path_rom: str, frame_count: int) -> None:
         path_rom=path_rom,
         expected_frame_count=frame_count
     )
+
+@pytest.mark.parametrize(
+    "path_rom,frame_count", [("cpu_timing_test6/cpu_timing_test.nes", 612)]
+)
+def test_cpu_timing_test6(path_rom: str, frame_count: int) -> None:
+    """Run the cpu_timing_test6 test suite."""
+    run_test_rom_ppu(
+        path_rom=path_rom,
+        success_matcher=Matcher(
+            string="PASSED",
+            condition=MatchCondition.LAST_LINE_STRICT
+        ),
+        failure_matcher=Matcher(
+            string="FAILED",
+            condition=MatchCondition.CONTAINS
+        ),
+        expected_frame_count=frame_count,
+        character_map=CHARACTER_MAP_RESTRAINED
+    )

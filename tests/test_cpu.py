@@ -117,3 +117,16 @@ def test_cpu_interrupts_v2(path_rom: str, frame_count: int) -> None:
         path_rom=path_rom,
         expected_frame_count=frame_count
     )
+
+@pytest.mark.parametrize(
+    "path_rom,frame_count", [
+        ("cpu_reset/ram_after_reset.nes", 156),
+        ("cpu_reset/registers.nes", 160),
+    ]
+)
+def test_cpu_reset(path_rom: str, frame_count: int) -> None:
+    """Run the cpu_reset test suite."""
+    run_test_rom_ram(
+        path_rom=path_rom,
+        expected_frame_count=frame_count
+    )

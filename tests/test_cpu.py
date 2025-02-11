@@ -100,3 +100,20 @@ def test_cpu_exec_space(path_rom: str, frame_count: int) -> None:
         path_rom=path_rom,
         expected_frame_count=frame_count
     )
+
+@pytest.mark.parametrize(
+    "path_rom,frame_count", [
+        ("cpu_interrupts_v2/rom_singles/1-cli_latency.nes", 16),
+        ("cpu_interrupts_v2/rom_singles/2-nmi_and_brk.nes", 112),
+        ("cpu_interrupts_v2/rom_singles/3-nmi_and_irq.nes", 132),
+        ("cpu_interrupts_v2/rom_singles/4-irq_and_dma.nes", 71),
+        ("cpu_interrupts_v2/rom_singles/5-branch_delays_irq.nes", 379),
+        ("cpu_interrupts_v2/cpu_interrupts.nes", 725),
+    ]
+)
+def test_cpu_interrupts_v2(path_rom: str, frame_count: int) -> None:
+    """Run the cpu_interrupts_v2 test suite."""
+    run_test_rom_ram(
+        path_rom=path_rom,
+        expected_frame_count=frame_count
+    )

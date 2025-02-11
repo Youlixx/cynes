@@ -1,0 +1,28 @@
+name: Test
+
+on:
+  pull_request:
+
+jobs:
+  test:
+    name: Run cynes tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        name: Set up Python
+        with:
+          python-version: '3.9'
+          architecture: 'x64'
+
+      - name: Build cynes
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Get test roms
+        run: git clone https://github.com/christopherpow/nes-test-roms.git roms
+
+      - name: Run tests
+        run: pytest tests/

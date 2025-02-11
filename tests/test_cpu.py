@@ -187,3 +187,13 @@ def test_instr_test_v3(path_rom: str, frame_count: int) -> None:
         path_rom=path_rom,
         expected_frame_count=frame_count
     )
+
+@pytest.mark.parametrize(
+    "path_rom,frame_count", [("instr_timing/instr_timing.nes", 1299)]
+)
+def test_instr_timing(path_rom: str, frame_count: int) -> None:
+    """Run the instr_timing test suite."""
+    run_test_rom_ram(
+        path_rom=path_rom,
+        expected_frame_count=frame_count
+    )

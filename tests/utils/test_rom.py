@@ -1,6 +1,7 @@
 """Module containing function to run test ROM in a automated way."""
 
 import os
+import re
 from enum import Enum, auto
 
 import numpy as np
@@ -116,6 +117,7 @@ class MatchCondition(Enum):
     LINE_STRICT = auto()
     LINE_CONTAINS = auto()
     LAST_LINE_STRICT = auto()
+    REGEX = auto()
 
 
 class Matcher:
@@ -160,6 +162,8 @@ class Matcher:
             return any(self._string in line.strip() for line in output.splitlines())
         elif self._condition is MatchCondition.LAST_LINE_STRICT:
             return output.splitlines()[-1].strip() == self._string
+        elif self._condition is MatchCondition.REGEX:
+            return re.search(self._string, output) is not None
         else:
             raise ValueError(f"Unknown match condition {self._condition}")
 

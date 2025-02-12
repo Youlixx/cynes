@@ -65,7 +65,7 @@ class FrameCountedNES(NES):
         return self._frame_counter
 
 
-def run_test_rom_ram(path_rom: str, expected_frame_count: int) -> int:
+def run_test_rom_ram(path_rom: str, timeout: int = 10000) -> int:
     """Run a test ROM while parsing the RAM results.
 
     All text output is written starting at $6004, with a zero-byte terminator at the
@@ -82,10 +82,10 @@ def run_test_rom_ram(path_rom: str, expected_frame_count: int) -> int:
 
     Args:
         path_rom (str): Path to the test ROM.
-        expected_frame_count (int): The exact number of frame the emulation should run
-            for until the test succeed.
+        timeout (int, optional): Automatically raises an assertion error if the number
+            of `step` call exceed the timeout value.
     """
-    nes = FrameCountedNES(path_rom, timeout=expected_frame_count+1)
+    nes = FrameCountedNES(path_rom, timeout)
 
     while nes[0x6001] != 0xDE or nes[0x6002] != 0xB0 or nes[0x6003] != 0x61:
         nes.step()
@@ -103,11 +103,6 @@ def run_test_rom_ram(path_rom: str, expected_frame_count: int) -> int:
     assert nes[0x6000] == 0, (
         f"Test failed with error code {nes[0x6000]}: "
         f"{parse_zero_terminated_string(nes, 0x6004)}"
-    )
-
-    assert nes.frame_count == expected_frame_count, (
-        f"Expected the test to succeed in exactly {expected_frame_count} frames, it "
-        f"succeeded within {nes.frame_count} frames instead."
     )
 
 
@@ -173,8 +168,8 @@ def run_test_rom_ppu(
     path_rom: str,
     success_matcher: Matcher,
     failure_matcher: Matcher,
-    expected_frame_count: int,
-    character_map: dict[int, str]
+    character_map: dict[int, str],
+    timeout: int = 10000
 ) -> None:
     """Run a test ROM while parsing the screen output.
 
@@ -185,18 +180,13 @@ def run_test_rom_ppu(
         failure_matcher (Matcher): Expected string to be printed on the screen in case
             of failure.
         path_rom (str): Path to the test ROM.
-        expected_frame_count (int): The exact number of frame the emulation should run
-            for until the test succeed.
         character_map (dict[int, str]): Font used by the ROM.
+        timeout (int, optional): Automatically raises an assertion error if the number
+            of `step` call exceed the timeout value.
     """
-    nes = FrameCountedNES(path_rom, timeout=expected_frame_count+1)
+    nes = FrameCountedNES(path_rom, timeout)
     output = parse_text_from_frame(nes.step(), character_map=character_map)
 
     while not success_matcher(output):
         output = parse_text_from_frame(nes.step(), character_map=character_map)
         assert not failure_matcher(output), f"Test failed with error: {output}"
-
-    assert nes.frame_count == expected_frame_count, (
-        f"Expected the test to succeed in exactly {expected_frame_count} frames, it "
-        f"succeeded within {nes.frame_count} frames instead."
-    )

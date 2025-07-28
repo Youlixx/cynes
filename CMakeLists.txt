@@ -15,9 +15,15 @@ add_library(cynes_core STATIC
 
 set_property(TARGET cynes_core PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-target_compile_options(cynes_core PRIVATE
-    -Wall -Wextra -Wpedantic -Werror -Wno-missing-braces
-)
+if(MSVC)
+    # Flags for Microsoft Visual C++
+    target_compile_options(cynes_core PRIVATE /W4)
+else()
+    # Flags for GCC and Clang
+    target_compile_options(cynes_core PRIVATE
+        -Wall -Wextra -Wpedantic -Werror -Wno-missing-braces
+    )
+endif()
 
 target_include_directories(cynes_core PRIVATE
     src/
@@ -46,9 +52,15 @@ target_include_directories(emulator PRIVATE
     src/
 )
 
-target_compile_options(emulator PRIVATE
-    -Wall -Wextra -Wpedantic -Werror
-)
+if(MSVC)
+    # Flags for Microsoft Visual C++
+    target_compile_options(emulator PRIVATE /W4)
+else()
+    # Flags for GCC and Clang
+    target_compile_options(emulator PRIVATE
+        -Wall -Wextra -Wpedantic -Werror
+    )
+endif()
 
 target_link_libraries(emulator PRIVATE
     cynes_core

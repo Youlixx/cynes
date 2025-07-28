@@ -197,6 +197,10 @@ uint8_t cynes::NES::read(uint16_t address) {
     return _open_bus;
 }
 
+const uint8_t* cynes::NES::get_ram_pointer() const {
+    return reinterpret_cast<const uint8_t*>(_memory_cpu.get());
+}
+
 uint8_t cynes::NES::read_cpu(uint16_t address) {
     if (address < 0x2000) {
         return _memory_cpu[address & 0x7FF];
@@ -212,6 +216,7 @@ uint8_t cynes::NES::read_cpu(uint16_t address) {
         return _mapper->read_cpu(address);
     }
 }
+
 
 uint8_t cynes::NES::read_ppu(uint16_t address) {
     address &= 0x3FFF;

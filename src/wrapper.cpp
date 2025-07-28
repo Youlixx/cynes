@@ -63,6 +63,11 @@ PYBIND11_MODULE(emulator, mod) {
             "Read a value in the emulator memory at the specified address."
         )
         .def(
+            "get_all_ram",
+            &cynes::wrapper::NesWrapper::read_all_ram,
+            "Read all 2048 bytes of RAM into a NumPy array."
+        )
+        .def(
             "reset",
             &cynes::wrapper::NesWrapper::reset,
             "Send a reset signal to the emulator."

@@ -39,6 +39,23 @@ void cynes::wrapper::NesWrapper::load(pybind11::array_t<uint8_t> buffer) {
     _crashed = false;
 }
 
+// ADD THE IMPLEMENTATION FOR YOUR NEW FUNCTION
+pybind11::array_t<uint8_t> cynes::wrapper::NesWrapper::read_all_ram() {
+    constexpr size_t ram_size = 2048; // NES RAM is 2KB
+    const uint8_t* ram_ptr = _nes.get_ram_pointer();
+
+    // Create a capsule to manage the memory lifetime (i.e., do nothing, as _nes owns it)
+    pybind11::capsule no_delete(ram_ptr, [](void* p) { /* do nothing */ });
+
+    // Return a NumPy array that views the C++ memory without copying it
+    return pybind11::array_t<uint8_t>(
+        {ram_size},         // Shape of the array
+        {sizeof(uint8_t)},  // Strides (bytes to step for each element)
+        ram_ptr,            // Pointer to the data
+        no_delete           // The capsule
+    );
+}
+
 
 PYBIND11_MODULE(emulator, mod) {
     mod.doc() = "C/C++ NES emulator with Python bindings";

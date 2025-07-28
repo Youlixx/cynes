@@ -3,6 +3,7 @@
 
 #include "nes.hpp"
 
+#include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <cstdint>
 
@@ -32,6 +33,8 @@ public:
     /// @param buffer Save state buffer.
     void load(pybind11::array_t<uint8_t> buffer);
 
+    pybind11::array_t<uint8_t> read_all_ram();
+
     /// Write to the console memory.
     /// @note This function has other side effects than simply writing to the memory, it
     /// should not be used as a memory set function.
@@ -46,23 +49,7 @@ public:
     /// should not be used as a memory watch function.
     /// @param address Memory address within the console memory address space.
     /// @return The value stored at the given address.
-    inline uint8_t read(uint16_t address) { return _nes.read_cpu(address); }
-
-    // Reads the entire console's memory to a numpy array.
-    pybind11::array_t<uint8_t> read_all_ram(const cynes::NES& nes) {
-        const uint8_t* ram_ptr = nes.get_ram_pointer();
-
-        // The capsule tells NumPy not to deallocate the memory,
-        // as it's owned by the C++ NES object.
-        pybind11::capsule no_delete(ram_ptr, [](void* p) {});
-
-        return pybind11::array_t<uint8_t>(
-            {2048},         // Shape
-            {sizeof(uint8_t)},  // Strides
-            ram_ptr, // Data pointer
-            no_delete           // Lifetime management
-        );
-    }
+    uint8_t read(uint16_t address) { return _nes.read_cpu(address); }
 
     /// Reset the emulator (same effect as pressing the reset button).
     inline void reset() { _nes.reset(); }

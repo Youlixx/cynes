@@ -73,6 +73,16 @@ class NES:
             The value read from the RAM.
         """
         ...
+    
+    def get_all_ram(self) -> NDArray[np.uint8]:
+        """Read the full emulator memory.
+
+        Returns
+        -------
+        value: numpy array
+            Full contents of RAM.
+        """
+        ...
 
     def reset(self) -> None:
         """Send a reset signal to the emulator.

@@ -230,6 +230,19 @@ public:
     virtual void write_cpu(uint16_t address, uint8_t value);
 };
 
+/// UNROM 512 mapper (see https://www.nesdev.org/wiki/UNROM_512).
+class UNROM512 : public Mapper {
+public:
+    UNROM512(NES& nes, NESMetadata metadata, MirroringMode mode);
+    ~UNROM512() = default;
+
+public:
+    /// Write to a CPU mapped memory bank.
+    /// @param address Memory address within the console memory address space.
+    /// @param value Value to write.
+    virtual void write_cpu(uint16_t address, uint8_t value) override;
+};
+
 
 /// MMC3 mapper (see https://www.nesdev.org/wiki/MMC3).
 class MMC3 : public Mapper {

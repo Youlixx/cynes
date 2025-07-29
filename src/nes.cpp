@@ -84,6 +84,7 @@ std::unique_ptr<cynes::Mapper> load_mapper(cynes::NES& nes, const char* path) {
     case   7: return std::make_unique<cynes::AxROM>(nes, metadata);
     case   9: return std::make_unique<cynes::MMC2> (nes, metadata, mode);
     case  10: return std::make_unique<cynes::MMC4> (nes, metadata, mode);
+    case  30: return std::make_unique<cynes::UNROM512>(nes, metadata, mode);
     case  66: return std::make_unique<cynes::GxROM>(nes, metadata, mode);
     case  71: return std::make_unique<cynes::UxROM>(nes, metadata, mode);
     default: throw std::runtime_error("The ROM Mapper is not supported.");

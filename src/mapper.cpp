@@ -302,6 +302,32 @@ void cynes::UxROM::write_cpu(uint16_t address, uint8_t value) {
     }
 }
 
+cynes::UNROM512::UNROM512(NES& nes, NESMetadata metadata, MirroringMode mode)
+    : Mapper(nes, metadata, mode, 0x0, 32) // Allocate 32KB of CHR-RAM
+{
+    // Set up initial banks
+    map_bank_prg(0x20, 0x10, 0x00); // Map first 16KB PRG bank to $8000
+    map_bank_prg(0x30, 0x10, _size_prg - 0x10); // Map last 16KB PRG bank to $C000 (fixed)
+
+    // Map first 8KB of CHR-RAM to PPU $0000
+    map_bank_ppu_ram(0x0, 0x8, 0x00, false);
+}
+
+void cynes::UNROM512::write_cpu(uint16_t address, uint8_t value) {
+    if (address >= 0x8000) {
+        // This is the core logic for Mapper 30.
+        // A write to the PRG ROM space triggers a bank switch.
+
+        // Low 5 bits select the 16KB PRG bank for the $8000-$BFFF region.
+        uint8_t prg_bank = value & 0x1F;
+        map_bank_prg(0x20, 0x10, prg_bank << 4);
+
+        // High 2 bits select the 8KB CHR-RAM bank for the PPU $0000-$1FFF region.
+        uint8_t chr_bank = (value >> 5) & 0x03;
+        map_bank_ppu_ram(0x0, 0x8, chr_bank << 3, false);
+    }
+}
+
 
 cynes::CNROM::CNROM(NES& nes, NESMetadata metadata, MirroringMode mode)
     : Mapper(nes, metadata, mode, 0x0)
@@ -453,7 +479,6 @@ void cynes::MMC3::update_state(bool state) {
         _tick = 1;
     }
 }
-
 
 cynes::AxROM::AxROM(NES& nes, NESMetadata metadata)
     : Mapper(nes, metadata, MirroringMode::ONE_SCREEN_LOW, 0x8, 0x10)

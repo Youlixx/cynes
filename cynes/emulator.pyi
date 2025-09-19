@@ -4,6 +4,9 @@
 import numpy as np
 from numpy.typing import NDArray
 
+__version__ = ...
+
+
 class NES:
     """The base emulator class."""
 

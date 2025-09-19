@@ -1,6 +1,5 @@
-
 # cynes - C/C++ NES emulator with Python bindings
-cynes is a lightweight multiplatform NES emulator providing a simple Python interface. The core of the emulation is based on the very complete documentation provided by the [Nesdev Wiki](https://wiki.nesdev.com/w/index.php?title=NES_reference_guide). The current implementation consists of
+cynes is a lightweight multi-platform NES emulator providing a simple Python interface. The core of the emulation is based on the very complete documentation provided by the [Nesdev Wiki](https://www.nesdev.org/wiki/NES_reference_guide). The current implementation consists of
  - A cycle-accurate CPU emulation
  - A cycle-accurate PPU emulation
  - A cycle-accurate APU emulation (even though it does not produce any sound)
@@ -10,17 +9,19 @@ The Python bindings allow to interact easily with one or several NES emulators a
 
 ## Installation
 cynes can be installed using pip :
-```
+```sh
 pip install cynes
 ```
 
 It can also be built from source using (requires `cmake`) :
-```
-python setup.py build
+```sh
+git clone https://github.com/Youlixx/cynes
+cd cynes/
+pip install .
 ```
 
 ## How to use
-A cynes NES emulator can be created by instanticiating a new NES object. The following code is the minimal code to run a ROM file.
+A cynes NES emulator can be created by instantiating a new NES object. The following code is the minimal code to run a ROM file.
 ```python
 from cynes.windowed import WindowedNES
 
@@ -125,11 +126,11 @@ player_state = nes[0x000E]
 # And can be written in a similar fashion
 nes[0x075A] = 0x8
 ```
-Note that only the CPU RAM `$0000 - $1FFFF` and the mapper RAM `$6000 - $7FFF` should be accessed. Trying to read / write a value to other addresses may desynchronize the components of the emulator, resulting in a undefined behavior.
+Note that only the CPU RAM `$0000 - $1FFFF` and the mapper RAM `$6000 - $7FFF` should be accessed. Trying to read / write a value to other addresses may de-synchronize the components of the emulator, resulting in a undefined behavior.
 
 ### Closing
-An emulator is automatically closed when the object is released by Python. In windowed mode, the `close` method can be used to close the window without having to wait for Python to release the object. As presented previously, the WindowedNES can also be used as a context manager, which will call `close` automatcially when exiting the context.
-It can also be closed manualy using the `close` method.
+An emulator is automatically closed when the object is released by Python. In windowed mode, the `close` method can be used to close the window without having to wait for Python to release the object. As presented previously, the WindowedNES can also be used as a context manager, which will call `close` automatically when exiting the context.
+It can also be closed manually using the `close` method.
 ```python
 # In windowed mode, this can be used to close the window
 nes.close()
@@ -146,22 +147,4 @@ When the emulator is closed, but the object is not deleted yet, the `should_clos
  - In windowed mode, when the window is closed or when the ESC key is pressed.
 
 ## License
-This project is licensed under GPL-3.0
-
-```plain
-cynes - C/C++ NES emulator with Python bindings
-Copyright (C) 2021 - 2024 Combey Theo
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

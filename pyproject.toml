@@ -1,8 +1,81 @@
-[build-system]
-requires = [
-    "setuptools>=42",
-    "wheel",
-    "cmake>=3.12",
+[project]
+name = "cynes"
+version = "0.1.1"
+description = "C/C++ NES emulator with Python bindings"
+readme = "README.md"
+authors = [{ name = "Theo Combey", email = "combey.theo@hotmail.com" }]
+license = { file = "LICENSE" }
+urls = { Homepage = "https://github.com/Youlixx/cynes" }
+dependencies = ["numpy"]
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: Unix",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13"
 ]
 
+[build-system]
+requires = ["setuptools>=61.0", "wheel", "cmake>=3.14"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["cynes"]
+
+[tool.ruff]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+
+line-length = 88
+indent-width = 4
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["A", "B", "C", "D", "E", "F", "I", "N", "W"]
+ignore = ["D203", "D213", "D407", "D406", "D413", "N801", "C901"]
+
+fixable = ["ALL"]
+unfixable = []
+
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = true
+line-ending = "auto"
+docstring-code-format = true
+docstring-code-line-length = "dynamic"

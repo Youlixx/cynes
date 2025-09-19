@@ -24,7 +24,7 @@ cynes::APU::APU(NES& nes)
     , _delay_dma{0x00}
     , _address_dma{0x00}
     , _pending_dma{false}
-    , _open_bus{0x00}
+    , _internal_open_bus{0x00}
     , _frame_counter_clock{0x0000}
     , _delay_frame_reset{0x0000}
     , _channels_counters{}
@@ -54,7 +54,7 @@ void cynes::APU::power() {
     _delay_dma = 0x00;
     _address_dma = 0x00;
     _pending_dma = false;
-    _open_bus = 0x00;
+    _internal_open_bus = 0x00;
     _frame_counter_clock = 0x0000;
     _delay_frame_reset = 0x0000;
 
@@ -155,8 +155,6 @@ void cynes::APU::tick(bool reading, bool prevent_load) {
 }
 
 void cynes::APU::write(uint8_t address, uint8_t value) {
-    _open_bus = value;
-
     switch (static_cast<Register>(address)) {
     case Register::PULSE_1_0: {
         _channel_halted[0x0] = value & 0x20;
@@ -229,6 +227,7 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
 
     case Register::CTRL_STATUS: {
         _enable_dmc = value & 0x10;
+        _internal_open_bus = value;
 
         for (uint8_t channel = 0; channel < 0x4; channel++) {
             _channel_enabled[channel] = value & (1 << channel);
@@ -273,20 +272,24 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
     }
 }
 
+// Since $4015 is an internal CPU registers, its open bus behavior is a bit different.
+// See https://www.nesdev.org/wiki/APU#Status_($4015).
 uint8_t cynes::APU::read(uint8_t address) {
     if (static_cast<Register>(address) == Register::CTRL_STATUS) {
-        _open_bus = _send_delta_channel_interrupt << 7;
-        _open_bus |= _send_frame_interrupt << 6;
-        _open_bus |= (_delta_channel_remaining_bytes > 0) << 4;
+        _internal_open_bus = _send_delta_channel_interrupt << 7;
+        _internal_open_bus |= _send_frame_interrupt << 6;
+        _internal_open_bus |= (_delta_channel_remaining_bytes > 0) << 4;
 
         for (uint8_t channel = 0; channel < 0x4; channel++) {
-            _open_bus |= (_channels_counters[channel] > 0) << channel;
+            _internal_open_bus |= (_channels_counters[channel] > 0) << channel;
         }
 
         set_frame_interrupt(false);
+
+        return _internal_open_bus;
     }
 
-    return _open_bus;
+    return _nes.get_open_bus();
 }
 
 void cynes::APU::update_counters() {

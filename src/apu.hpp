@@ -66,7 +66,7 @@ private:
 
     bool _pending_dma;
 
-    uint8_t _open_bus;
+    uint8_t _internal_open_bus;
 
 private:
     uint32_t _frame_counter_clock;
@@ -121,7 +121,6 @@ public:
         cynes::dump<operation>(buffer, _delay_dma);
         cynes::dump<operation>(buffer, _address_dma);
         cynes::dump<operation>(buffer, _pending_dma);
-        cynes::dump<operation>(buffer, _open_bus);
 
         cynes::dump<operation>(buffer, _frame_counter_clock);
         cynes::dump<operation>(buffer, _delay_frame_reset);

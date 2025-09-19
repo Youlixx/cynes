@@ -43,6 +43,12 @@ void cynes::wrapper::NesWrapper::load(pybind11::array_t<uint8_t> buffer) {
 PYBIND11_MODULE(emulator, mod) {
     mod.doc() = "C/C++ NES emulator with Python bindings";
 
+#ifdef PYTHON_MODULE_VERSION
+    mod.attr("__version__") = PYTHON_MODULE_VERSION;
+#else
+    mod.attr("__version__") = "0.0.0";
+#endif
+
     pybind11::class_<cynes::wrapper::NesWrapper>(mod, "NES")
         .def(
             pybind11::init<const char*>(),

@@ -4,13 +4,13 @@ version = "0.1.1"
 description = "C/C++ NES emulator with Python bindings"
 readme = "README.md"
 authors = [{ name = "Theo Combey", email = "combey.theo@hotmail.com" }]
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 urls = { Homepage = "https://github.com/Youlixx/cynes" }
 dependencies = ["numpy"]
 requires-python = ">=3.8"
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: Unix",

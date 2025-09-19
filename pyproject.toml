@@ -7,21 +7,19 @@ authors = [{ name = "Theo Combey", email = "combey.theo@hotmail.com" }]
 license = { file = "LICENSE" }
 urls = { Homepage = "https://github.com/Youlixx/cynes" }
 dependencies = ["numpy"]
-requires-python = ">=3.6"
+requires-python = ">=3.8"
 classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: Unix",
-    "Programming Language :: C++",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12"
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13"
 ]
 
 [build-system]

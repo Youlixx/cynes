@@ -55,6 +55,7 @@ class CMakeBuild(build_ext):
             f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}{os.sep}",
             f"-DPYTHON_EXECUTABLE={sys.executable}",
             f"-DCMAKE_BUILD_TYPE={cfg}",
+            f"-DCYNES_PYTHON_MODULE_VERSION={self.distribution.get_version()}"
         ]
 
         build_args = []
@@ -101,34 +102,6 @@ class CMakeBuild(build_ext):
         )
 
 setup(
-    name = "cynes",
-    version="0.1.0",
-    author="Theo Combey",
-    author_email="combey.theo@hotmail.com",
-    description="C/C++ NES emulator with Python bindings",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-    license_files =("LICENSE"),
-    license="GPL-3.0",
-    url="https://github.com/Youlixx/cynes",
-    install_requires=["numpy"],
     ext_modules=[CMakeExtension("cynes.emulator")],
     cmdclass={"build_ext": CMakeBuild},
-    packages=["cynes"],
-    classifiers=[
-        "Development Status :: 3 - Alpha",
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-        "Operating System :: MacOS",
-        "Operating System :: Microsoft :: Windows",
-        "Operating System :: Unix",
-        "Programming Language :: C++",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12"
-    ],
-    python_requires=">=3.6",
 )

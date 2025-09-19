@@ -1,9 +1,10 @@
 name: Build
 
 on:
-  release:
-    types:
-      - created
+  pull_request: {}
+  push:
+    tags:
+      - "v*"
 
 jobs:
   build_wheels:
@@ -48,6 +49,7 @@ jobs:
           path: dist/*.tar.gz
 
   upload_pypi:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:

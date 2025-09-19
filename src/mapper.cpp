@@ -90,7 +90,7 @@ cynes::Mapper::Mapper(
 
 std::unique_ptr<cynes::Mapper> cynes::Mapper::load_mapper(
     NES &nes,
-    const std::filesystem::path& path_rom
+    const char* path_rom
 ) {
     std::ifstream stream{path_rom, std::ios::binary};
 

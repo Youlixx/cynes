@@ -1,4 +1,3 @@
-
 # cynes - C/C++ NES emulator with Python bindings
 cynes is a lightweight multiplatform NES emulator providing a simple Python interface. The core of the emulation is based on the very complete documentation provided by the [Nesdev Wiki](https://wiki.nesdev.com/w/index.php?title=NES_reference_guide). The current implementation consists of
  - A cycle-accurate CPU emulation
@@ -146,22 +145,4 @@ When the emulator is closed, but the object is not deleted yet, the `should_clos
  - In windowed mode, when the window is closed or when the ESC key is pressed.
 
 ## License
-This project is licensed under GPL-3.0
-
-```plain
-cynes - C/C++ NES emulator with Python bindings
-Copyright (C) 2021 - 2024 Combey Theo
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

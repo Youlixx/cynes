@@ -26,7 +26,8 @@ add_library(cynes_core OBJECT
 set_property(TARGET cynes_core PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_compile_options(cynes_core PRIVATE
-    -Wall -Wextra -Wpedantic -Werror -Wno-missing-braces
+    $<$<CXX_COMPILER_ID:MSVC>:/W4>
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Werror -Wno-missing-braces>
 )
 
 target_include_directories(cynes_core PRIVATE
@@ -42,7 +43,8 @@ target_include_directories(emulator PRIVATE
 )
 
 target_compile_options(emulator PRIVATE
-    -Wall -Wextra -Wpedantic -Werror
+    $<$<CXX_COMPILER_ID:MSVC>:/W4>
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Werror>
 )
 
 target_link_libraries(emulator PRIVATE

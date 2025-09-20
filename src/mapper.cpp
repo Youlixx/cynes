@@ -9,9 +9,6 @@
 #include <sstream>
 
 
-using random_bytes_engine = std::independent_bits_engine<std::default_random_engine, sizeof(uint8_t), uint8_t>;
-
-
 cynes::Mapper::MemoryBank::MemoryBank()
     : offset{0}, read_only{true}, mapped{false} {}
 
@@ -55,7 +52,8 @@ cynes::Mapper::Mapper(
         );
     }
 
-    random_bytes_engine engine{};
+    std::default_random_engine engine{std::random_device{}()};
+    std::uniform_int_distribution<uint8_t> dist(0, 0xFF);
 
     if (metadata.trainer != nullptr) {
         std::memcpy(
@@ -67,13 +65,13 @@ cynes::Mapper::Mapper(
         std::generate(
             _memory.get() + _size_prg + _size_chr + 0x200,
             _memory.get() + _size_prg + _size_chr + _size_cpu_ram,
-            std::ref(engine)
+            [&]() { return dist(engine); }
         );
     } else {
         std::generate(
             _memory.get() + _size_prg + _size_chr,
             _memory.get() + _size_prg + _size_chr + _size_cpu_ram,
-            std::ref(engine)
+            [&]() { return dist(engine); }
         );
     }
 
@@ -81,7 +79,7 @@ cynes::Mapper::Mapper(
         std::generate(
             _memory.get() + _size_prg + _size_chr + _size_cpu_ram,
             _memory.get() + _size_prg + _size_chr + _size_cpu_ram + _size_ppu_ram,
-            std::ref(engine)
+            [&]() { return dist(engine); }
         );
     }
 

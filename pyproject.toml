@@ -8,18 +8,18 @@ license = "MIT"
 license-files = ["LICENSE"]
 urls = { Homepage = "https://github.com/Youlixx/cynes" }
 dependencies = ["numpy"]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: Unix",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13"
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14"
 ]
 
 [build-system]

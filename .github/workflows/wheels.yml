@@ -11,7 +11,7 @@ jobs:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     env:
-      CIBW_SKIP: pp*
+      CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-13, macos-14]
@@ -32,10 +32,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v5
         name: Install Python
         with:
-          python-version: '3.8'
+          python-version: '3.13'
 
       - name: Install dependencies
         run: |

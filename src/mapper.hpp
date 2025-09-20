@@ -4,7 +4,6 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
-#include <filesystem>
 #include <memory>
 
 #include "utils.hpp"
@@ -53,10 +52,7 @@ public:
     /// @param nes Emulator.
     /// @param path_rom Path to the NES ROM file.
     /// @return A pointer to the instantiated mapper.
-    static std::unique_ptr<Mapper> load_mapper(
-        NES& nes,
-        const std::filesystem::path& path_rom
-    );
+    static std::unique_ptr<Mapper> load_mapper(NES& nes, const char* path_rom);
 
 public:
     /// Tick the mapper.

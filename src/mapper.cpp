@@ -9,7 +9,11 @@
 #include <sstream>
 
 
-using random_bytes_engine = std::independent_bits_engine<std::default_random_engine, sizeof(uint8_t), uint8_t>;
+using random_bytes_engine = std::independent_bits_engine<
+    std::default_random_engine,
+    sizeof(uint8_t),
+    uint32_t
+>;
 
 
 cynes::Mapper::MemoryBank::MemoryBank()
@@ -67,13 +71,13 @@ cynes::Mapper::Mapper(
         std::generate(
             _memory.get() + _size_prg + _size_chr + 0x200,
             _memory.get() + _size_prg + _size_chr + _size_cpu_ram,
-            std::ref(engine)
+            [&engine]() { return static_cast<uint8_t>(engine()); }
         );
     } else {
         std::generate(
             _memory.get() + _size_prg + _size_chr,
             _memory.get() + _size_prg + _size_chr + _size_cpu_ram,
-            std::ref(engine)
+            [&engine]() { return static_cast<uint8_t>(engine()); }
         );
     }
 
@@ -81,7 +85,7 @@ cynes::Mapper::Mapper(
         std::generate(
             _memory.get() + _size_prg + _size_chr + _size_cpu_ram,
             _memory.get() + _size_prg + _size_chr + _size_cpu_ram + _size_ppu_ram,
-            std::ref(engine)
+            [&engine]() { return static_cast<uint8_t>(engine()); }
         );
     }
 
@@ -90,7 +94,7 @@ cynes::Mapper::Mapper(
 
 std::unique_ptr<cynes::Mapper> cynes::Mapper::load_mapper(
     NES &nes,
-    const std::filesystem::path& path_rom
+    const char* path_rom
 ) {
     std::ifstream stream{path_rom, std::ios::binary};
 

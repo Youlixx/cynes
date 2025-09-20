@@ -9,6 +9,13 @@
 #include <sstream>
 
 
+using random_bytes_engine = std::independent_bits_engine<
+    std::default_random_engine,
+    sizeof(uint8_t),
+    uint32_t
+>;
+
+
 cynes::Mapper::MemoryBank::MemoryBank()
     : offset{0}, read_only{true}, mapped{false} {}
 
@@ -52,8 +59,7 @@ cynes::Mapper::Mapper(
         );
     }
 
-    std::default_random_engine engine{std::random_device{}()};
-    std::uniform_int_distribution<uint8_t> dist(0, 0xFF);
+    random_bytes_engine engine{};
 
     if (metadata.trainer != nullptr) {
         std::memcpy(
@@ -65,13 +71,13 @@ cynes::Mapper::Mapper(
         std::generate(
             _memory.get() + _size_prg + _size_chr + 0x200,
             _memory.get() + _size_prg + _size_chr + _size_cpu_ram,
-            [&]() { return dist(engine); }
+            [&engine]() { return static_cast<uint8_t>(engine()); }
         );
     } else {
         std::generate(
             _memory.get() + _size_prg + _size_chr,
             _memory.get() + _size_prg + _size_chr + _size_cpu_ram,
-            [&]() { return dist(engine); }
+            [&engine]() { return static_cast<uint8_t>(engine()); }
         );
     }
 
@@ -79,7 +85,7 @@ cynes::Mapper::Mapper(
         std::generate(
             _memory.get() + _size_prg + _size_chr + _size_cpu_ram,
             _memory.get() + _size_prg + _size_chr + _size_cpu_ram + _size_ppu_ram,
-            [&]() { return dist(engine); }
+            [&engine]() { return static_cast<uint8_t>(engine()); }
         );
     }
 

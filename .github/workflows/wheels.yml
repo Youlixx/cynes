@@ -39,10 +39,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install numpy
+          pip install numpy cibuildwheel==3.1.4
 
       - name: Build sdist
-        run: python setup.py sdist
+        run: python -m build . --sdist
 
       - uses: actions/upload-artifact@v4
         with:

@@ -77,6 +77,9 @@ private:
     bool _channel_enabled[0x4];
     bool _channel_halted[0x4];
 
+    bool _pre_clock_counter_status[0x4];
+    bool _during_length_clock;
+
     bool _step_mode;
 
     bool _inhibit_frame_interrupt;
@@ -125,8 +128,10 @@ public:
         cynes::dump<operation>(buffer, _frame_counter_clock);
         cynes::dump<operation>(buffer, _delay_frame_reset);
         cynes::dump<operation>(buffer, _channels_counters);
+        cynes::dump<operation>(buffer, _pre_clock_counter_status);
         cynes::dump<operation>(buffer, _channel_enabled);
         cynes::dump<operation>(buffer, _channel_halted);
+        cynes::dump<operation>(buffer, _during_length_clock);
         cynes::dump<operation>(buffer, _step_mode);
         cynes::dump<operation>(buffer, _inhibit_frame_interrupt);
         cynes::dump<operation>(buffer, _send_frame_interrupt);

@@ -6,9 +6,10 @@
 #include <pybind11/cast.h>
 #include <pybind11/detail/common.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl/filesystem.h>
 
 
-cynes::wrapper::NesWrapper::NesWrapper(const char* path_rom)
+cynes::wrapper::NesWrapper::NesWrapper(const std::filesystem::path& path_rom)
     : controller{0x00}
     , _nes{path_rom}
     , _save_state_size{_nes.size()}
@@ -51,7 +52,7 @@ PYBIND11_MODULE(emulator, mod) {
 
     pybind11::class_<cynes::wrapper::NesWrapper>(mod, "NES")
         .def(
-            pybind11::init<const char*>(),
+            pybind11::init<const std::filesystem::path&>(),
             pybind11::arg("path_rom"),
             "Initialize the emulator."
         )

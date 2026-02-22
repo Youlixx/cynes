@@ -2,6 +2,7 @@
 #define __CYNES_EMULATOR__
 
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 
 #include "apu.hpp"
@@ -18,7 +19,7 @@ public:
     // TODO maybe allow to use a constructor with a raw byte ptr.
     /// Initialize the NES.
     /// @param path Path to the ROM.
-    NES(const char* path);
+    NES(const std::filesystem::path& path);
 
     /// Default destructor.
     ~NES() = default;

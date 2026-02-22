@@ -1,28 +1,30 @@
 name: Build
 
 on:
-  release:
-    types:
-      - created
+  pull_request: {}
+  push:
+    tags:
+      - "v*"
 
 jobs:
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     env:
-      CIBW_SKIP: pp*
+      CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-13, macos-14]
 
-    steps:  
+    steps:
       - uses: actions/checkout@v2
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.17.0
+        uses: pypa/cibuildwheel@v3.1.4
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
 
   build_sdist:
@@ -31,33 +33,34 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v5
         name: Install Python
         with:
-          python-version: '3.8'
+          python-version: '3.13'
 
       - name: Install dependencies
         run: |
-          pip install numpy
-          pip install cython
+          pip install numpy cibuildwheel==3.1.4
 
       - name: Build sdist
-        run: python setup.py sdist
+        run: python -m build . --sdist
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
+          name: sdist
           path: dist/*.tar.gz
 
   upload_pypi:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
-          name: artifact
           path: dist
+          merge-multiple: true
 
-      - uses: pypa/gh-action-pypi-publish@v1.4.2
+      - uses: pypa/gh-action-pypi-publish@v1.13.0
         with:
           user: __token__
           password: ${{ secrets.PYPI_TOKEN }}

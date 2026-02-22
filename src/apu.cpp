@@ -30,6 +30,8 @@ cynes::APU::APU(NES& nes)
     , _channels_counters{}
     , _channel_enabled{}
     , _channel_halted{}
+    , _pre_clock_counter_status{}
+    , _during_length_clock{false}
     , _step_mode{false}
     , _inhibit_frame_interrupt{false}
     , _send_frame_interrupt{false}
@@ -45,6 +47,7 @@ cynes::APU::APU(NES& nes)
     , _send_delta_channel_interrupt{false}
 {
     std::memset(_channels_counters, 0x00, 4);
+    std::memset(_pre_clock_counter_status, false, 4);
     std::memset(_channel_enabled, false, 4);
     std::memset(_channel_halted, false, 4);
 }
@@ -59,9 +62,11 @@ void cynes::APU::power() {
     _delay_frame_reset = 0x0000;
 
     std::memset(_channels_counters, 0x00, 4);
+    std::memset(_pre_clock_counter_status, false, 4);
     std::memset(_channel_enabled, false, 4);
     std::memset(_channel_halted, false, 4);
 
+    _during_length_clock = false;
     _step_mode = false;
     _inhibit_frame_interrupt = false;
     _send_frame_interrupt = false;
@@ -106,12 +111,21 @@ void cynes::APU::tick(bool reading, bool prevent_load) {
 
     _latch_cycle = !_latch_cycle;
 
+    _during_length_clock = false;
+
     if (_step_mode) {
         if (_delay_frame_reset > 0 && --_delay_frame_reset == 0) {
             _frame_counter_clock = 0;
         } else if (++_frame_counter_clock == 37282) {
             _frame_counter_clock = 0;
-        } if (_frame_counter_clock == 14913 || _frame_counter_clock == 37281) {
+        }
+
+        if (_frame_counter_clock == 14912 || _frame_counter_clock == 37280) {
+            for (uint8_t channel = 0; channel < 0x4; channel++) {
+                _pre_clock_counter_status[channel] = _channels_counters[channel] > 0;
+            }
+
+            _during_length_clock = true;
             update_counters();
         }
     } else {
@@ -125,7 +139,12 @@ void cynes::APU::tick(bool reading, bool prevent_load) {
             }
         }
 
-        if (_frame_counter_clock == 14913 || _frame_counter_clock == 29829) {
+        if (_frame_counter_clock == 14912 || _frame_counter_clock == 29828) {
+            for (uint8_t channel = 0; channel < 0x4; channel++) {
+                _pre_clock_counter_status[channel] = _channels_counters[channel] > 0;
+            }
+
+            _during_length_clock = true;
             update_counters();
         }
 
@@ -162,7 +181,7 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
     }
 
     case Register::PULSE_1_3: {
-        if (_channel_enabled[0x0]) {
+        if (_channel_enabled[0x0] && !(_during_length_clock && _channels_counters[0x0] > 0)) {
             _channels_counters[0x0] = LENGTH_COUNTER_TABLE[value >> 3];
         }
         break;
@@ -174,7 +193,7 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
     }
 
     case Register::PULSE_2_3: {
-        if (_channel_enabled[0x1]) {
+        if (_channel_enabled[0x1] && !(_during_length_clock && _channels_counters[0x1] > 0)) {
             _channels_counters[0x1] = LENGTH_COUNTER_TABLE[value >> 3];
         }
         break;
@@ -186,7 +205,7 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
     }
 
     case Register::TRIANGLE_3: {
-        if (_channel_enabled[0x2]) {
+        if (_channel_enabled[0x2] && !(_during_length_clock && _channels_counters[0x2] > 0)) {
             _channels_counters[0x2] = LENGTH_COUNTER_TABLE[value >> 3];
         }
         break;
@@ -198,7 +217,7 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
     }
 
     case Register::NOISE_3:
-        if (_channel_enabled[0x3]) {
+        if (_channel_enabled[0x3] && !(_during_length_clock && _channels_counters[0x3] > 0)) {
             _channels_counters[0x3] = LENGTH_COUNTER_TABLE[value >> 3];
         }
         break;
@@ -281,7 +300,11 @@ uint8_t cynes::APU::read(uint8_t address) {
         _internal_open_bus |= (_delta_channel_remaining_bytes > 0) << 4;
 
         for (uint8_t channel = 0; channel < 0x4; channel++) {
-            _internal_open_bus |= (_channels_counters[channel] > 0) << channel;
+            if (_during_length_clock) {
+                _internal_open_bus |= _pre_clock_counter_status[channel] << channel;
+            } else {
+                _internal_open_bus |= (_channels_counters[channel] > 0) << channel;
+            }
         }
 
         set_frame_interrupt(false);

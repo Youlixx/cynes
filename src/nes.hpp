@@ -10,8 +10,6 @@
 #include "ppu.hpp"
 #include "mapper.hpp"
 
-#include "utils.hpp"
-
 namespace cynes {
 /// Main NES class, contains the RAM, CPU, PPU, APU, Mapper, etc...
 class NES {
@@ -98,17 +96,9 @@ public:
     /// @return True if the CPU is frozen, false otherwise.
     bool step(uint16_t controllers, unsigned int frames);
 
-    /// Get the size of the save state.
-    /// @return The size of the save state buffer.
-    unsigned int size();
-
-    /// Save the state of the emulator to the buffer.
-    /// @param buffer Save state buffer.
-    void save(uint8_t* buffer);
-
-    /// Load a previous emulator state from the buffer.
-    /// @param buffer Save state buffer.
-    void load(uint8_t* buffer);
+    /// Stream the NES state into / out of a save state.
+    /// @param save_state Current save state.
+    void stream_state(SaveState& save_state);
 
     /// Get a pointer to the internal frame buffer.
     inline const uint8_t* get_frame_buffer() const {
@@ -139,9 +129,6 @@ private:
     void load_controller_shifter(bool polling);
 
     uint8_t poll_controller(uint8_t player);
-
-private:
-    template<DumpOperation operation, class T> void dump(T& buffer);
 };
 }
 

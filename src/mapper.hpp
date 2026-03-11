@@ -90,6 +90,10 @@ public:
     /// @return The value stored at the given address.
     virtual uint8_t read_ppu(uint16_t address);
 
+    /// Stream the mapper state into / out of a save state.
+    /// @param save_state Current save state.
+    virtual void stream_state(SaveState& save_state);
+
 protected:
     /// A memory bank provides a view within the mapper memory.
     // Each bank is exactly 0x400 bytes large.
@@ -106,17 +110,14 @@ protected:
         /// Default destructor.
         ~MemoryBank() = default;
 
+        /// Stream the memory bank state into / out of a save state.
+        /// @param save_state Current save state.
+        void stream_state(SaveState& save_state);
+
     public:
         size_t offset;
         bool read_only;
         bool mapped;
-
-        template<DumpOperation operation, typename T>
-        constexpr void dump(T& buffer) {
-            cynes::dump<operation>(buffer, offset);
-            cynes::dump<operation>(buffer, read_only);
-            cynes::dump<operation>(buffer, mapped);
-        }
     };
 
 protected:
@@ -160,37 +161,19 @@ protected:
 
     void mirror_cpu_banks(uint8_t page, uint8_t size, uint8_t mirror);
     void mirror_ppu_banks(uint8_t page, uint8_t size, uint8_t mirror);
-
-public:
-    template<DumpOperation operation, typename T>
-    constexpr void dump(T& buffer) {
-        for (uint8_t k = 0x00; k < 0x40; k++) {
-            _banks_cpu[k].dump<operation>(buffer);
-        }
-
-        for (uint8_t k = 0x00; k < 0x10; k++) {
-            _banks_ppu[k].dump<operation>(buffer);
-        }
-
-        if (!_read_only_chr) {
-            cynes::dump<operation>(buffer, _memory.get() + _size_prg, _size_chr);
-        }
-
-        if (_size_cpu_ram) {
-            cynes::dump<operation>(buffer, _memory.get() + _size_prg + _size_chr, _size_cpu_ram);
-        }
-
-        if (_size_ppu_ram) {
-            cynes::dump<operation>(buffer, _memory.get() + _size_prg + _size_chr + _size_cpu_ram, _size_ppu_ram);
-        }
-    }
 };
 
 
 /// NROM mapper (see https://www.nesdev.org/wiki/NROM).
 class NROM : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     NROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
+
+    /// Default destructor.
     ~NROM() = default;
 };
 
@@ -203,14 +186,18 @@ public:
 
 public:
     /// Tick the mapper.
-    virtual void tick();
+    void tick() override;
 
     /// Write to a CPU mapped memory bank.
     /// @note This function has other side effects than simply writing to the memory, it
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value);
+    void write_cpu(uint16_t address, uint8_t value) override;
+
+    /// Stream the mapper state into / out of a save state.
+    /// @param save_state Current save state.
+    void stream_state(SaveState& save_state) override;
 
 private:
     void write_registers(uint8_t register_target, uint8_t value);
@@ -221,17 +208,6 @@ private:
     uint8_t _registers[0x4];
     uint8_t _register;
     uint8_t _counter;
-
-public:
-    template<DumpOperation operation, typename T>
-    constexpr void dump(T& buffer) {
-        Mapper::dump<operation>(buffer);
-
-        cynes::dump<operation>(buffer, _tick);
-        cynes::dump<operation>(buffer, _registers);
-        cynes::dump<operation>(buffer, _register);
-        cynes::dump<operation>(buffer, _counter);
-    }
 };
 
 
@@ -275,28 +251,32 @@ public:
 
 public:
     /// Tick the mapper.
-    virtual void tick();
+    void tick() override;
 
     /// Write to a CPU mapped memory bank.
     /// @note This function has other side effects than simply writing to the memory, it
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value);
+    void write_cpu(uint16_t address, uint8_t value) override;
 
     /// Write to a PPU mapped memory bank.
     /// @note This function has other side effects than simply writing to the memory, it
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_ppu(uint16_t address, uint8_t value);
+    void write_ppu(uint16_t address, uint8_t value) override;
 
     /// Read from the PPU memory mapped banks.
     /// @note This function has other side effects than simply reading from memory, it
     /// should not be used as a memory watch function.
     /// @param address Memory address within the console memory address space.
     /// @return The value stored at the given address.
-    virtual uint8_t read_ppu(uint16_t address);
+    uint8_t read_ppu(uint16_t address) override;
+
+    /// Stream the mapper state into / out of a save state.
+    /// @param save_state Current save state.
+    void stream_state(SaveState& save_state) override;
 
 private:
     void update_state(bool state);
@@ -313,22 +293,6 @@ private:
     bool _mode_chr;
     bool _enable_interrupt;
     bool _should_reload_interrupt;
-
-public:
-    template<DumpOperation operation, typename T>
-    constexpr void dump(T& buffer) {
-        Mapper::dump<operation>(buffer);
-
-        cynes::dump<operation>(buffer, _tick);
-        cynes::dump<operation>(buffer, _registers);
-        cynes::dump<operation>(buffer, _counter);
-        cynes::dump<operation>(buffer, _counter_reset_value);
-        cynes::dump<operation>(buffer, _register_target);
-        cynes::dump<operation>(buffer, _mode_prg);
-        cynes::dump<operation>(buffer, _mode_chr);
-        cynes::dump<operation>(buffer, _enable_interrupt);
-        cynes::dump<operation>(buffer, _should_reload_interrupt);
-    }
 };
 
 
@@ -372,7 +336,7 @@ public:
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value) {
+    void write_cpu(uint16_t address, uint8_t value) override {
         if (address < 0xA000) {
             Mapper::write_cpu(address, value);
         } else if (address < 0xB000) {
@@ -399,7 +363,7 @@ public:
     /// should not be used as a memory watch function.
     /// @param address Memory address within the console memory address space.
     /// @return The value stored at the given address.
-    virtual uint8_t read_ppu(uint16_t address) {
+    uint8_t read_ppu(uint16_t address) override {
         uint8_t value = Mapper::read_ppu(address);
 
         if (address == 0x0FD8) {
@@ -413,6 +377,14 @@ public:
         }
 
         return value;
+    }
+
+    /// Stream the mapper state into / out of a save state.
+    /// @param save_state Current save state.
+    void stream_state(SaveState& save_state) override {
+        Mapper::stream_state(save_state);
+        save_state.stream(_latches);
+        save_state.stream(_selected_banks);
     }
 
 private:
@@ -434,15 +406,6 @@ private:
     bool _latches[0x2];
 
     uint8_t _selected_banks[0x4];
-
-public:
-    template<DumpOperation operation, typename T>
-    constexpr void dump(T& buffer) {
-        Mapper::dump<operation>(buffer);
-
-        cynes::dump<operation>(buffer, _latches);
-        cynes::dump<operation>(buffer, _selected_banks);
-    }
 };
 
 using MMC2 = MMC<0x08>;

@@ -50,6 +50,10 @@ public:
     /// Check whether or not the CPU has hit an invalid opcode.
     bool is_frozen() const;
 
+    /// Stream the CPU state into / out of a save state.
+    /// @param save_state Current save state.
+    void stream_state(SaveState& save_state);
+
 private:
     NES& _nes;
 
@@ -206,30 +210,6 @@ private:
 
     using _op_ptr = void (CPU::*)();
     static const _op_ptr INSTRUCTIONS[256];
-
-public:
-    template<DumpOperation operation, typename T>
-    constexpr void dump(T& buffer) {
-        cynes::dump<operation>(buffer, _frozen);
-        cynes::dump<operation>(buffer, _register_a);
-        cynes::dump<operation>(buffer, _register_x);
-        cynes::dump<operation>(buffer, _register_y);
-        cynes::dump<operation>(buffer, _register_m);
-        cynes::dump<operation>(buffer, _stack_pointer);
-        cynes::dump<operation>(buffer, _program_counter);
-        cynes::dump<operation>(buffer, _target_address);
-        cynes::dump<operation>(buffer, _status);
-
-        cynes::dump<operation>(buffer, _delay_interrupt);
-        cynes::dump<operation>(buffer, _should_issue_interrupt);
-        cynes::dump<operation>(buffer, _line_mapper_interrupt);
-        cynes::dump<operation>(buffer, _line_frame_interrupt);
-        cynes::dump<operation>(buffer, _line_delta_interrupt);
-        cynes::dump<operation>(buffer, _line_non_maskable_interrupt);
-        cynes::dump<operation>(buffer, _edge_detector_non_maskable_interrupt);
-        cynes::dump<operation>(buffer, _delay_non_maskable_interrupt);
-        cynes::dump<operation>(buffer, _should_issue_non_maskable_interrupt);
-    }
 };
 }
 

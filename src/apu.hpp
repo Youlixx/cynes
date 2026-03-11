@@ -45,6 +45,10 @@ public:
     /// @return The value stored at the given address.
     uint8_t read(uint8_t address);
 
+    /// Stream the APU state into / out of a save state.
+    /// @param save_state Current save state.
+    void stream_state(SaveState& save_state);
+
 private:
     NES& _nes;
 
@@ -116,37 +120,6 @@ private:
         CTRL_STATUS = 0x15,
         FRAME_COUNTER = 0x17
     };
-
-public:
-    template<DumpOperation operation, typename T>
-    constexpr void dump(T& buffer) {
-        cynes::dump<operation>(buffer, _latch_cycle);
-        cynes::dump<operation>(buffer, _delay_dma);
-        cynes::dump<operation>(buffer, _address_dma);
-        cynes::dump<operation>(buffer, _pending_dma);
-
-        cynes::dump<operation>(buffer, _frame_counter_clock);
-        cynes::dump<operation>(buffer, _delay_frame_reset);
-        cynes::dump<operation>(buffer, _channels_counters);
-        cynes::dump<operation>(buffer, _pre_clock_counter_status);
-        cynes::dump<operation>(buffer, _channel_enabled);
-        cynes::dump<operation>(buffer, _channel_halted);
-        cynes::dump<operation>(buffer, _during_length_clock);
-        cynes::dump<operation>(buffer, _step_mode);
-        cynes::dump<operation>(buffer, _inhibit_frame_interrupt);
-        cynes::dump<operation>(buffer, _send_frame_interrupt);
-
-        cynes::dump<operation>(buffer, _delta_channel_remaining_bytes);
-        cynes::dump<operation>(buffer, _delta_channel_sample_length);
-        cynes::dump<operation>(buffer, _delta_channel_period_counter);
-        cynes::dump<operation>(buffer, _delta_channel_period_load);
-        cynes::dump<operation>(buffer, _delta_channel_bits_in_buffer);
-        cynes::dump<operation>(buffer, _delta_channel_should_loop);
-        cynes::dump<operation>(buffer, _delta_channel_enable_interrupt);
-        cynes::dump<operation>(buffer, _delta_channel_sample_buffer_empty);
-        cynes::dump<operation>(buffer, _enable_dmc);
-        cynes::dump<operation>(buffer, _send_delta_channel_interrupt);
-    }
 };
 }
 

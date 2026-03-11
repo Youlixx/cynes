@@ -1,5 +1,6 @@
 #include "wrapper.hpp"
 #include "nes.hpp"
+#include "utils.hpp"
 
 #include <cstdint>
 
@@ -9,10 +10,19 @@
 #include <pybind11/stl/filesystem.h>
 
 
+namespace {
+size_t get_save_state_size(cynes::NES& nes) {
+    cynes::SaveState save_state{cynes::SaveState::Mode::Size};
+    nes.stream_state(save_state);
+    return save_state.size();
+}
+}
+
+
 cynes::wrapper::NesWrapper::NesWrapper(const std::filesystem::path& path_rom)
     : controller{0x00}
     , _nes{path_rom}
-    , _save_state_size{_nes.size()}
+    , _save_state_size{get_save_state_size(_nes)}
     , _frame{
         {240, 256, 3},
         {256 * 3, 3, 1},
@@ -31,12 +41,14 @@ const pybind11::array_t<uint8_t>& cynes::wrapper::NesWrapper::step(uint32_t fram
 
 pybind11::array_t<uint8_t> cynes::wrapper::NesWrapper::save() {
     pybind11::array_t<uint8_t> buffer{static_cast<int>(_save_state_size)};
-    _nes.save(buffer.mutable_data());
+    SaveState save_state{SaveState::Mode::Save, buffer.mutable_data()};
+    _nes.stream_state(save_state);
     return buffer;
 }
 
 void cynes::wrapper::NesWrapper::load(pybind11::array_t<uint8_t> buffer) {
-    _nes.load(buffer.mutable_data());
+    SaveState save_state{SaveState::Mode::Load, buffer.mutable_data()};
+    _nes.stream_state(save_state);
     _crashed = false;
 }
 

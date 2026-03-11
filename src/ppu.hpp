@@ -51,6 +51,10 @@ public:
     /// @return True if the frame is ready, false otherwise.
     bool is_frame_ready();
 
+    /// Stream the PPU state into / out of a save state.
+    /// @param save_state Current save state.
+    void stream_state(SaveState& save_state);
+
 private:
     NES& _nes;
 
@@ -159,65 +163,6 @@ private:
         PPU_ADDR = 0x06,
         PPU_DATA = 0x07
     };
-
-public:
-    template<DumpOperation operation, typename T>
-    constexpr void dump(T& buffer) {
-        cynes::dump<operation>(buffer, _current_x);
-        cynes::dump<operation>(buffer, _current_y);
-        cynes::dump<operation>(buffer, _frame_ready);
-        cynes::dump<operation>(buffer, _rendering_enabled);
-        cynes::dump<operation>(buffer, _rendering_enabled_delayed);
-        cynes::dump<operation>(buffer, _prevent_vertical_blank);
-
-        cynes::dump<operation>(buffer, _control_increment_mode);
-        cynes::dump<operation>(buffer, _control_foreground_table);
-        cynes::dump<operation>(buffer, _control_background_table);
-        cynes::dump<operation>(buffer, _control_foreground_large);
-        cynes::dump<operation>(buffer, _control_interrupt_on_vertical_blank);
-
-        cynes::dump<operation>(buffer, _mask_grayscale_mode);
-        cynes::dump<operation>(buffer, _mask_render_background_left);
-        cynes::dump<operation>(buffer, _mask_render_foreground_left);
-        cynes::dump<operation>(buffer, _mask_render_background);
-        cynes::dump<operation>(buffer, _mask_render_foreground);
-        cynes::dump<operation>(buffer, _mask_color_emphasize);
-
-        cynes::dump<operation>(buffer, _status_sprite_overflow);
-        cynes::dump<operation>(buffer, _status_sprite_zero_hit);
-        cynes::dump<operation>(buffer, _status_vertical_blank);
-
-        cynes::dump<operation>(buffer, _clock_decays);
-        cynes::dump<operation>(buffer, _register_decay);
-
-        cynes::dump<operation>(buffer, _latch_cycle);
-        cynes::dump<operation>(buffer, _latch_address);
-        cynes::dump<operation>(buffer, _register_t);
-        cynes::dump<operation>(buffer, _register_v);
-        cynes::dump<operation>(buffer, _delayed_register_v);
-        cynes::dump<operation>(buffer, _scroll_x);
-        cynes::dump<operation>(buffer, _delay_data_read_counter);
-        cynes::dump<operation>(buffer, _delay_data_write_counter);
-        cynes::dump<operation>(buffer, _buffer_data);
-
-        cynes::dump<operation>(buffer, _background_data);
-        cynes::dump<operation>(buffer, _background_shifter);
-
-        cynes::dump<operation>(buffer, _foreground_data);
-        cynes::dump<operation>(buffer, _foreground_shifter);
-        cynes::dump<operation>(buffer, _foreground_attributes);
-        cynes::dump<operation>(buffer, _foreground_positions);
-        cynes::dump<operation>(buffer, _foreground_data_pointer);
-        cynes::dump<operation>(buffer, _foreground_sprite_count);
-        cynes::dump<operation>(buffer, _foreground_sprite_count_next);
-        cynes::dump<operation>(buffer, _foreground_sprite_pointer);
-        cynes::dump<operation>(buffer, _foreground_read_delay_counter);
-        cynes::dump<operation>(buffer, _foreground_sprite_address);
-        cynes::dump<operation>(buffer, _foreground_sprite_zero_line);
-        cynes::dump<operation>(buffer, _foreground_sprite_zero_should);
-        cynes::dump<operation>(buffer, _foreground_sprite_zero_hit);
-        cynes::dump<operation>(buffer, _foreground_evaluation_step);
-    }
 };
 }
 

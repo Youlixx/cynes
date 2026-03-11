@@ -4,6 +4,7 @@
 #include "cpu.hpp"
 #include "ppu.hpp"
 #include "mapper.hpp"
+#include "utils.hpp"
 
 
 constexpr uint8_t PALETTE_RAM_BOOT_VALUES[0x20] = {
@@ -19,9 +20,9 @@ cynes::NES::NES(const std::filesystem::path& path)
     , ppu{*this}
     , apu{*this}
     , _mapper{Mapper::load_mapper(static_cast<NES&>(*this), path)}
-    , _memory_cpu{new uint8_t[0x800]}
-    , _memory_oam{new uint8_t[0x100]}
-    , _memory_palette{new uint8_t[0x20]}
+    , _memory_cpu{std::make_unique<uint8_t[]>(0x800)}
+    , _memory_oam{std::make_unique<uint8_t[]>(0x100)}
+    , _memory_palette{std::make_unique<uint8_t[]>(0x20)}
 {
     cpu.power();
     ppu.power();
@@ -185,19 +186,19 @@ bool cynes::NES::step(uint16_t controllers, unsigned int frames) {
     return false;
 }
 
-unsigned int cynes::NES::size() {
-    unsigned int buffer_size = 0;
-    dump<DumpOperation::SIZE>(buffer_size);
+void cynes::NES::stream_state(cynes::SaveState& save_state) {
+    cpu.stream_state(save_state);
+    ppu.stream_state(save_state);
+    apu.stream_state(save_state);
 
-    return buffer_size;
-}
+    _mapper->stream_state(save_state);
 
-void cynes::NES::save(uint8_t* buffer) {
-    dump<DumpOperation::DUMP>(buffer);
-}
+    save_state.stream(_memory_cpu.get(), 0x800);
+    save_state.stream(_memory_oam.get(), 0x100);
+    save_state.stream(_memory_palette.get(), 0x20);
 
-void cynes::NES::load(uint8_t* buffer) {
-    dump<DumpOperation::LOAD>(buffer);
+    save_state.stream(_controller_status);
+    save_state.stream(_controller_shifters);
 }
 
 cynes::Mapper& cynes::NES::get_mapper() {
@@ -217,23 +218,3 @@ uint8_t cynes::NES::poll_controller(uint8_t player) {
 
     return (_open_bus & 0xE0) | value;
 }
-
-template<cynes::DumpOperation operation, typename T>
-void cynes::NES::dump(T& buffer) {
-    cpu.dump<operation>(buffer);
-    ppu.dump<operation>(buffer);
-    apu.dump<operation>(buffer);
-
-    _mapper->dump<operation>(buffer);
-
-    cynes::dump<operation>(buffer, _memory_cpu.get(), 0x800);
-    cynes::dump<operation>(buffer, _memory_oam.get(), 0x100);
-    cynes::dump<operation>(buffer, _memory_palette.get(), 0x20);
-
-    cynes::dump<operation>(buffer, _controller_status);
-    cynes::dump<operation>(buffer, _controller_shifters);
-}
-
-template void cynes::NES::dump<cynes::DumpOperation::SIZE>(unsigned int&);
-template void cynes::NES::dump<cynes::DumpOperation::DUMP>(uint8_t*&);
-template void cynes::NES::dump<cynes::DumpOperation::LOAD>(uint8_t*&);

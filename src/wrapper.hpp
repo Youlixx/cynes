@@ -17,7 +17,7 @@ public:
     /// @param path_rom Path to the ROM file.
     NesWrapper(const std::filesystem::path& path_rom);
 
-    // Default destructor.
+    /// Default destructor.
     ~NesWrapper() = default;
 
     /// Step the emulation by the given amount of frame.

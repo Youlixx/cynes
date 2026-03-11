@@ -2,9 +2,12 @@
 #include "cpu.hpp"
 #include "nes.hpp"
 #include "mapper.hpp"
+#include "save_state.hpp"
 
 #include <cstring>
+#include <memory>
 
+using namespace cynes;
 
 constexpr uint8_t PALETTE_COLORS[0x8][0x40][0x3] = {
     0x54, 0x54, 0x54, 0x00, 0x1E, 0x74, 0x08, 0x10, 0x90, 0x30, 0x00, 0x88, 0x44, 0x00, 0x64, 0x5C,
@@ -106,9 +109,9 @@ constexpr uint8_t PALETTE_COLORS[0x8][0x40][0x3] = {
 };
 
 
-cynes::PPU::PPU(NES& nes)
+PPU::PPU(NES& nes)
     : _nes{nes}
-    , _frame_buffer{new uint8_t[0x2D000]}
+    , _frame_buffer{std::make_unique<uint8_t[]>(0x2D000)}
     , _current_x{0x0000}
     , _current_y{0x0000}
     , _rendering_enabled{false}
@@ -165,7 +168,7 @@ cynes::PPU::PPU(NES& nes)
     std::memset(_foreground_positions, 0x00, 0x8);
 }
 
-void cynes::PPU::power() {
+void PPU::power() {
     _current_y = 0xFF00;
     _current_x = 0xFF00;
 
@@ -205,7 +208,7 @@ void cynes::PPU::power() {
     _buffer_data = 0x00;
 }
 
-void cynes::PPU::reset() {
+void PPU::reset() {
     _current_y = 0xFF00;
     _current_x = 0xFF00;
 
@@ -239,7 +242,7 @@ void cynes::PPU::reset() {
     _buffer_data = 0x00;
 }
 
-void cynes::PPU::tick() {
+void PPU::tick() {
     if (_current_x > 339) {
         _current_x = 0;
 
@@ -382,7 +385,7 @@ void cynes::PPU::tick() {
     _nes.get_mapper().tick();
 }
 
-void cynes::PPU::write(uint8_t address, uint8_t value) {
+void PPU::write(uint8_t address, uint8_t value) {
     memset(_clock_decays, DECAY_PERIOD, 3);
 
     _register_decay = value;
@@ -501,7 +504,7 @@ void cynes::PPU::write(uint8_t address, uint8_t value) {
     }
 }
 
-uint8_t cynes::PPU::read(uint8_t address) {
+uint8_t PPU::read(uint8_t address) {
     switch (static_cast<Register>(address)) {
     case Register::PPU_STATUS: {
         memset(_clock_decays, DECAY_PERIOD, 2);
@@ -571,18 +574,75 @@ uint8_t cynes::PPU::read(uint8_t address) {
     return _register_decay;
 }
 
-const uint8_t* cynes::PPU::get_frame_buffer() const {
+const uint8_t* PPU::get_frame_buffer() const {
     return _frame_buffer.get();
 }
 
-bool cynes::PPU::is_frame_ready() {
+bool PPU::is_frame_ready() {
     bool frame_ready = _frame_ready;
     _frame_ready = false;
 
     return frame_ready;
 }
 
-void cynes::PPU::increment_scroll_x() {
+void PPU::stream_state(SaveState& save_state) {
+    save_state.stream(_current_x);
+    save_state.stream(_current_y);
+    save_state.stream(_frame_ready);
+    save_state.stream(_rendering_enabled);
+    save_state.stream(_rendering_enabled_delayed);
+    save_state.stream(_prevent_vertical_blank);
+
+    save_state.stream(_control_increment_mode);
+    save_state.stream(_control_foreground_table);
+    save_state.stream(_control_background_table);
+    save_state.stream(_control_foreground_large);
+    save_state.stream(_control_interrupt_on_vertical_blank);
+
+    save_state.stream(_mask_grayscale_mode);
+    save_state.stream(_mask_render_background_left);
+    save_state.stream(_mask_render_foreground_left);
+    save_state.stream(_mask_render_background);
+    save_state.stream(_mask_render_foreground);
+    save_state.stream(_mask_color_emphasize);
+
+    save_state.stream(_status_sprite_overflow);
+    save_state.stream(_status_sprite_zero_hit);
+    save_state.stream(_status_vertical_blank);
+
+    save_state.stream(_clock_decays);
+    save_state.stream(_register_decay);
+
+    save_state.stream(_latch_cycle);
+    save_state.stream(_latch_address);
+    save_state.stream(_register_t);
+    save_state.stream(_register_v);
+    save_state.stream(_delayed_register_v);
+    save_state.stream(_scroll_x);
+    save_state.stream(_delay_data_read_counter);
+    save_state.stream(_delay_data_write_counter);
+    save_state.stream(_buffer_data);
+
+    save_state.stream(_background_data);
+    save_state.stream(_background_shifter);
+
+    save_state.stream(_foreground_data);
+    save_state.stream(_foreground_shifter);
+    save_state.stream(_foreground_attributes);
+    save_state.stream(_foreground_positions);
+    save_state.stream(_foreground_data_pointer);
+    save_state.stream(_foreground_sprite_count);
+    save_state.stream(_foreground_sprite_count_next);
+    save_state.stream(_foreground_sprite_pointer);
+    save_state.stream(_foreground_read_delay_counter);
+    save_state.stream(_foreground_sprite_address);
+    save_state.stream(_foreground_sprite_zero_line);
+    save_state.stream(_foreground_sprite_zero_should);
+    save_state.stream(_foreground_sprite_zero_hit);
+    save_state.stream(_foreground_evaluation_step);
+}
+
+void PPU::increment_scroll_x() {
     if (_mask_render_background || _mask_render_foreground) {
         if ((_register_v & 0x001F) == 0x1F) {
             _register_v &= 0xFFE0;
@@ -593,7 +653,7 @@ void cynes::PPU::increment_scroll_x() {
     }
 }
 
-void cynes::PPU::increment_scroll_y() {
+void PPU::increment_scroll_y() {
     if (_mask_render_background || _mask_render_foreground) {
         if ((_register_v & 0x7000) != 0x7000) {
             _register_v += 0x1000;
@@ -617,14 +677,14 @@ void cynes::PPU::increment_scroll_y() {
     }
 }
 
-void cynes::PPU::reset_scroll_x() {
+void PPU::reset_scroll_x() {
     if (_mask_render_background || _mask_render_foreground) {
         _register_v &= 0xFBE0;
         _register_v |= _register_t & 0x041F;
     }
 }
 
-void cynes::PPU::reset_scroll_y() {
+void PPU::reset_scroll_y() {
     if (_mask_render_background || _mask_render_foreground) {
         _register_v &= 0x841F;
         _register_v |= _register_t & 0x7BE0;
@@ -632,7 +692,7 @@ void cynes::PPU::reset_scroll_y() {
 }
 
 
-void cynes::PPU::load_background_shifters() {
+void PPU::load_background_shifters() {
     update_background_shifters();
 
     if (_rendering_enabled) {
@@ -709,7 +769,7 @@ void cynes::PPU::load_background_shifters() {
     }
 }
 
-void cynes::PPU::update_background_shifters() {
+void PPU::update_background_shifters() {
     if (_mask_render_background || _mask_render_foreground) {
         _background_shifter[0] <<= 1;
         _background_shifter[1] <<= 1;
@@ -718,7 +778,7 @@ void cynes::PPU::update_background_shifters() {
     }
 }
 
-void cynes::PPU::reset_foreground_data() {
+void PPU::reset_foreground_data() {
     _foreground_sprite_count_next = _foreground_sprite_count;
 
     _foreground_data_pointer = 0;
@@ -729,7 +789,7 @@ void cynes::PPU::reset_foreground_data() {
     _foreground_sprite_zero_hit = false;
 }
 
-void cynes::PPU::clear_foreground_data() {
+void PPU::clear_foreground_data() {
     if (_current_x & 0x01) {
         _foreground_data[_foreground_data_pointer++] = 0xFF;
 
@@ -737,7 +797,7 @@ void cynes::PPU::clear_foreground_data() {
     }
 }
 
-void cynes::PPU::fetch_foreground_data() {
+void PPU::fetch_foreground_data() {
     if (_current_x % 2 == 0 && _rendering_enabled) {
         uint8_t sprite_size = _control_foreground_large ? 16 : 8;
 
@@ -809,7 +869,7 @@ void cynes::PPU::fetch_foreground_data() {
     }
 }
 
-void cynes::PPU::load_foreground_shifter() {
+void PPU::load_foreground_shifter() {
     if (_rendering_enabled) {
         _foreground_sprite_pointer = 0;
 
@@ -911,7 +971,7 @@ void cynes::PPU::load_foreground_shifter() {
     }
 }
 
-void cynes::PPU::update_foreground_shifter() {
+void PPU::update_foreground_shifter() {
     if (_mask_render_foreground) {
         for (uint8_t sprite = 0; sprite < _foreground_sprite_count_next; sprite++) {
             if (_foreground_positions[sprite] > 0) {
@@ -924,7 +984,7 @@ void cynes::PPU::update_foreground_shifter() {
     }
 }
 
-uint8_t cynes::PPU::blend_colors() {
+uint8_t PPU::blend_colors() {
     if (!_rendering_enabled && (_register_v & 0x3FFF) >= 0x3F00) {
         return _register_v & 0x1F;
     }

@@ -1,6 +1,6 @@
 #include "wrapper.hpp"
 #include "nes.hpp"
-#include "utils.hpp"
+#include "save_state.hpp"
 
 #include <cstdint>
 

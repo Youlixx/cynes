@@ -9,6 +9,7 @@
 #include "cpu.hpp"
 #include "ppu.hpp"
 #include "mapper.hpp"
+#include "save_state.hpp"
 
 namespace cynes {
 /// Main NES class, contains the RAM, CPU, PPU, APU, Mapper, etc...

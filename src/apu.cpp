@@ -2,6 +2,7 @@
 #include "cpu.hpp"
 #include "ppu.hpp"
 #include "nes.hpp"
+#include "save_state.hpp"
 
 #include <cstring>
 

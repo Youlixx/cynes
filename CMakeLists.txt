@@ -21,6 +21,7 @@ add_library(cynes_core OBJECT
     src/ppu.cpp
     src/nes.cpp
     src/mapper.cpp
+    src/save_state.cpp
 )
 
 set_property(TARGET cynes_core PROPERTY POSITION_INDEPENDENT_CODE ON)

@@ -4,7 +4,7 @@
 #include "cpu.hpp"
 #include "ppu.hpp"
 #include "mapper.hpp"
-#include "utils.hpp"
+#include "save_state.hpp"
 
 
 constexpr uint8_t PALETTE_RAM_BOOT_VALUES[0x20] = {

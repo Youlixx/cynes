@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "utils.hpp"
+#include "save_state.hpp"
 
 namespace cynes {
 // Forward declaration.

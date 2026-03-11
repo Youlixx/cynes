@@ -2,7 +2,7 @@
 
 #include "cpu.hpp"
 #include "nes.hpp"
-#include "utils.hpp"
+#include "save_state.hpp"
 
 #include <algorithm>
 #include <fstream>

@@ -1,6 +1,6 @@
 [project]
 name = "cynes"
-version = "0.1.1"
+version = "0.1.2"
 description = "C/C++ NES emulator with Python bindings"
 readme = "README.md"
 authors = [{ name = "Theo Combey", email = "combey.theo@hotmail.com" }]

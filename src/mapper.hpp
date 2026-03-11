@@ -15,23 +15,19 @@ class NES;
 
 /// Nametable mirroring mode (see https://www.nesdev.org/wiki/Mirroring).
 enum class MirroringMode : uint8_t {
-    NONE,            ///< No mirroring.
-    ONE_SCREEN_LOW,  ///< One-screen mirroring using lower bank.
-    ONE_SCREEN_HIGH, ///< One-screen mirroring using upper bank.
-    HORIZONTAL,      ///< Horizontal mirroring.
-    VERTICAL         ///< Vertical mirroring.
+    NONE, ONE_SCREEN_LOW, ONE_SCREEN_HIGH, HORIZONTAL, VERTICAL
 };
 
 /// Simple wrapper storing memory parsed from a ROM file.
 struct ParsedMemory {
 public:
-    bool read_only_chr = true;                ///< Whether CHR memory is ROM (true) or RAM (false).
-    uint16_t size_prg = 0x00;                 ///< Size of PRG memory in 1KB units.
-    uint16_t size_chr = 0x00;                 ///< Size of CHR memory in 1KB units.
+    bool read_only_chr = true;
+    uint16_t size_prg = 0x00;
+    uint16_t size_chr = 0x00;
 
-    std::unique_ptr<uint8_t[]> trainer;       ///< Optional 512-byte trainer data.
-    std::unique_ptr<uint8_t[]> memory_prg;    ///< PRG ROM/RAM data.
-    std::unique_ptr<uint8_t[]> memory_chr;    ///< CHR ROM/RAM data.
+    std::unique_ptr<uint8_t[]> trainer;
+    std::unique_ptr<uint8_t[]> memory_prg;
+    std::unique_ptr<uint8_t[]> memory_chr;
 };
 
 /// Generic NES Mapper (see https://www.nesdev.org/wiki/Mapper).
@@ -120,9 +116,9 @@ protected:
         void stream_state(SaveState& save_state);
 
     public:
-        size_t offset;   ///< Offset into mapper memory.
-        bool read_only;  ///< Whether the bank is read-only.
-        bool mapped;     ///< Whether the bank is mapped to memory.
+        size_t offset;
+        bool read_only;
+        bool mapped;
     };
 
 protected:
@@ -223,7 +219,7 @@ protected:
 
 
 /// NROM mapper (see https://www.nesdev.org/wiki/NROM).
-class NROM : public Mapper {
+class NROM final : public Mapper {
 public:
     /// Initialize the mapper.
     /// @param nes Emulator.
@@ -237,7 +233,7 @@ public:
 
 
 /// MMC1 mapper (see https://www.nesdev.org/wiki/MMC1).
-class MMC1 : public Mapper {
+class MMC1 final : public Mapper {
 public:
     /// Initialize the mapper.
     /// @param nes Emulator.
@@ -264,7 +260,12 @@ public:
     void stream_state(SaveState& save_state) override;
 
 private:
+    /// Update a mapper register.
+    /// @param register_target Target register.
+    /// @param value Value to write.
     void write_registers(uint8_t register_target, uint8_t value);
+
+    /// Update the bank mapping.
     void update_banks();
 
 private:
@@ -276,7 +277,7 @@ private:
 
 
 /// UxROM mapper (see https://www.nesdev.org/wiki/UxROM).
-class UxROM : public Mapper {
+class UxROM final : public Mapper {
 public:
     /// Initialize the mapper.
     /// @param nes Emulator.
@@ -293,12 +294,12 @@ public:
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value);
+    void write_cpu(uint16_t address, uint8_t value) override;
 };
 
 
 /// CNROM mapper (see https://www.nesdev.org/wiki/CNROM).
-class CNROM : public Mapper {
+class CNROM final : public Mapper {
 public:
     /// Initialize the mapper.
     /// @param nes Emulator.
@@ -315,12 +316,12 @@ public:
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value);
+    void write_cpu(uint16_t address, uint8_t value) override;
 };
 
 
 /// MMC3 mapper (see https://www.nesdev.org/wiki/MMC3).
-class MMC3 : public Mapper {
+class MMC3 final : public Mapper {
 public:
     /// Initialize the mapper.
     /// @param nes Emulator.
@@ -379,7 +380,7 @@ private:
 
 
 /// AxROM mapper (see https://www.nesdev.org/wiki/AxROM).
-class AxROM : public Mapper {
+class AxROM final : public Mapper {
 public:
     /// Initialize the mapper.
     /// @param nes Emulator.
@@ -395,13 +396,13 @@ public:
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value);
+    void write_cpu(uint16_t address, uint8_t value) override;
 };
 
 /// Generic MMC mapper template for MMC2/MMC4 (see https://www.nesdev.org/wiki/MMC2).
 /// @tparam BANK_SIZE Size of the switchable PRG bank (0x08 for MMC2, 0x10 for MMC4).
 template<uint8_t BANK_SIZE>
-class MMC : public Mapper {
+class MMC final : public Mapper {
 public:
     /// Initialize the mapper.
     /// @param nes Emulator.
@@ -501,12 +502,12 @@ private:
     uint8_t _selected_banks[0x4];
 };
 
-using MMC2 = MMC<0x08>;  ///< MMC2 mapper type alias.
-using MMC4 = MMC<0x10>;  ///< MMC4 mapper type alias.
+using MMC2 = MMC<0x08>;
+using MMC4 = MMC<0x10>;
 
 
 /// GxROM mapper (see https://www.nesdev.org/wiki/GxROM).
-class GxROM : public Mapper {
+class GxROM final : public Mapper {
 public:
     /// Initialize the mapper.
     /// @param nes Emulator.
@@ -523,7 +524,7 @@ public:
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value);
+    void write_cpu(uint16_t address, uint8_t value) override;
 };
 }
 

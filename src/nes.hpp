@@ -102,15 +102,16 @@ public:
     void stream_state(SaveState& save_state);
 
     /// Get a pointer to the internal frame buffer.
-    inline const uint8_t* get_frame_buffer() const {
-        return ppu.get_frame_buffer();
-    }
+    /// @return Frame buffer pointer.
+    const uint8_t* get_frame_buffer() const;
 
 public:
     CPU cpu;
     PPU ppu;
     APU apu;
 
+    /// Get the emulator mapper.
+    /// @return Emulator mapper.
     Mapper& get_mapper();
 
 private:

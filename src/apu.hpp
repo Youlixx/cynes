@@ -105,20 +105,21 @@ private:
     bool _send_delta_channel_interrupt;
 
 private:
+    /// APU memory-mapped register addresses.
     enum class Register : uint8_t {
-        PULSE_1_0 = 0x00,
-        PULSE_1_3 = 0x03,
-        PULSE_2_0 = 0x04,
-        PULSE_2_3 = 0x07,
-        TRIANGLE_0 = 0x08,
-        TRIANGLE_3 = 0x0B,
-        NOISE_0 = 0x0C,
-        NOISE_3 = 0x0F,
-        DELTA_0 = 0x10,
-        DELTA_3 = 0x13,
-        OAM_DMA = 0x14,
-        CTRL_STATUS = 0x15,
-        FRAME_COUNTER = 0x17
+        PULSE_1_0 = 0x00,     ///< Pulse 1 channel register 0.
+        PULSE_1_3 = 0x03,     ///< Pulse 1 channel register 3.
+        PULSE_2_0 = 0x04,     ///< Pulse 2 channel register 0.
+        PULSE_2_3 = 0x07,     ///< Pulse 2 channel register 3.
+        TRIANGLE_0 = 0x08,    ///< Triangle channel register 0.
+        TRIANGLE_3 = 0x0B,    ///< Triangle channel register 3.
+        NOISE_0 = 0x0C,       ///< Noise channel register 0.
+        NOISE_3 = 0x0F,       ///< Noise channel register 3.
+        DELTA_0 = 0x10,       ///< Delta modulation channel register 0.
+        DELTA_3 = 0x13,       ///< Delta modulation channel register 3.
+        OAM_DMA = 0x14,       ///< OAM DMA register.
+        CTRL_STATUS = 0x15,   ///< Control/status register.
+        FRAME_COUNTER = 0x17  ///< Frame counter register.
     };
 };
 }

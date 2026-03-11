@@ -90,8 +90,16 @@ private:
     void set_status(uint8_t flag, bool value);
     bool get_status(uint8_t flag) const;
 
+    /// CPU status register flags.
     enum Flag : uint8_t {
-        C = 0x01, Z = 0x02, I = 0x04, D = 0x08, B = 0x10, U = 0x20, V = 0x40, N = 0x80
+        C = 0x01,  ///< Carry flag.
+        Z = 0x02,  ///< Zero flag.
+        I = 0x04,  ///< Interrupt disable flag.
+        D = 0x08,  ///< Decimal mode flag (unused on NES).
+        B = 0x10,  ///< Break flag.
+        U = 0x20,  ///< Unused flag (always set).
+        V = 0x40,  ///< Overflow flag.
+        N = 0x80   ///< Negative flag.
     };
 
 private:

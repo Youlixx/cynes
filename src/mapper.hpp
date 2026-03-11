@@ -13,20 +13,25 @@ namespace cynes {
 // Forward declaration.
 class NES;
 
+/// Nametable mirroring mode (see https://www.nesdev.org/wiki/Mirroring).
 enum class MirroringMode : uint8_t {
-    NONE, ONE_SCREEN_LOW, ONE_SCREEN_HIGH, HORIZONTAL, VERTICAL
+    NONE,            ///< No mirroring.
+    ONE_SCREEN_LOW,  ///< One-screen mirroring using lower bank.
+    ONE_SCREEN_HIGH, ///< One-screen mirroring using upper bank.
+    HORIZONTAL,      ///< Horizontal mirroring.
+    VERTICAL         ///< Vertical mirroring.
 };
 
 /// Simple wrapper storing memory parsed from a ROM file.
 struct ParsedMemory {
 public:
-    bool read_only_chr = true;
-    uint16_t size_prg = 0x00;
-    uint16_t size_chr = 0x00;
+    bool read_only_chr = true;                ///< Whether CHR memory is ROM (true) or RAM (false).
+    uint16_t size_prg = 0x00;                 ///< Size of PRG memory in 1KB units.
+    uint16_t size_chr = 0x00;                 ///< Size of CHR memory in 1KB units.
 
-    std::unique_ptr<uint8_t[]> trainer;
-    std::unique_ptr<uint8_t[]> memory_prg;
-    std::unique_ptr<uint8_t[]> memory_chr;
+    std::unique_ptr<uint8_t[]> trainer;       ///< Optional 512-byte trainer data.
+    std::unique_ptr<uint8_t[]> memory_prg;    ///< PRG ROM/RAM data.
+    std::unique_ptr<uint8_t[]> memory_chr;    ///< CHR ROM/RAM data.
 };
 
 /// Generic NES Mapper (see https://www.nesdev.org/wiki/Mapper).
@@ -115,9 +120,9 @@ protected:
         void stream_state(SaveState& save_state);
 
     public:
-        size_t offset;
-        bool read_only;
-        bool mapped;
+        size_t offset;   ///< Offset into mapper memory.
+        bool read_only;  ///< Whether the bank is read-only.
+        bool mapped;     ///< Whether the bank is mapped to memory.
     };
 
 protected:
@@ -142,24 +147,77 @@ private:
     std::array<MemoryBank, 0x10> _banks_ppu;
 
 protected:
+    /// Map a single PRG bank.
+    /// @param page Bank page number.
+    /// @param address PRG memory address offset.
     void map_bank_prg(uint8_t page, uint16_t address);
+
+    /// Map multiple PRG banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to map.
+    /// @param address PRG memory address offset.
     void map_bank_prg(uint8_t page, uint8_t size, uint16_t address);
 
+    /// Map a single CPU RAM bank.
+    /// @param page Bank page number.
+    /// @param address CPU RAM address offset.
+    /// @param read_only Whether the bank is read-only.
     void map_bank_cpu_ram(uint8_t page, uint16_t address, bool read_only);
+
+    /// Map multiple CPU RAM banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to map.
+    /// @param address CPU RAM address offset.
+    /// @param read_only Whether the banks are read-only.
     void map_bank_cpu_ram(uint8_t page, uint8_t size, uint16_t address, bool read_only);
 
+    /// Map a single CHR bank.
+    /// @param page Bank page number.
+    /// @param address CHR memory address offset.
     void map_bank_chr(uint8_t page, uint16_t address);
+
+    /// Map multiple CHR banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to map.
+    /// @param address CHR memory address offset.
     void map_bank_chr(uint8_t page, uint8_t size, uint16_t address);
 
+    /// Map a single PPU RAM bank.
+    /// @param page Bank page number.
+    /// @param address PPU RAM address offset.
+    /// @param read_only Whether the bank is read-only.
     void map_bank_ppu_ram(uint8_t page, uint16_t address, bool read_only);
+
+    /// Map multiple PPU RAM banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to map.
+    /// @param address PPU RAM address offset.
+    /// @param read_only Whether the banks are read-only.
     void map_bank_ppu_ram(uint8_t page, uint8_t size, uint16_t address, bool read_only);
 
+    /// Unmap a single CPU bank.
+    /// @param page Bank page number to unmap.
     void unmap_bank_cpu(uint8_t page);
+
+    /// Unmap multiple CPU banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to unmap.
     void unmap_bank_cpu(uint8_t page, uint8_t size);
 
+    /// Set the nametable mirroring mode.
+    /// @param mode Mirroring mode to set.
     void set_mirroring_mode(MirroringMode mode);
 
+    /// Mirror CPU banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to mirror.
+    /// @param mirror Mirror target page.
     void mirror_cpu_banks(uint8_t page, uint8_t size, uint8_t mirror);
+
+    /// Mirror PPU banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to mirror.
+    /// @param mirror Mirror target page.
     void mirror_ppu_banks(uint8_t page, uint8_t size, uint8_t mirror);
 };
 
@@ -181,7 +239,13 @@ public:
 /// MMC1 mapper (see https://www.nesdev.org/wiki/MMC1).
 class MMC1 : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     MMC1(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
+
+    /// Default destructor.
     ~MMC1() = default;
 
 public:
@@ -214,7 +278,13 @@ private:
 /// UxROM mapper (see https://www.nesdev.org/wiki/UxROM).
 class UxROM : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     UxROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
+
+    /// Default destructor.
     ~UxROM() = default;
 
 public:
@@ -230,7 +300,13 @@ public:
 /// CNROM mapper (see https://www.nesdev.org/wiki/CNROM).
 class CNROM : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     CNROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
+
+    /// Default destructor.
     ~CNROM() = default;
 
 public:
@@ -246,7 +322,13 @@ public:
 /// MMC3 mapper (see https://www.nesdev.org/wiki/MMC3).
 class MMC3 : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     MMC3(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
+
+    /// Default destructor.
     ~MMC3() = default;
 
 public:
@@ -299,7 +381,12 @@ private:
 /// AxROM mapper (see https://www.nesdev.org/wiki/AxROM).
 class AxROM : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
     AxROM(NES& nes, const ParsedMemory& metadata);
+
+    /// Default destructor.
     ~AxROM() = default;
 
 public:
@@ -311,10 +398,15 @@ public:
     virtual void write_cpu(uint16_t address, uint8_t value);
 };
 
-/// Generic MMC mapper (see https://www.nesdev.org/wiki/MMC2).
+/// Generic MMC mapper template for MMC2/MMC4 (see https://www.nesdev.org/wiki/MMC2).
+/// @tparam BANK_SIZE Size of the switchable PRG bank (0x08 for MMC2, 0x10 for MMC4).
 template<uint8_t BANK_SIZE>
 class MMC : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     MMC(NES& nes, const ParsedMemory& metadata, MirroringMode mode) :
         Mapper(nes, metadata, mode) {
         map_bank_chr(0x0, 0x8, 0x0);
@@ -328,6 +420,7 @@ public:
         memset(_selected_banks, 0x0, 0x4);
     }
 
+    /// Default destructor.
     ~MMC() = default;
 
 public:
@@ -408,14 +501,20 @@ private:
     uint8_t _selected_banks[0x4];
 };
 
-using MMC2 = MMC<0x08>;
-using MMC4 = MMC<0x10>;
+using MMC2 = MMC<0x08>;  ///< MMC2 mapper type alias.
+using MMC4 = MMC<0x10>;  ///< MMC4 mapper type alias.
 
 
 /// GxROM mapper (see https://www.nesdev.org/wiki/GxROM).
 class GxROM : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     GxROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
+
+    /// Default destructor.
     ~GxROM() = default;
 
 public:

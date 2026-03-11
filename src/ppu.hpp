@@ -44,6 +44,7 @@ public:
     uint8_t read(uint8_t address);
 
     /// Get a pointer to the internal frame buffer.
+    /// @return Frame buffer pointer.
     const uint8_t* get_frame_buffer() const;
 
     /// Check whether or not the frame is ready.
@@ -140,6 +141,7 @@ private:
     bool _foreground_sprite_zero_should;
     bool _foreground_sprite_zero_hit;
 
+    /// Sprite evaluation state machine steps.
     enum class SpriteEvaluationStep {
         LOAD_SECONDARY_OAM, INCREMENT_POINTER, IDLE
     } _foreground_evaluation_step;
@@ -153,6 +155,7 @@ private:
     uint8_t blend_colors();
 
 private:
+    /// PPU memory-mapped register addresses.
     enum class Register : uint8_t {
         PPU_CTRL = 0x00,
         PPU_MASK = 0x01,

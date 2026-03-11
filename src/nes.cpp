@@ -6,6 +6,7 @@
 #include "mapper.hpp"
 #include "save_state.hpp"
 
+using namespace cynes;
 
 constexpr uint8_t PALETTE_RAM_BOOT_VALUES[0x20] = {
     0x09, 0x01, 0x00, 0x01, 0x00, 0x02, 0x02, 0x0D,
@@ -15,7 +16,7 @@ constexpr uint8_t PALETTE_RAM_BOOT_VALUES[0x20] = {
 };
 
 
-cynes::NES::NES(const std::filesystem::path& path)
+NES::NES(const std::filesystem::path& path)
     : cpu{*this}
     , ppu{*this}
     , apu{*this}
@@ -39,7 +40,7 @@ cynes::NES::NES(const std::filesystem::path& path)
     }
 }
 
-void cynes::NES::reset() {
+void NES::reset() {
     cpu.reset();
     ppu.reset();
     apu.reset();
@@ -49,7 +50,7 @@ void cynes::NES::reset() {
     }
 }
 
-void cynes::NES::dummy_read() {
+void NES::dummy_read() {
     apu.tick(true);
     ppu.tick();
     ppu.tick();
@@ -57,7 +58,7 @@ void cynes::NES::dummy_read() {
     cpu.poll();
 }
 
-void cynes::NES::write(uint16_t address, uint8_t value) {
+void NES::write(uint16_t address, uint8_t value) {
     apu.tick(false);
     ppu.tick();
     ppu.tick();
@@ -68,7 +69,7 @@ void cynes::NES::write(uint16_t address, uint8_t value) {
     cpu.poll();
 }
 
-void cynes::NES::write_cpu(uint16_t address, uint8_t value) {
+void NES::write_cpu(uint16_t address, uint8_t value) {
     _open_bus = value;
 
     if (address < 0x2000) {
@@ -84,7 +85,7 @@ void cynes::NES::write_cpu(uint16_t address, uint8_t value) {
     }
 }
 
-void cynes::NES::write_ppu(uint16_t address, uint8_t value) {
+void NES::write_ppu(uint16_t address, uint8_t value) {
     address &= 0x3FFF;
 
     if (address < 0x3F00) {
@@ -106,11 +107,11 @@ void cynes::NES::write_ppu(uint16_t address, uint8_t value) {
     }
 }
 
-void cynes::NES::write_oam(uint8_t address, uint8_t value) {
+void NES::write_oam(uint8_t address, uint8_t value) {
     _memory_oam[address] = value;
 }
 
-uint8_t cynes::NES::read(uint16_t address) {
+uint8_t NES::read(uint16_t address) {
     apu.tick(true);
     ppu.tick();
     ppu.tick();
@@ -123,7 +124,7 @@ uint8_t cynes::NES::read(uint16_t address) {
     return _open_bus;
 }
 
-uint8_t cynes::NES::read_cpu(uint16_t address) {
+uint8_t NES::read_cpu(uint16_t address) {
     if (address < 0x2000) {
         return _memory_cpu[address & 0x7FF];
     } else if (address < 0x4000) {
@@ -139,7 +140,7 @@ uint8_t cynes::NES::read_cpu(uint16_t address) {
     }
 }
 
-uint8_t cynes::NES::read_ppu(uint16_t address) {
+uint8_t NES::read_ppu(uint16_t address) {
     address &= 0x3FFF;
 
     if (address < 0x3F00) {
@@ -161,15 +162,15 @@ uint8_t cynes::NES::read_ppu(uint16_t address) {
     }
 }
 
-uint8_t cynes::NES::read_oam(uint8_t address) const {
+uint8_t NES::read_oam(uint8_t address) const {
     return _memory_oam[address];
 }
 
-uint8_t cynes::NES::get_open_bus() const {
+uint8_t NES::get_open_bus() const {
     return _open_bus;
 }
 
-bool cynes::NES::step(uint16_t controllers, unsigned int frames) {
+bool NES::step(uint16_t controllers, unsigned int frames) {
     _controller_status[0x0] = controllers & 0xFF;
     _controller_status[0x1] = controllers >> 8;
 
@@ -186,7 +187,7 @@ bool cynes::NES::step(uint16_t controllers, unsigned int frames) {
     return false;
 }
 
-void cynes::NES::stream_state(cynes::SaveState& save_state) {
+void NES::stream_state(SaveState& save_state) {
     cpu.stream_state(save_state);
     ppu.stream_state(save_state);
     apu.stream_state(save_state);
@@ -201,17 +202,21 @@ void cynes::NES::stream_state(cynes::SaveState& save_state) {
     save_state.stream(_controller_shifters);
 }
 
-cynes::Mapper& cynes::NES::get_mapper() {
+const uint8_t* NES::get_frame_buffer() const {
+    return ppu.get_frame_buffer();
+}
+
+Mapper& NES::get_mapper() {
     return static_cast<Mapper&>(*_mapper.get());
 }
 
-void cynes::NES::load_controller_shifter(bool polling) {
+void NES::load_controller_shifter(bool polling) {
     if (polling) {
         memcpy(_controller_shifters, _controller_status, 0x2);
     }
 }
 
-uint8_t cynes::NES::poll_controller(uint8_t player) {
+uint8_t NES::poll_controller(uint8_t player) {
     uint8_t value = _controller_shifters[player] >> 7;
 
     _controller_shifters[player] <<= 1;

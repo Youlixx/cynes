@@ -4,6 +4,8 @@
 #include "nes.hpp"
 
 #include <pybind11/numpy.h>
+
+#include <filesystem>
 #include <cstdint>
 
 namespace cynes {
@@ -13,7 +15,7 @@ class NesWrapper {
 public:
     /// Initialize the emulator.
     /// @param path_rom Path to the ROM file.
-    NesWrapper(const char* path_rom);
+    NesWrapper(const std::filesystem::path& path_rom);
 
     // Default destructor.
     ~NesWrapper() = default;

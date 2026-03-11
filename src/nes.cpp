@@ -14,7 +14,7 @@ constexpr uint8_t PALETTE_RAM_BOOT_VALUES[0x20] = {
 };
 
 
-cynes::NES::NES(const char* path)
+cynes::NES::NES(const std::filesystem::path& path)
     : cpu{*this}
     , ppu{*this}
     , apu{*this}

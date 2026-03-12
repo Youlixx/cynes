@@ -4,14 +4,16 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <memory>
 
-#include "utils.hpp"
+#include "save_state.hpp"
 
 namespace cynes {
 // Forward declaration.
 class NES;
 
+/// Nametable mirroring mode (see https://www.nesdev.org/wiki/Mirroring).
 enum class MirroringMode : uint8_t {
     NONE, ONE_SCREEN_LOW, ONE_SCREEN_HIGH, HORIZONTAL, VERTICAL
 };
@@ -52,7 +54,10 @@ public:
     /// @param nes Emulator.
     /// @param path_rom Path to the NES ROM file.
     /// @return A pointer to the instantiated mapper.
-    static std::unique_ptr<Mapper> load_mapper(NES& nes, const char* path_rom);
+    static std::unique_ptr<Mapper> load_mapper(
+        NES& nes,
+        const std::filesystem::path& path_rom
+    );
 
 public:
     /// Tick the mapper.
@@ -86,6 +91,10 @@ public:
     /// @return The value stored at the given address.
     virtual uint8_t read_ppu(uint16_t address);
 
+    /// Stream the mapper state into / out of a save state.
+    /// @param save_state Current save state.
+    virtual void stream_state(SaveState& save_state);
+
 protected:
     /// A memory bank provides a view within the mapper memory.
     // Each bank is exactly 0x400 bytes large.
@@ -102,17 +111,14 @@ protected:
         /// Default destructor.
         ~MemoryBank() = default;
 
+        /// Stream the memory bank state into / out of a save state.
+        /// @param save_state Current save state.
+        void stream_state(SaveState& save_state);
+
     public:
         size_t offset;
         bool read_only;
         bool mapped;
-
-        template<DumpOperation operation, typename T>
-        constexpr void dump(T& buffer) {
-            cynes::dump<operation>(buffer, offset);
-            cynes::dump<operation>(buffer, read_only);
-            cynes::dump<operation>(buffer, mapped);
-        }
     };
 
 protected:
@@ -137,79 +143,129 @@ private:
     std::array<MemoryBank, 0x10> _banks_ppu;
 
 protected:
+    /// Map a single PRG bank.
+    /// @param page Bank page number.
+    /// @param address PRG memory address offset.
     void map_bank_prg(uint8_t page, uint16_t address);
+
+    /// Map multiple PRG banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to map.
+    /// @param address PRG memory address offset.
     void map_bank_prg(uint8_t page, uint8_t size, uint16_t address);
 
+    /// Map a single CPU RAM bank.
+    /// @param page Bank page number.
+    /// @param address CPU RAM address offset.
+    /// @param read_only Whether the bank is read-only.
     void map_bank_cpu_ram(uint8_t page, uint16_t address, bool read_only);
+
+    /// Map multiple CPU RAM banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to map.
+    /// @param address CPU RAM address offset.
+    /// @param read_only Whether the banks are read-only.
     void map_bank_cpu_ram(uint8_t page, uint8_t size, uint16_t address, bool read_only);
 
+    /// Map a single CHR bank.
+    /// @param page Bank page number.
+    /// @param address CHR memory address offset.
     void map_bank_chr(uint8_t page, uint16_t address);
+
+    /// Map multiple CHR banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to map.
+    /// @param address CHR memory address offset.
     void map_bank_chr(uint8_t page, uint8_t size, uint16_t address);
 
+    /// Map a single PPU RAM bank.
+    /// @param page Bank page number.
+    /// @param address PPU RAM address offset.
+    /// @param read_only Whether the bank is read-only.
     void map_bank_ppu_ram(uint8_t page, uint16_t address, bool read_only);
+
+    /// Map multiple PPU RAM banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to map.
+    /// @param address PPU RAM address offset.
+    /// @param read_only Whether the banks are read-only.
     void map_bank_ppu_ram(uint8_t page, uint8_t size, uint16_t address, bool read_only);
 
+    /// Unmap a single CPU bank.
+    /// @param page Bank page number to unmap.
     void unmap_bank_cpu(uint8_t page);
+
+    /// Unmap multiple CPU banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to unmap.
     void unmap_bank_cpu(uint8_t page, uint8_t size);
 
+    /// Set the nametable mirroring mode.
+    /// @param mode Mirroring mode to set.
     void set_mirroring_mode(MirroringMode mode);
 
+    /// Mirror CPU banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to mirror.
+    /// @param mirror Mirror target page.
     void mirror_cpu_banks(uint8_t page, uint8_t size, uint8_t mirror);
+
+    /// Mirror PPU banks.
+    /// @param page Starting bank page number.
+    /// @param size Number of banks to mirror.
+    /// @param mirror Mirror target page.
     void mirror_ppu_banks(uint8_t page, uint8_t size, uint8_t mirror);
-
-public:
-    template<DumpOperation operation, typename T>
-    constexpr void dump(T& buffer) {
-        for (uint8_t k = 0x00; k < 0x40; k++) {
-            _banks_cpu[k].dump<operation>(buffer);
-        }
-
-        for (uint8_t k = 0x00; k < 0x10; k++) {
-            _banks_ppu[k].dump<operation>(buffer);
-        }
-
-        if (!_read_only_chr) {
-            cynes::dump<operation>(buffer, _memory.get() + _size_prg, _size_chr);
-        }
-
-        if (_size_cpu_ram) {
-            cynes::dump<operation>(buffer, _memory.get() + _size_prg + _size_chr, _size_cpu_ram);
-        }
-
-        if (_size_ppu_ram) {
-            cynes::dump<operation>(buffer, _memory.get() + _size_prg + _size_chr + _size_cpu_ram, _size_ppu_ram);
-        }
-    }
 };
 
 
 /// NROM mapper (see https://www.nesdev.org/wiki/NROM).
-class NROM : public Mapper {
+class NROM final : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     NROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
+
+    /// Default destructor.
     ~NROM() = default;
 };
 
 
 /// MMC1 mapper (see https://www.nesdev.org/wiki/MMC1).
-class MMC1 : public Mapper {
+class MMC1 final : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     MMC1(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
+
+    /// Default destructor.
     ~MMC1() = default;
 
 public:
     /// Tick the mapper.
-    virtual void tick();
+    void tick() override;
 
     /// Write to a CPU mapped memory bank.
     /// @note This function has other side effects than simply writing to the memory, it
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value);
+    void write_cpu(uint16_t address, uint8_t value) override;
+
+    /// Stream the mapper state into / out of a save state.
+    /// @param save_state Current save state.
+    void stream_state(SaveState& save_state) override;
 
 private:
+    /// Update a mapper register.
+    /// @param register_target Target register.
+    /// @param value Value to write.
     void write_registers(uint8_t register_target, uint8_t value);
+
+    /// Update the bank mapping.
     void update_banks();
 
 private:
@@ -217,24 +273,19 @@ private:
     uint8_t _registers[0x4];
     uint8_t _register;
     uint8_t _counter;
-
-public:
-    template<DumpOperation operation, typename T>
-    constexpr void dump(T& buffer) {
-        Mapper::dump<operation>(buffer);
-
-        cynes::dump<operation>(buffer, _tick);
-        cynes::dump<operation>(buffer, _registers);
-        cynes::dump<operation>(buffer, _register);
-        cynes::dump<operation>(buffer, _counter);
-    }
 };
 
 
 /// UxROM mapper (see https://www.nesdev.org/wiki/UxROM).
-class UxROM : public Mapper {
+class UxROM final : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     UxROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
+
+    /// Default destructor.
     ~UxROM() = default;
 
 public:
@@ -243,14 +294,20 @@ public:
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value);
+    void write_cpu(uint16_t address, uint8_t value) override;
 };
 
 
 /// CNROM mapper (see https://www.nesdev.org/wiki/CNROM).
-class CNROM : public Mapper {
+class CNROM final : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     CNROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
+
+    /// Default destructor.
     ~CNROM() = default;
 
 public:
@@ -259,40 +316,50 @@ public:
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value);
+    void write_cpu(uint16_t address, uint8_t value) override;
 };
 
 
 /// MMC3 mapper (see https://www.nesdev.org/wiki/MMC3).
-class MMC3 : public Mapper {
+class MMC3 final : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     MMC3(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
+
+    /// Default destructor.
     ~MMC3() = default;
 
 public:
     /// Tick the mapper.
-    virtual void tick();
+    void tick() override;
 
     /// Write to a CPU mapped memory bank.
     /// @note This function has other side effects than simply writing to the memory, it
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value);
+    void write_cpu(uint16_t address, uint8_t value) override;
 
     /// Write to a PPU mapped memory bank.
     /// @note This function has other side effects than simply writing to the memory, it
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_ppu(uint16_t address, uint8_t value);
+    void write_ppu(uint16_t address, uint8_t value) override;
 
     /// Read from the PPU memory mapped banks.
     /// @note This function has other side effects than simply reading from memory, it
     /// should not be used as a memory watch function.
     /// @param address Memory address within the console memory address space.
     /// @return The value stored at the given address.
-    virtual uint8_t read_ppu(uint16_t address);
+    uint8_t read_ppu(uint16_t address) override;
+
+    /// Stream the mapper state into / out of a save state.
+    /// @param save_state Current save state.
+    void stream_state(SaveState& save_state) override;
 
 private:
     void update_state(bool state);
@@ -309,29 +376,18 @@ private:
     bool _mode_chr;
     bool _enable_interrupt;
     bool _should_reload_interrupt;
-
-public:
-    template<DumpOperation operation, typename T>
-    constexpr void dump(T& buffer) {
-        Mapper::dump<operation>(buffer);
-
-        cynes::dump<operation>(buffer, _tick);
-        cynes::dump<operation>(buffer, _registers);
-        cynes::dump<operation>(buffer, _counter);
-        cynes::dump<operation>(buffer, _counter_reset_value);
-        cynes::dump<operation>(buffer, _register_target);
-        cynes::dump<operation>(buffer, _mode_prg);
-        cynes::dump<operation>(buffer, _mode_chr);
-        cynes::dump<operation>(buffer, _enable_interrupt);
-        cynes::dump<operation>(buffer, _should_reload_interrupt);
-    }
 };
 
 
 /// AxROM mapper (see https://www.nesdev.org/wiki/AxROM).
-class AxROM : public Mapper {
+class AxROM final : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
     AxROM(NES& nes, const ParsedMemory& metadata);
+
+    /// Default destructor.
     ~AxROM() = default;
 
 public:
@@ -340,13 +396,18 @@ public:
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value);
+    void write_cpu(uint16_t address, uint8_t value) override;
 };
 
-/// Generic MMC mapper (see https://www.nesdev.org/wiki/MMC2).
+/// Generic MMC mapper template for MMC2/MMC4 (see https://www.nesdev.org/wiki/MMC2).
+/// @tparam BANK_SIZE Size of the switchable PRG bank (0x08 for MMC2, 0x10 for MMC4).
 template<uint8_t BANK_SIZE>
-class MMC : public Mapper {
+class MMC final : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     MMC(NES& nes, const ParsedMemory& metadata, MirroringMode mode) :
         Mapper(nes, metadata, mode) {
         map_bank_chr(0x0, 0x8, 0x0);
@@ -360,6 +421,7 @@ public:
         memset(_selected_banks, 0x0, 0x4);
     }
 
+    /// Default destructor.
     ~MMC() = default;
 
 public:
@@ -368,7 +430,7 @@ public:
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value) {
+    void write_cpu(uint16_t address, uint8_t value) override {
         if (address < 0xA000) {
             Mapper::write_cpu(address, value);
         } else if (address < 0xB000) {
@@ -395,7 +457,7 @@ public:
     /// should not be used as a memory watch function.
     /// @param address Memory address within the console memory address space.
     /// @return The value stored at the given address.
-    virtual uint8_t read_ppu(uint16_t address) {
+    uint8_t read_ppu(uint16_t address) override {
         uint8_t value = Mapper::read_ppu(address);
 
         if (address == 0x0FD8) {
@@ -409,6 +471,14 @@ public:
         }
 
         return value;
+    }
+
+    /// Stream the mapper state into / out of a save state.
+    /// @param save_state Current save state.
+    void stream_state(SaveState& save_state) override {
+        Mapper::stream_state(save_state);
+        save_state.stream(_latches);
+        save_state.stream(_selected_banks);
     }
 
 private:
@@ -430,15 +500,6 @@ private:
     bool _latches[0x2];
 
     uint8_t _selected_banks[0x4];
-
-public:
-    template<DumpOperation operation, typename T>
-    constexpr void dump(T& buffer) {
-        Mapper::dump<operation>(buffer);
-
-        cynes::dump<operation>(buffer, _latches);
-        cynes::dump<operation>(buffer, _selected_banks);
-    }
 };
 
 using MMC2 = MMC<0x08>;
@@ -446,9 +507,15 @@ using MMC4 = MMC<0x10>;
 
 
 /// GxROM mapper (see https://www.nesdev.org/wiki/GxROM).
-class GxROM : public Mapper {
+class GxROM final : public Mapper {
 public:
+    /// Initialize the mapper.
+    /// @param nes Emulator.
+    /// @param metadata ROM metadata.
+    /// @param mode Mapper mirroring mode.
     GxROM(NES& nes, const ParsedMemory& metadata, MirroringMode mode);
+
+    /// Default destructor.
     ~GxROM() = default;
 
 public:
@@ -457,7 +524,7 @@ public:
     /// should not be used as a memory set function.
     /// @param address Memory address within the console memory address space.
     /// @param value Value to write.
-    virtual void write_cpu(uint16_t address, uint8_t value);
+    void write_cpu(uint16_t address, uint8_t value) override;
 };
 }
 

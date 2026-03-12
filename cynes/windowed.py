@@ -3,6 +3,7 @@
 
 """Module containing a simple NES wrapper using SDL2 for the rendering."""
 
+import os
 from typing import Any, Callable, Optional, Type
 
 import numpy as np
@@ -35,7 +36,7 @@ class SDLContext:
         self._hidden = False
 
         self._window = sdl2.SDL_CreateWindow(
-            bytes(window_name, "ascii"),
+            window_name.encode("utf-8"),
             sdl2.SDL_WINDOWPOS_UNDEFINED,
             sdl2.SDL_WINDOWPOS_UNDEFINED,
             scaling_factor * 256,
@@ -123,7 +124,7 @@ class WindowedNES(NES):
         self._handlers = {sdl2.SDL_SCANCODE_ESCAPE: self.__input_escape}
 
         self._context = SDLContext(
-            window_name=path_rom,
+            window_name=os.path.basename(path_rom),
             scaling_factor=scaling_factor
         )
 

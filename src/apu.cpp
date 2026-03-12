@@ -2,8 +2,11 @@
 #include "cpu.hpp"
 #include "ppu.hpp"
 #include "nes.hpp"
+#include "save_state.hpp"
 
 #include <cstring>
+
+using namespace cynes;
 
 constexpr uint8_t LENGTH_COUNTER_TABLE[0x20] = {
     0x0A, 0xFE, 0x14, 0x02, 0x28, 0x04, 0x50, 0x06,
@@ -18,7 +21,7 @@ constexpr uint16_t PERIOD_DMC_TABLE[0x10] = {
 };
 
 
-cynes::APU::APU(NES& nes)
+APU::APU(NES& nes)
     : _nes{nes}
     , _latch_cycle{false}
     , _delay_dma{0x00}
@@ -30,6 +33,8 @@ cynes::APU::APU(NES& nes)
     , _channels_counters{}
     , _channel_enabled{}
     , _channel_halted{}
+    , _pre_clock_counter_status{}
+    , _during_length_clock{false}
     , _step_mode{false}
     , _inhibit_frame_interrupt{false}
     , _send_frame_interrupt{false}
@@ -45,11 +50,12 @@ cynes::APU::APU(NES& nes)
     , _send_delta_channel_interrupt{false}
 {
     std::memset(_channels_counters, 0x00, 4);
+    std::memset(_pre_clock_counter_status, false, 4);
     std::memset(_channel_enabled, false, 4);
     std::memset(_channel_halted, false, 4);
 }
 
-void cynes::APU::power() {
+void APU::power() {
     _latch_cycle = false;
     _delay_dma = 0x00;
     _address_dma = 0x00;
@@ -59,9 +65,11 @@ void cynes::APU::power() {
     _delay_frame_reset = 0x0000;
 
     std::memset(_channels_counters, 0x00, 4);
+    std::memset(_pre_clock_counter_status, false, 4);
     std::memset(_channel_enabled, false, 4);
     std::memset(_channel_halted, false, 4);
 
+    _during_length_clock = false;
     _step_mode = false;
     _inhibit_frame_interrupt = false;
     _send_frame_interrupt = false;
@@ -77,14 +85,12 @@ void cynes::APU::power() {
     _send_delta_channel_interrupt = false;
 }
 
-void cynes::APU::reset() {
+void APU::reset() {
     _enable_dmc = false;
 
     std::memset(_channels_counters, 0x00, 4);
     std::memset(_channel_enabled, false, 4);
 
-    _send_delta_channel_interrupt = false;
-    _delta_channel_remaining_bytes = 0;
     _latch_cycle = false;
     _delay_dma = 0x00;
     _send_frame_interrupt = false;
@@ -99,19 +105,28 @@ void cynes::APU::reset() {
     _nes.write(0x4017, _step_mode << 7 | _inhibit_frame_interrupt << 6);
 }
 
-void cynes::APU::tick(bool reading, bool prevent_load) {
+void APU::tick(bool reading, bool prevent_load) {
     if (reading) {
         perform_pending_dma();
     }
 
     _latch_cycle = !_latch_cycle;
 
+    _during_length_clock = false;
+
     if (_step_mode) {
         if (_delay_frame_reset > 0 && --_delay_frame_reset == 0) {
             _frame_counter_clock = 0;
         } else if (++_frame_counter_clock == 37282) {
             _frame_counter_clock = 0;
-        } if (_frame_counter_clock == 14913 || _frame_counter_clock == 37281) {
+        }
+
+        if (_frame_counter_clock == 14912 || _frame_counter_clock == 37280) {
+            for (uint8_t channel = 0; channel < 0x4; channel++) {
+                _pre_clock_counter_status[channel] = _channels_counters[channel] > 0;
+            }
+
+            _during_length_clock = true;
             update_counters();
         }
     } else {
@@ -125,7 +140,12 @@ void cynes::APU::tick(bool reading, bool prevent_load) {
             }
         }
 
-        if (_frame_counter_clock == 14913 || _frame_counter_clock == 29829) {
+        if (_frame_counter_clock == 14912 || _frame_counter_clock == 29828) {
+            for (uint8_t channel = 0; channel < 0x4; channel++) {
+                _pre_clock_counter_status[channel] = _channels_counters[channel] > 0;
+            }
+
+            _during_length_clock = true;
             update_counters();
         }
 
@@ -154,7 +174,7 @@ void cynes::APU::tick(bool reading, bool prevent_load) {
     }
 }
 
-void cynes::APU::write(uint8_t address, uint8_t value) {
+void APU::write(uint8_t address, uint8_t value) {
     switch (static_cast<Register>(address)) {
     case Register::PULSE_1_0: {
         _channel_halted[0x0] = value & 0x20;
@@ -162,7 +182,7 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
     }
 
     case Register::PULSE_1_3: {
-        if (_channel_enabled[0x0]) {
+        if (_channel_enabled[0x0] && !(_during_length_clock && _channels_counters[0x0] > 0)) {
             _channels_counters[0x0] = LENGTH_COUNTER_TABLE[value >> 3];
         }
         break;
@@ -174,7 +194,7 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
     }
 
     case Register::PULSE_2_3: {
-        if (_channel_enabled[0x1]) {
+        if (_channel_enabled[0x1] && !(_during_length_clock && _channels_counters[0x1] > 0)) {
             _channels_counters[0x1] = LENGTH_COUNTER_TABLE[value >> 3];
         }
         break;
@@ -186,7 +206,7 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
     }
 
     case Register::TRIANGLE_3: {
-        if (_channel_enabled[0x2]) {
+        if (_channel_enabled[0x2] && !(_during_length_clock && _channels_counters[0x2] > 0)) {
             _channels_counters[0x2] = LENGTH_COUNTER_TABLE[value >> 3];
         }
         break;
@@ -197,13 +217,14 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
         break;
     }
 
-    case Register::NOISE_3:
-        if (_channel_enabled[0x3]) {
+    case Register::NOISE_3: {
+        if (_channel_enabled[0x3] && !(_during_length_clock && _channels_counters[0x3] > 0)) {
             _channels_counters[0x3] = LENGTH_COUNTER_TABLE[value >> 3];
         }
         break;
+    }
 
-    case Register::OAM_DMA:{
+    case Register::OAM_DMA: {
         perform_dma(value);
         break;
     }
@@ -274,14 +295,18 @@ void cynes::APU::write(uint8_t address, uint8_t value) {
 
 // Since $4015 is an internal CPU registers, its open bus behavior is a bit different.
 // See https://www.nesdev.org/wiki/APU#Status_($4015).
-uint8_t cynes::APU::read(uint8_t address) {
+uint8_t APU::read(uint8_t address) {
     if (static_cast<Register>(address) == Register::CTRL_STATUS) {
         _internal_open_bus = _send_delta_channel_interrupt << 7;
         _internal_open_bus |= _send_frame_interrupt << 6;
         _internal_open_bus |= (_delta_channel_remaining_bytes > 0) << 4;
 
         for (uint8_t channel = 0; channel < 0x4; channel++) {
-            _internal_open_bus |= (_channels_counters[channel] > 0) << channel;
+            if (_during_length_clock) {
+                _internal_open_bus |= _pre_clock_counter_status[channel] << channel;
+            } else {
+                _internal_open_bus |= (_channels_counters[channel] > 0) << channel;
+            }
         }
 
         set_frame_interrupt(false);
@@ -292,7 +317,36 @@ uint8_t cynes::APU::read(uint8_t address) {
     return _nes.get_open_bus();
 }
 
-void cynes::APU::update_counters() {
+void APU::stream_state(SaveState& save_state) {
+    save_state.stream(_latch_cycle);
+    save_state.stream(_delay_dma);
+    save_state.stream(_address_dma);
+    save_state.stream(_pending_dma);
+
+    save_state.stream(_frame_counter_clock);
+    save_state.stream(_delay_frame_reset);
+    save_state.stream(_channels_counters);
+    save_state.stream(_pre_clock_counter_status);
+    save_state.stream(_channel_enabled);
+    save_state.stream(_channel_halted);
+    save_state.stream(_during_length_clock);
+    save_state.stream(_step_mode);
+    save_state.stream(_inhibit_frame_interrupt);
+    save_state.stream(_send_frame_interrupt);
+
+    save_state.stream(_delta_channel_remaining_bytes);
+    save_state.stream(_delta_channel_sample_length);
+    save_state.stream(_delta_channel_period_counter);
+    save_state.stream(_delta_channel_period_load);
+    save_state.stream(_delta_channel_bits_in_buffer);
+    save_state.stream(_delta_channel_should_loop);
+    save_state.stream(_delta_channel_enable_interrupt);
+    save_state.stream(_delta_channel_sample_buffer_empty);
+    save_state.stream(_enable_dmc);
+    save_state.stream(_send_delta_channel_interrupt);
+}
+
+void APU::update_counters() {
     for (uint8_t channel = 0; channel < 0x4; channel++) {
         if (!_channel_halted[channel] && _channels_counters[channel] > 0) {
             _channels_counters[channel]--;
@@ -300,7 +354,7 @@ void cynes::APU::update_counters() {
     }
 }
 
-void cynes::APU::load_delta_channel_byte(bool reading) {
+void APU::load_delta_channel_byte(bool reading) {
     uint8_t delay = _delay_dma;
 
     if (delay == 0) {
@@ -332,12 +386,12 @@ void cynes::APU::load_delta_channel_byte(bool reading) {
     }
 }
 
-void cynes::APU::perform_dma(uint8_t address) {
+void APU::perform_dma(uint8_t address) {
     _address_dma = address;
     _pending_dma = true;
 }
 
-void cynes::APU::perform_pending_dma() {
+void APU::perform_pending_dma() {
     if (!_pending_dma) {
         return;
     }
@@ -373,12 +427,12 @@ void cynes::APU::perform_pending_dma() {
     }
 }
 
-void cynes::APU::set_frame_interrupt(bool interrupt) {
+void APU::set_frame_interrupt(bool interrupt) {
     _send_frame_interrupt = interrupt;
     _nes.cpu.set_frame_interrupt(interrupt);
 }
 
-void cynes::APU::set_delta_interrupt(bool interrupt) {
+void APU::set_delta_interrupt(bool interrupt) {
     _send_delta_channel_interrupt = interrupt;
     _nes.cpu.set_delta_interrupt(interrupt);
 }

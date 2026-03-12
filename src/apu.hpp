@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "utils.hpp"
+#include "save_state.hpp"
 
 namespace cynes {
 // Forward declaration.
@@ -45,6 +45,10 @@ public:
     /// @return The value stored at the given address.
     uint8_t read(uint8_t address);
 
+    /// Stream the APU state into / out of a save state.
+    /// @param save_state Current save state.
+    void stream_state(SaveState& save_state);
+
 private:
     NES& _nes;
 
@@ -77,6 +81,9 @@ private:
     bool _channel_enabled[0x4];
     bool _channel_halted[0x4];
 
+    bool _pre_clock_counter_status[0x4];
+    bool _during_length_clock;
+
     bool _step_mode;
 
     bool _inhibit_frame_interrupt;
@@ -98,50 +105,22 @@ private:
     bool _send_delta_channel_interrupt;
 
 private:
+    /// APU memory-mapped register addresses.
     enum class Register : uint8_t {
-        PULSE_1_0 = 0x00,
-        PULSE_1_3 = 0x03,
-        PULSE_2_0 = 0x04,
-        PULSE_2_3 = 0x07,
-        TRIANGLE_0 = 0x08,
-        TRIANGLE_3 = 0x0B,
-        NOISE_0 = 0x0C,
-        NOISE_3 = 0x0F,
-        DELTA_0 = 0x10,
-        DELTA_3 = 0x13,
-        OAM_DMA = 0x14,
-        CTRL_STATUS = 0x15,
-        FRAME_COUNTER = 0x17
+        PULSE_1_0 = 0x00,     ///< Pulse 1 channel register 0.
+        PULSE_1_3 = 0x03,     ///< Pulse 1 channel register 3.
+        PULSE_2_0 = 0x04,     ///< Pulse 2 channel register 0.
+        PULSE_2_3 = 0x07,     ///< Pulse 2 channel register 3.
+        TRIANGLE_0 = 0x08,    ///< Triangle channel register 0.
+        TRIANGLE_3 = 0x0B,    ///< Triangle channel register 3.
+        NOISE_0 = 0x0C,       ///< Noise channel register 0.
+        NOISE_3 = 0x0F,       ///< Noise channel register 3.
+        DELTA_0 = 0x10,       ///< Delta modulation channel register 0.
+        DELTA_3 = 0x13,       ///< Delta modulation channel register 3.
+        OAM_DMA = 0x14,       ///< OAM DMA register.
+        CTRL_STATUS = 0x15,   ///< Control/status register.
+        FRAME_COUNTER = 0x17  ///< Frame counter register.
     };
-
-public:
-    template<DumpOperation operation, typename T>
-    constexpr void dump(T& buffer) {
-        cynes::dump<operation>(buffer, _latch_cycle);
-        cynes::dump<operation>(buffer, _delay_dma);
-        cynes::dump<operation>(buffer, _address_dma);
-        cynes::dump<operation>(buffer, _pending_dma);
-
-        cynes::dump<operation>(buffer, _frame_counter_clock);
-        cynes::dump<operation>(buffer, _delay_frame_reset);
-        cynes::dump<operation>(buffer, _channels_counters);
-        cynes::dump<operation>(buffer, _channel_enabled);
-        cynes::dump<operation>(buffer, _channel_halted);
-        cynes::dump<operation>(buffer, _step_mode);
-        cynes::dump<operation>(buffer, _inhibit_frame_interrupt);
-        cynes::dump<operation>(buffer, _send_frame_interrupt);
-
-        cynes::dump<operation>(buffer, _delta_channel_remaining_bytes);
-        cynes::dump<operation>(buffer, _delta_channel_sample_length);
-        cynes::dump<operation>(buffer, _delta_channel_period_counter);
-        cynes::dump<operation>(buffer, _delta_channel_period_load);
-        cynes::dump<operation>(buffer, _delta_channel_bits_in_buffer);
-        cynes::dump<operation>(buffer, _delta_channel_should_loop);
-        cynes::dump<operation>(buffer, _delta_channel_enable_interrupt);
-        cynes::dump<operation>(buffer, _delta_channel_sample_buffer_empty);
-        cynes::dump<operation>(buffer, _enable_dmc);
-        cynes::dump<operation>(buffer, _send_delta_channel_interrupt);
-    }
 };
 }
 
